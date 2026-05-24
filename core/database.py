@@ -74,22 +74,27 @@ async def init_db():
     async with engine.begin() as conn:
         await conn.run_sync(Base.metadata.create_all)
 
-    # Dynamic auto-migration for SQLite to add new columns safely
-    if "sqlite" in settings.DATABASE_URL:
-        async with engine.begin() as conn:
-            def check_and_add_columns(connection):
-                from sqlalchemy import inspect, text
-                inspector = inspect(connection)
-                columns = [c["name"] for c in inspector.get_columns("users")]
-                
-                if "price_plan" not in columns:
-                    connection.execute(text("ALTER TABLE users ADD COLUMN price_plan VARCHAR(50);"))
-                if "price" not in columns:
-                    connection.execute(text("ALTER TABLE users ADD COLUMN price INTEGER;"))
-                if "expired_at" not in columns:
+    # Dynamic auto-migration for all databases to add new columns safely
+    async with engine.begin() as conn:
+        def check_and_add_columns(connection):
+            from sqlalchemy import inspect, text
+            inspector = inspect(connection)
+            columns = [c["name"] for c in inspector.get_columns("users")]
+            
+            # Detect dialect
+            is_mysql = "mysql" in connection.dialect.name
+            
+            if "price_plan" not in columns:
+                connection.execute(text("ALTER TABLE users ADD COLUMN price_plan VARCHAR(50);"))
+            if "price" not in columns:
+                connection.execute(text("ALTER TABLE users ADD COLUMN price INTEGER;"))
+            if "expired_at" not in columns:
+                if is_mysql:
+                    connection.execute(text("ALTER TABLE users ADD COLUMN expired_at DATETIME NULL;"))
+                else:
                     connection.execute(text("ALTER TABLE users ADD COLUMN expired_at TIMESTAMP;"))
-                
-            await conn.run_sync(check_and_add_columns)
+            
+        await conn.run_sync(check_and_add_columns)
 
 
 async def close_db():
