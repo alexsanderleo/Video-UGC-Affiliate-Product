@@ -1,0 +1,312 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="description" content="Video Affiliate AI Generator - Buat video affiliate otomatis dengan AI narasi dan anti-copyright processing">
+    <title>Video Affiliate AI Generator</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800;900&family=Outfit:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="/static/css/style.css">
+</head>
+<body>
+    <!-- Animated Background Particles -->
+    <div class="bg-particles" id="bgParticles"></div>
+
+    <!-- Main Container -->
+    <div class="app-container">
+        <!-- Header -->
+        <header class="app-header">
+            <div class="header-glow"></div>
+            <div class="header-content">
+                <div class="logo-section">
+                    <div class="logo-icon">
+                        <svg width="32" height="32" viewBox="0 0 32 32" fill="none">
+                            <defs>
+                                <linearGradient id="logoGrad" x1="0" y1="0" x2="32" y2="32">
+                                    <stop offset="0%" stop-color="#8B5CF6"/>
+                                    <stop offset="100%" stop-color="#06B6D4"/>
+                                </linearGradient>
+                            </defs>
+                            <rect width="32" height="32" rx="8" fill="url(#logoGrad)"/>
+                            <path d="M12 10L22 16L12 22V10Z" fill="white"/>
+                        </svg>
+                    </div>
+                    <h1 class="app-title">Video Affiliate <span class="title-accent">AI</span> Generator</h1>
+                </div>
+                <p class="app-subtitle">Transformasi video produk menjadi konten affiliate siap posting — powered by AI</p>
+            </div>
+        </header>
+
+        <!-- Main Content -->
+        <main class="main-content">
+            <!-- Input Section -->
+            <section class="input-section">
+                <!-- Upload Zone -->
+                <div class="card glass-card">
+                    <div class="card-header">
+                        <div class="card-icon upload-icon">
+                            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                                <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/>
+                                <polyline points="17 8 12 3 7 8"/>
+                                <line x1="12" y1="3" x2="12" y2="15"/>
+                            </svg>
+                        </div>
+                        <h2 class="card-title">Upload Video Produk</h2>
+                    </div>
+                    <div class="drop-zone" id="dropZone">
+                        <div class="drop-zone-content" id="dropZoneContent">
+                            <div class="drop-icon">
+                                <svg width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round">
+                                    <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/>
+                                    <polyline points="17 8 12 3 7 8"/>
+                                    <line x1="12" y1="3" x2="12" y2="15"/>
+                                </svg>
+                            </div>
+                            <p class="drop-text">Drag & drop video di sini</p>
+                            <p class="drop-subtext">atau klik untuk memilih file</p>
+                            <div class="drop-specs">
+                                <span class="spec-badge">MP4</span>
+                                <span class="spec-badge">Maks 100 MB</span>
+                                <span class="spec-badge">30-60 detik</span>
+                            </div>
+                        </div>
+                        <div class="drop-zone-preview" id="dropZonePreview" style="display:none;">
+                            <video id="previewVideo" muted></video>
+                            <div class="preview-info" id="previewInfo"></div>
+                            <button class="btn-remove" id="btnRemoveVideo" title="Hapus video">
+                                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                                    <line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/>
+                                </svg>
+                            </button>
+                        </div>
+                        <input type="file" id="fileInput" accept=".mp4,video/mp4" hidden>
+                    </div>
+                </div>
+
+                <!-- Settings Row -->
+                <div class="settings-row">
+                    <!-- Watermark Settings -->
+                    <div class="card glass-card settings-card">
+                        <div class="card-header">
+                            <div class="card-icon watermark-icon">
+                                <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                                    <path d="M12 20h9"/><path d="M16.5 3.5a2.121 2.121 0 0 1 3 3L7 19l-4 1 1-4L16.5 3.5z"/>
+                                </svg>
+                            </div>
+                            <h2 class="card-title">Watermark</h2>
+                        </div>
+
+                        <!-- Watermark Mode Toggle -->
+                        <div class="watermark-toggle">
+                            <button class="toggle-btn active" id="toggleText" data-mode="text">
+                                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M4 7V4h16v3"/><path d="M9 20h6"/><path d="M12 4v16"/></svg>
+                                Teks
+                            </button>
+                            <button class="toggle-btn" id="toggleLogo" data-mode="logo">
+                                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="3" width="18" height="18" rx="2" ry="2"/><circle cx="8.5" cy="8.5" r="1.5"/><polyline points="21 15 16 10 5 21"/></svg>
+                                Logo PNG
+                            </button>
+                        </div>
+
+                        <!-- Text Watermark Input -->
+                        <div class="watermark-input" id="watermarkTextGroup">
+                            <label for="watermarkText" class="input-label">Teks Watermark</label>
+                            <input type="text" id="watermarkText" class="text-input" placeholder="Contoh: @TokoSayaOfficial" maxlength="50">
+                            <label for="watermarkPosition" class="input-label" style="margin-top:12px;">Posisi Watermark</label>
+                            <div class="select-wrapper">
+                                <select id="watermarkPosition" class="select-input">
+                                    <option value="top-right">↗ Pojok Kanan Atas</option>
+                                    <option value="top-left">↖ Pojok Kiri Atas</option>
+                                    <option value="top-center">↑ Tengah Atas</option>
+                                    <option value="center">⊕ Tengah</option>
+                                    <option value="bottom-right">↘ Pojok Kanan Bawah</option>
+                                    <option value="bottom-left">↙ Pojok Kiri Bawah</option>
+                                    <option value="bottom-center">↓ Tengah Bawah</option>
+                                    <option value="random">🎲 Random (Pindah per 5 detik)</option>
+                                </select>
+                                <div class="select-arrow">
+                                    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="6 9 12 15 18 9"/></svg>
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- Logo Upload Input (hidden by default) -->
+                        <div class="watermark-input" id="watermarkLogoGroup" style="display:none;">
+                            <label for="watermarkLogo" class="input-label">Upload Logo PNG</label>
+                            <div class="logo-upload-zone" id="logoUploadZone">
+                                <div class="logo-upload-content" id="logoUploadContent">
+                                    <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><rect x="3" y="3" width="18" height="18" rx="2" ry="2"/><circle cx="8.5" cy="8.5" r="1.5"/><polyline points="21 15 16 10 5 21"/></svg>
+                                    <span>Pilih file .png</span>
+                                </div>
+                                <div class="logo-preview" id="logoPreview" style="display:none;">
+                                    <img id="logoPreviewImg" alt="Logo preview">
+                                    <button class="btn-remove-sm" id="btnRemoveLogo">×</button>
+                                </div>
+                            </div>
+                            <input type="file" id="logoInput" accept=".png,image/png" hidden>
+                        </div>
+                    </div>
+
+                    <!-- Voice Selector -->
+                    <div class="card glass-card settings-card">
+                        <div class="card-header">
+                            <div class="card-icon voice-icon">
+                                <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                                    <path d="M12 1a3 3 0 0 0-3 3v8a3 3 0 0 0 6 0V4a3 3 0 0 0-3-3z"/>
+                                    <path d="M19 10v2a7 7 0 0 1-14 0v-2"/><line x1="12" y1="19" x2="12" y2="23"/><line x1="8" y1="23" x2="16" y2="23"/>
+                                </svg>
+                            </div>
+                            <h2 class="card-title">Pengisi Suara AI</h2>
+                        </div>
+                        <label for="voiceSelect" class="input-label">Pilih Suara Narasi</label>
+                        <div class="select-wrapper">
+                            <select id="voiceSelect" class="select-input">
+                                <option value="id-ID-GadisNeural">👩 Gadis — Suara Wanita (Halus & Persuasif)</option>
+                                <option value="id-ID-ArdiNeural">👨 Ardi — Suara Pria (Formal & Berwibawa)</option>
+                            </select>
+                            <div class="select-arrow">
+                                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="6 9 12 15 18 9"/></svg>
+                            </div>
+                        </div>
+                        <div class="voice-preview-cards">
+                            <div class="voice-card active" id="voiceCardFemale">
+                                <div class="voice-avatar female">👩</div>
+                                <div class="voice-info">
+                                    <span class="voice-name">Gadis Neural</span>
+                                    <span class="voice-desc">Halus & Persuasif</span>
+                                </div>
+                                <div class="voice-check">✓</div>
+                            </div>
+                            <div class="voice-card" id="voiceCardMale">
+                                <div class="voice-avatar male">👨</div>
+                                <div class="voice-info">
+                                    <span class="voice-name">Ardi Neural</span>
+                                    <span class="voice-desc">Formal & Berwibawa</span>
+                                </div>
+                                <div class="voice-check">✓</div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Generate Button -->
+                <div class="generate-section">
+                    <button class="btn-generate" id="btnGenerate" disabled>
+                        <span class="btn-content" id="btnContent">
+                            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                                <polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2"/>
+                            </svg>
+                            Generate Video Affiliate AI
+                        </span>
+                        <span class="btn-loading" id="btnLoading" style="display:none;">
+                            <div class="spinner"></div>
+                            <span id="btnLoadingText">Memproses...</span>
+                        </span>
+                    </button>
+                </div>
+
+                <!-- Progress Panel -->
+                <div class="progress-panel" id="progressPanel" style="display:none;">
+                    <div class="progress-header">
+                        <h3>Pipeline AI sedang berjalan...</h3>
+                    </div>
+                    <div class="progress-steps">
+                        <div class="progress-step" id="stepA">
+                            <div class="step-indicator">
+                                <div class="step-dot"></div>
+                                <div class="step-line"></div>
+                            </div>
+                            <div class="step-content">
+                                <span class="step-label">Langkah A — AI Video Understanding</span>
+                                <span class="step-status" id="stepAStatus">Menunggu...</span>
+                            </div>
+                        </div>
+                        <div class="progress-step" id="stepB">
+                            <div class="step-indicator">
+                                <div class="step-dot"></div>
+                                <div class="step-line"></div>
+                            </div>
+                            <div class="step-content">
+                                <span class="step-label">Langkah B — Text-to-Speech AI</span>
+                                <span class="step-status" id="stepBStatus">Menunggu...</span>
+                            </div>
+                        </div>
+                        <div class="progress-step" id="stepC">
+                            <div class="step-indicator">
+                                <div class="step-dot"></div>
+                            </div>
+                            <div class="step-content">
+                                <span class="step-label">Langkah C — FFmpeg Render Video</span>
+                                <span class="step-status" id="stepCStatus">Menunggu...</span>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="progress-bar-container">
+                        <div class="progress-bar" id="progressBar"></div>
+                    </div>
+                </div>
+            </section>
+
+            <!-- Output Section (hidden by default) -->
+            <section class="output-section" id="outputSection" style="display:none;">
+                <div class="section-divider">
+                    <div class="divider-line"></div>
+                    <span class="divider-text">✨ Hasil Generate</span>
+                    <div class="divider-line"></div>
+                </div>
+
+                <div class="output-grid">
+                    <!-- Video Output -->
+                    <div class="card glass-card output-card">
+                        <div class="card-header">
+                            <div class="card-icon video-icon">
+                                <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                                    <polygon points="23 7 16 12 23 17 23 7"/><rect x="1" y="5" width="15" height="14" rx="2" ry="2"/>
+                                </svg>
+                            </div>
+                            <h2 class="card-title">Video Final</h2>
+                        </div>
+                        <div class="video-player-wrapper">
+                            <video id="outputVideo" controls class="output-video"></video>
+                        </div>
+                        <a class="btn-download" id="btnDownload" download>
+                            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                                <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/>
+                            </svg>
+                            Download Video
+                        </a>
+                    </div>
+
+                    <!-- Caption Output -->
+                    <div class="card glass-card output-card">
+                        <div class="card-header">
+                            <div class="card-icon caption-icon">
+                                <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                                    <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="16" y1="13" x2="8" y2="13"/><line x1="16" y1="17" x2="8" y2="17"/><polyline points="10 9 9 9 8 9"/>
+                                </svg>
+                            </div>
+                            <h2 class="card-title">Skrip Caption</h2>
+                        </div>
+                        <textarea id="outputCaption" class="caption-textarea" readonly></textarea>
+                        <button class="btn-copy" id="btnCopy">
+                            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                                <rect x="9" y="9" width="13" height="13" rx="2" ry="2"/><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/>
+                            </svg>
+                            <span id="copyBtnText">Copy Caption</span>
+                        </button>
+                    </div>
+                </div>
+            </section>
+        </main>
+
+        <!-- Footer -->
+        <footer class="app-footer">
+            <p>Powered by <strong>Qwen VL Plus</strong> · <strong>Edge-TTS</strong> · <strong>FFmpeg</strong></p>
+        </footer>
+    </div>
+
+    <script src="/static/js/app.js"></script>
+</body>
+</html>

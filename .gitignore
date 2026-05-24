@@ -1,0 +1,9 @@
+# Mengabaikan file video testing dan audio output agar tidak membebani repository
+*.mp4
+*.mp3
+*.srt
+*.png
+
+# Mengabaikan folder virtual environment Python jika ada
+venv/
+__pycache__/
