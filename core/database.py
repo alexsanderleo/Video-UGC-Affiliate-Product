@@ -93,8 +93,36 @@ async def init_db():
                     connection.execute(text("ALTER TABLE users ADD COLUMN expired_at DATETIME NULL;"))
                 else:
                     connection.execute(text("ALTER TABLE users ADD COLUMN expired_at TIMESTAMP;"))
+            if "is_admin" not in columns:
+                if is_mysql:
+                    connection.execute(text("ALTER TABLE users ADD COLUMN is_admin TINYINT(1) DEFAULT 0 NOT NULL;"))
+                else:
+                    connection.execute(text("ALTER TABLE users ADD COLUMN is_admin BOOLEAN DEFAULT 0 NOT NULL;"))
             
         await conn.run_sync(check_and_add_columns)
+
+    # Seed default admin user if not exists
+    from sqlalchemy import select
+    from models.user import User
+    from core.security import hash_password
+    async with async_session() as session:
+        result = await session.execute(select(User).where(User.email == "admin@gmail.com"))
+        if result.scalar_one_or_none() is None:
+            admin_user = User(
+                email="admin@gmail.com",
+                hashed_pw=hash_password("admin123456"),
+                full_name="System Admin",
+                is_active=True,
+                is_verified=True,
+                is_admin=True,
+                daily_quota=999,
+                price_plan="1year",
+                price=1998000,
+                token_version=0
+            )
+            session.add(admin_user)
+            await session.commit()
+            print("[SEED] Created default admin user: admin@gmail.com / admin123456")
 
 
 async def close_db():

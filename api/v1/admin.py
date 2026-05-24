@@ -12,7 +12,7 @@ from fastapi.responses import HTMLResponse, FileResponse
 from sqlalchemy import select, func
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from api.deps import get_db
+from api.deps import get_db, get_current_admin
 from models.user import User
 from models.generation_log import GenerationLog
 from core.config import get_settings
@@ -50,7 +50,10 @@ async def serve_admin_dashboard():
     response_class=HTMLResponse,
     summary="Get HTML fragments for dashboard stats cards",
 )
-async def get_stats_cards(db: AsyncSession = Depends(get_db)):
+async def get_stats_cards(
+    db: AsyncSession = Depends(get_db),
+    admin: User = Depends(get_current_admin),
+):
     """Fetch metrics and return modern Tailind-styled HTML card grid."""
     # 1. Total Generations (Success vs Total)
     success_res = await db.execute(
@@ -148,7 +151,10 @@ async def get_stats_cards(db: AsyncSession = Depends(get_db)):
     response_class=HTMLResponse,
     summary="Get HTML table rows for generation logs",
 )
-async def get_logs_rows(db: AsyncSession = Depends(get_db)):
+async def get_logs_rows(
+    db: AsyncSession = Depends(get_db),
+    admin: User = Depends(get_current_admin),
+):
     """Fetch latest 15 logs and return modern styled HTML table body."""
     result = await db.execute(
         select(GenerationLog, User.email)
@@ -208,6 +214,12 @@ def render_user_row(user: User) -> str:
         '<span class="px-2 py-0.5 text-xs font-semibold rounded-full bg-emerald-500/10 text-emerald-400 border border-emerald-500/20">AKTIF</span>'
         if user.is_active
         else '<span class="px-2 py-0.5 text-xs font-semibold rounded-full bg-rose-500/10 text-rose-400 border border-rose-500/20">NONAKTIF</span>'
+    )
+
+    admin_badge = (
+        '<span class="px-2 py-0.5 text-xs font-semibold rounded-full bg-indigo-500/10 text-indigo-400 border border-indigo-500/20">ADMIN</span>'
+        if user.is_admin
+        else ""
     )
 
     plan_names = {
@@ -283,7 +295,10 @@ def render_user_row(user: User) -> str:
         <td class="px-6 py-4 whitespace-nowrap text-sm font-semibold text-slate-300">#{user.id}</td>
         <td class="px-6 py-4 whitespace-nowrap text-sm text-slate-200">{user.full_name or '-'}</td>
         <td class="px-6 py-4 whitespace-nowrap text-sm text-slate-400">
-            <div>{user.email}</div>
+            <div class="flex items-center gap-1.5 flex-wrap">
+                <span>{user.email}</span>
+                {admin_badge}
+            </div>
             <div class="text-[11px] text-indigo-400 font-semibold mt-0.5">Paket: {plan_display}</div>
         </td>
         <td class="px-6 py-4 whitespace-nowrap text-sm text-slate-300">{user.quota_used} / {user.daily_quota}</td>
@@ -333,10 +348,16 @@ def render_user_edit_row(user: User) -> str:
         </td>
         <td class="px-6 py-4 whitespace-nowrap">
             <div class="flex flex-col gap-1">
-                <select name="is_active" class="bg-slate-950 border border-slate-800 rounded-lg px-2 py-1 text-sm text-slate-200 focus:border-indigo-500 focus:outline-none">
-                    <option value="1" {"selected" if user.is_active else ""}>AKTIF</option>
-                    <option value="0" {"selected" if not user.is_active else ""}>NONAKTIF</option>
-                </select>
+                <div class="flex gap-1.5 flex-wrap">
+                    <select name="is_active" class="bg-slate-950 border border-slate-800 rounded-lg px-1.5 py-0.5 text-xs text-slate-200 focus:border-indigo-500 focus:outline-none" title="Status Akun">
+                        <option value="1" {"selected" if user.is_active else ""}>AKTIF</option>
+                        <option value="0" {"selected" if not user.is_active else ""}>NONAKTIF</option>
+                    </select>
+                    <select name="is_admin" class="bg-slate-950 border border-slate-800 rounded-lg px-1.5 py-0.5 text-xs text-slate-300 focus:border-indigo-500 focus:outline-none" title="Role Pengguna">
+                        <option value="0" {"selected" if not user.is_admin else ""}>USER</option>
+                        <option value="1" {"selected" if user.is_admin else ""}>ADMIN</option>
+                    </select>
+                </div>
                 <div class="flex flex-col gap-0.5">
                     <span class="text-[10px] text-slate-500 uppercase tracking-wider font-semibold">Expired At</span>
                     <input type="date" name="expired_at" value="{expired_str}" class="bg-slate-950 border border-slate-800 rounded-lg px-2 py-0.5 text-xs text-slate-200 focus:border-indigo-500 focus:outline-none">
@@ -373,7 +394,10 @@ def render_user_edit_row(user: User) -> str:
     response_class=HTMLResponse,
     summary="Get HTML table rows for SaaS users management",
 )
-async def get_users_rows(db: AsyncSession = Depends(get_db)):
+async def get_users_rows(
+    db: AsyncSession = Depends(get_db),
+    admin: User = Depends(get_current_admin),
+):
     """Fetch all users and return modern HTML list with actions."""
     result = await db.execute(
         select(User).order_by(User.id.asc())
@@ -403,7 +427,9 @@ async def admin_create_user(
     email: str = Form(...),
     password: str = Form(...),
     price_plan: str = Form("monthly"),
-    db: AsyncSession = Depends(get_db)
+    is_admin: int = Form(0),
+    db: AsyncSession = Depends(get_db),
+    admin: User = Depends(get_current_admin),
 ):
     """API endpoint for admin to manually add a new user."""
     # Check if email exists
@@ -444,6 +470,7 @@ async def admin_create_user(
         price_plan=plan,
         price=price,
         expired_at=expired_at,
+        is_admin=bool(is_admin),
     )
     db.add(user)
     await db.commit()
@@ -457,7 +484,11 @@ async def admin_create_user(
     response_class=HTMLResponse,
     summary="Get simple HTML row representation of a user",
 )
-async def get_user_row_endpoint(user_id: int, db: AsyncSession = Depends(get_db)):
+async def get_user_row_endpoint(
+    user_id: int,
+    db: AsyncSession = Depends(get_db),
+    admin: User = Depends(get_current_admin),
+):
     """API endpoint to get a single row representation (for edit canceling)."""
     result = await db.execute(
         select(User).where(User.id == user_id)
@@ -473,7 +504,11 @@ async def get_user_row_endpoint(user_id: int, db: AsyncSession = Depends(get_db)
     response_class=HTMLResponse,
     summary="Get HTML row edit form representation",
 )
-async def get_user_edit_row_endpoint(user_id: int, db: AsyncSession = Depends(get_db)):
+async def get_user_edit_row_endpoint(
+    user_id: int,
+    db: AsyncSession = Depends(get_db),
+    admin: User = Depends(get_current_admin),
+):
     """API endpoint to swap standard row into an edit row form."""
     result = await db.execute(
         select(User).where(User.id == user_id)
@@ -497,7 +532,9 @@ async def admin_update_user(
     is_active: int = Form(...),
     price_plan: str = Form(...),
     expired_at: str = Form(None),
-    db: AsyncSession = Depends(get_db)
+    is_admin: int = Form(0),
+    db: AsyncSession = Depends(get_db),
+    admin: User = Depends(get_current_admin),
 ):
     """API endpoint to update user details and return updated row."""
     result = await db.execute(
@@ -523,6 +560,7 @@ async def admin_update_user(
     user.daily_quota = daily_quota
     user.is_active = bool(is_active)
     user.price_plan = price_plan
+    user.is_admin = bool(is_admin)
     
     plan_prices = {
         "monthly": 298000,
@@ -550,8 +588,18 @@ async def admin_update_user(
     response_class=HTMLResponse,
     summary="Permanently delete a user",
 )
-async def admin_delete_user(user_id: int, db: AsyncSession = Depends(get_db)):
+async def admin_delete_user(
+    user_id: int,
+    db: AsyncSession = Depends(get_db),
+    admin: User = Depends(get_current_admin),
+):
     """API endpoint to permanently delete a user from DB."""
+    if user_id == admin.id:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Anda tidak dapat menghapus akun admin Anda sendiri."
+        )
+
     result = await db.execute(
         select(User).where(User.id == user_id)
     )
@@ -571,7 +619,11 @@ async def admin_delete_user(user_id: int, db: AsyncSession = Depends(get_db)):
     response_class=HTMLResponse,
     summary="Approve and activate a registered user",
 )
-async def admin_approve_user(user_id: int, db: AsyncSession = Depends(get_db)):
+async def admin_approve_user(
+    user_id: int,
+    db: AsyncSession = Depends(get_db),
+    admin: User = Depends(get_current_admin),
+):
     """API endpoint to approve and activate a user."""
     result = await db.execute(
         select(User).where(User.id == user_id)
@@ -596,8 +648,18 @@ async def admin_approve_user(user_id: int, db: AsyncSession = Depends(get_db)):
     response_class=HTMLResponse,
     summary="Deactivate and block a registered user",
 )
-async def admin_deactivate_user(user_id: int, db: AsyncSession = Depends(get_db)):
+async def admin_deactivate_user(
+    user_id: int,
+    db: AsyncSession = Depends(get_db),
+    admin: User = Depends(get_current_admin),
+):
     """API endpoint to deactivate (block) a user."""
+    if user_id == admin.id:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Anda tidak dapat menonaktifkan akun admin Anda sendiri."
+        )
+
     result = await db.execute(
         select(User).where(User.id == user_id)
     )
@@ -621,8 +683,18 @@ async def admin_deactivate_user(user_id: int, db: AsyncSession = Depends(get_db)
     response_class=HTMLResponse,
     summary="Increment token_version to force logout all devices",
 )
-async def admin_force_logout(user_id: int, db: AsyncSession = Depends(get_db)):
+async def admin_force_logout(
+    user_id: int,
+    db: AsyncSession = Depends(get_db),
+    admin: User = Depends(get_current_admin),
+):
     """API endpoint to execute force logout from the dashboard."""
+    if user_id == admin.id:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Anda tidak dapat melakukan Force Logout pada diri sendiri."
+        )
+
     result = await db.execute(
         select(User).where(User.id == user_id)
     )

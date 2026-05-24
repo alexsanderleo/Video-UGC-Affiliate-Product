@@ -93,3 +93,18 @@ async def get_current_user(
         pass
 
     return user
+
+
+async def get_current_admin(
+    current_user: User = Depends(get_current_user)
+) -> User:
+    """
+    Dependency: extract current user and verify they are an admin.
+    Raises 403 Forbidden if not.
+    """
+    if not current_user.is_admin:
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="Akses ditolak. Endpoint ini hanya untuk Administrator.",
+        )
+    return current_user
