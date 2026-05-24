@@ -12,6 +12,15 @@ BASE_DIR = Path(__file__).parent.parent.resolve()
 if str(BASE_DIR) not in sys.path:
     sys.path.insert(0, str(BASE_DIR))
 
+# Force-remove any conflicting third-party 'models' package from sys.modules
+if 'models' in sys.modules:
+    try:
+        import models
+        if not hasattr(models, 'GenerationLog'):
+            del sys.modules['models']
+    except Exception:
+        del sys.modules['models']
+
 import asyncio
 import json
 import re
