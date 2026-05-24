@@ -10,6 +10,13 @@ from pydantic_settings import BaseSettings
 class Settings(BaseSettings):
     """Application settings loaded from environment variables."""
 
+    # --- Directories ---
+    from pathlib import Path
+    BASE_DIR: Path = Path(__file__).parent.parent.resolve()
+    UPLOAD_DIR: Path = BASE_DIR / "uploads"
+    OUTPUT_DIR: Path = BASE_DIR / "outputs"
+    TEMP_DIR: Path = BASE_DIR / "temp"
+
     # --- Database ---
     # Default: SQLite for local dev. Switch to PostgreSQL for production:
     # DATABASE_URL=postgresql+asyncpg://user:pass@localhost:5432/video_saas
