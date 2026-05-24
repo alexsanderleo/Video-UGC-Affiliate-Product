@@ -26,6 +26,8 @@ for d in [UPLOAD_DIR, OUTPUT_DIR, TEMP_DIR]:
     d.mkdir(exist_ok=True)
 
 # DashScope / Aliyun API Key
+from dotenv import load_dotenv
+load_dotenv(dotenv_path=BASE_DIR / ".env")
 DASHSCOPE_API_KEY = os.getenv('DASHSCOPE_API_KEY', '')
 DASHSCOPE_BASE_URL = 'https://dashscope-intl.aliyuncs.com/compatible-mode/v1'
 
