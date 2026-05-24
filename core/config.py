@@ -4,6 +4,7 @@ Optimized for VPS with limited RAM (aaPanel).
 """
 
 from functools import lru_cache
+from pathlib import Path
 from pydantic_settings import BaseSettings
 
 
@@ -11,7 +12,6 @@ class Settings(BaseSettings):
     """Application settings loaded from environment variables."""
 
     # --- Directories ---
-    from pathlib import Path
     BASE_DIR: Path = Path(__file__).parent.parent.resolve()
     UPLOAD_DIR: Path = BASE_DIR / "uploads"
     OUTPUT_DIR: Path = BASE_DIR / "outputs"
