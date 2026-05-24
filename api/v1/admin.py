@@ -7,7 +7,7 @@ import os
 from datetime import datetime, timezone
 import redis.asyncio as async_redis
 
-from fastapi import APIRouter, Depends, HTTPException, status
+from fastapi import APIRouter, Depends, HTTPException, status, Form
 from fastapi.responses import HTMLResponse, FileResponse
 from sqlalchemy import select, func
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -16,6 +16,7 @@ from api.deps import get_db
 from models.user import User
 from models.generation_log import GenerationLog
 from core.config import get_settings
+from core.security import hash_password
 
 router = APIRouter(prefix="/admin", tags=["Admin Dashboard"])
 settings = get_settings()
@@ -209,39 +210,53 @@ def render_user_row(user: User) -> str:
         else '<span class="px-2 py-0.5 text-xs font-semibold rounded-full bg-rose-500/10 text-rose-400 border border-rose-500/20">NONAKTIF</span>'
     )
 
+    # Standard edit and delete actions
+    common_actions = f"""
+    <button 
+        hx-get="/api/v1/admin/users/{user.id}/edit"
+        hx-target="closest tr"
+        hx-swap="outerHTML"
+        class="px-2.5 py-1.5 rounded-lg bg-indigo-500/10 text-indigo-400 border border-indigo-500/20 font-semibold text-xs hover:bg-indigo-600 hover:text-white transition duration-200"
+        title="Edit User"
+    >
+        📝 Edit
+    </button>
+    <button 
+        hx-delete="/api/v1/admin/users/{user.id}/delete"
+        hx-confirm="Apakah Anda yakin ingin menghapus pengguna {user.email} secara permanen?"
+        hx-target="closest tr"
+        hx-swap="outerHTML"
+        class="px-2.5 py-1.5 rounded-lg bg-rose-500/10 text-rose-400 border border-rose-500/20 font-semibold text-xs hover:bg-rose-500 hover:text-white transition duration-200"
+        title="Hapus User"
+    >
+        🗑️ Hapus
+    </button>
+    """
+
     if user.is_active:
-        action_button = f"""
-        <div class="flex gap-2">
-            <button 
-                hx-post="/api/v1/admin/users/{user.id}/deactivate"
-                hx-confirm="Apakah Anda yakin ingin menonaktifkan (blokir) user ini?"
-                hx-target="closest tr"
-                hx-swap="outerHTML"
-                class="px-3 py-1.5 rounded-lg bg-rose-500/10 text-rose-400 border border-rose-500/20 font-medium text-xs hover:bg-rose-500 hover:text-white transition duration-300"
-            >
-                🚫 Blokir
-            </button>
-            <button 
-                hx-post="/api/v1/admin/users/{user.id}/force-logout"
-                hx-confirm="Apakah Anda yakin ingin melakukan Force Logout untuk user ini?"
-                hx-target="closest tr"
-                hx-swap="outerHTML"
-                class="px-3 py-1.5 rounded-lg bg-amber-500/10 text-amber-400 border border-amber-500/20 font-medium text-xs hover:bg-amber-500 hover:text-white transition duration-300"
-            >
-                🔑 Force Logout
-            </button>
-        </div>
+        specific_actions = f"""
+        <button 
+            hx-post="/api/v1/admin/users/{user.id}/force-logout"
+            hx-confirm="Apakah Anda yakin ingin melakukan Force Logout untuk user ini?"
+            hx-target="closest tr"
+            hx-swap="outerHTML"
+            class="px-2.5 py-1.5 rounded-lg bg-amber-500/10 text-amber-400 border border-amber-500/20 font-semibold text-xs hover:bg-amber-500 hover:text-white transition duration-200"
+            title="Force Logout"
+        >
+            🔑 Logout
+        </button>
         """
     else:
-        action_button = f"""
+        specific_actions = f"""
         <button 
             hx-post="/api/v1/admin/users/{user.id}/approve"
             hx-confirm="Apakah Anda yakin ingin menyetujui (mengaktifkan) akun ini?"
             hx-target="closest tr"
             hx-swap="outerHTML"
-            class="px-3 py-1.5 rounded-lg bg-emerald-500/10 text-emerald-400 border border-emerald-500/20 font-medium text-xs hover:bg-emerald-500 hover:text-white transition duration-300"
+            class="px-2.5 py-1.5 rounded-lg bg-emerald-500/10 text-emerald-400 border border-emerald-500/20 font-semibold text-xs hover:bg-emerald-500 hover:text-white transition duration-200"
+            title="Setujui Akun"
         >
-            ✅ Setujui Akun
+            ✅ ACC
         </button>
         """
 
@@ -252,7 +267,60 @@ def render_user_row(user: User) -> str:
         <td class="px-6 py-4 whitespace-nowrap text-sm text-slate-400">{user.email}</td>
         <td class="px-6 py-4 whitespace-nowrap text-sm text-slate-300">{user.quota_used} / {user.daily_quota}</td>
         <td class="px-6 py-4 whitespace-nowrap">{status_badge}</td>
-        <td class="px-6 py-4 whitespace-nowrap text-sm">{action_button}</td>
+        <td class="px-6 py-4 whitespace-nowrap text-sm">
+            <div class="flex gap-1.5 flex-wrap">
+                {specific_actions}
+                {common_actions}
+            </div>
+        </td>
+    </tr>
+    """
+
+
+def render_user_edit_row(user: User) -> str:
+    """Helper to render an inline edit form row in the admin panel table."""
+    return f"""
+    <tr class="bg-slate-900/60 border-b border-indigo-500/30">
+        <td class="px-6 py-4 whitespace-nowrap text-sm font-semibold text-slate-300">#{user.id}</td>
+        <td class="px-6 py-4 whitespace-nowrap">
+            <input type="text" name="full_name" value="{user.full_name or ''}" class="bg-slate-950 border border-slate-800 rounded-lg px-2 py-1 text-sm text-slate-200 w-32 focus:border-indigo-500 focus:outline-none">
+        </td>
+        <td class="px-6 py-4 whitespace-nowrap">
+            <input type="email" name="email" value="{user.email}" class="bg-slate-950 border border-slate-800 rounded-lg px-2 py-1 text-sm text-slate-200 w-44 focus:border-indigo-500 focus:outline-none">
+        </td>
+        <td class="px-6 py-4 whitespace-nowrap">
+            <div class="flex items-center gap-1.5">
+                <input type="number" name="daily_quota" value="{user.daily_quota}" class="bg-slate-950 border border-slate-800 rounded-lg px-2 py-1 text-sm text-slate-200 w-16 focus:border-indigo-500 focus:outline-none">
+                <span class="text-xs text-slate-500">video/hari</span>
+            </div>
+        </td>
+        <td class="px-6 py-4 whitespace-nowrap">
+            <select name="is_active" class="bg-slate-950 border border-slate-800 rounded-lg px-2 py-1 text-sm text-slate-200 focus:border-indigo-500 focus:outline-none">
+                <option value="1" {"selected" if user.is_active else ""}>AKTIF</option>
+                <option value="0" {"selected" if not user.is_active else ""}>NONAKTIF</option>
+            </select>
+        </td>
+        <td class="px-6 py-4 whitespace-nowrap text-sm">
+            <div class="flex gap-1.5">
+                <button 
+                    hx-put="/api/v1/admin/users/{user.id}/update"
+                    hx-include="closest tr"
+                    hx-target="closest tr"
+                    hx-swap="outerHTML"
+                    class="px-3 py-1.5 rounded-lg bg-emerald-600 text-white font-bold text-xs hover:bg-emerald-700 transition"
+                >
+                    💾 Simpan
+                </button>
+                <button 
+                    hx-get="/api/v1/admin/users/{user.id}/row"
+                    hx-target="closest tr"
+                    hx-swap="outerHTML"
+                    class="px-3 py-1.5 rounded-lg bg-slate-850 text-slate-300 border border-slate-700 font-bold text-xs hover:bg-slate-700 transition"
+                >
+                    ❌ Batal
+                </button>
+            </div>
+        </td>
     </tr>
     """
 
@@ -280,6 +348,139 @@ async def get_users_rows(db: AsyncSession = Depends(get_db)):
 
     html = "".join(render_user_row(user) for user in users)
     return HTMLResponse(html)
+
+
+@router.post(
+    "/users/create",
+    response_class=HTMLResponse,
+    summary="Admin creates a new user manually",
+)
+async def admin_create_user(
+    full_name: str = Form(...),
+    email: str = Form(...),
+    password: str = Form(...),
+    db: AsyncSession = Depends(get_db)
+):
+    """API endpoint for admin to manually add a new user."""
+    # Check if email exists
+    existing = await db.execute(
+        select(User.id).where(User.email == email)
+    )
+    if existing.scalar_one_or_none() is not None:
+        raise HTTPException(
+            status_code=status.HTTP_409_CONFLICT,
+            detail="Email sudah terdaftar"
+        )
+        
+    user = User(
+        email=email,
+        hashed_pw=hash_password(password),
+        full_name=full_name,
+        is_active=True,  # Admin-created users are active by default
+        token_version=0,
+        quota_reset=datetime.utcnow(),
+    )
+    db.add(user)
+    await db.commit()
+    
+    # Return HTML representation to append
+    return HTMLResponse(render_user_row(user))
+
+
+@router.get(
+    "/users/{user_id}/row",
+    response_class=HTMLResponse,
+    summary="Get simple HTML row representation of a user",
+)
+async def get_user_row_endpoint(user_id: int, db: AsyncSession = Depends(get_db)):
+    """API endpoint to get a single row representation (for edit canceling)."""
+    result = await db.execute(
+        select(User).where(User.id == user_id)
+    )
+    user = result.scalar_one_or_none()
+    if not user:
+        raise HTTPException(status_code=404, detail="User tidak ditemukan")
+    return HTMLResponse(render_user_row(user))
+
+
+@router.get(
+    "/users/{user_id}/edit",
+    response_class=HTMLResponse,
+    summary="Get HTML row edit form representation",
+)
+async def get_user_edit_row_endpoint(user_id: int, db: AsyncSession = Depends(get_db)):
+    """API endpoint to swap standard row into an edit row form."""
+    result = await db.execute(
+        select(User).where(User.id == user_id)
+    )
+    user = result.scalar_one_or_none()
+    if not user:
+        raise HTTPException(status_code=404, detail="User tidak ditemukan")
+    return HTMLResponse(render_user_edit_row(user))
+
+
+@router.put(
+    "/users/{user_id}/update",
+    response_class=HTMLResponse,
+    summary="Update a user's details inline",
+)
+async def admin_update_user(
+    user_id: int,
+    full_name: str = Form(...),
+    email: str = Form(...),
+    daily_quota: int = Form(...),
+    is_active: int = Form(...),
+    db: AsyncSession = Depends(get_db)
+):
+    """API endpoint to update user details and return updated row."""
+    result = await db.execute(
+        select(User).where(User.id == user_id)
+    )
+    user = result.scalar_one_or_none()
+    if not user:
+        raise HTTPException(status_code=404, detail="User tidak ditemukan")
+        
+    # Check email uniqueness if changed
+    if email != user.email:
+        existing = await db.execute(
+            select(User.id).where(User.email == email)
+        )
+        if existing.scalar_one_or_none() is not None:
+            raise HTTPException(
+                status_code=status.HTTP_409_CONFLICT,
+                detail="Email sudah digunakan"
+            )
+            
+    user.full_name = full_name
+    user.email = email
+    user.daily_quota = daily_quota
+    user.is_active = bool(is_active)
+    
+    db.add(user)
+    await db.commit()
+    
+    return HTMLResponse(render_user_row(user))
+
+
+@router.delete(
+    "/users/{user_id}/delete",
+    response_class=HTMLResponse,
+    summary="Permanently delete a user",
+)
+async def admin_delete_user(user_id: int, db: AsyncSession = Depends(get_db)):
+    """API endpoint to permanently delete a user from DB."""
+    result = await db.execute(
+        select(User).where(User.id == user_id)
+    )
+    user = result.scalar_one_or_none()
+    if not user:
+        raise HTTPException(status_code=404, detail="User tidak ditemukan")
+        
+    await db.delete(user)
+    await db.commit()
+    
+    # Return empty response to let HTMX remove the outerHTML row
+    return HTMLResponse("")
 
 
 @router.post(
