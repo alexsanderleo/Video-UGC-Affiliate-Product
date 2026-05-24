@@ -201,6 +201,62 @@ async def get_logs_rows(db: AsyncSession = Depends(get_db)):
     return HTMLResponse(html)
 
 
+def render_user_row(user: User) -> str:
+    """Helper to render a single user row in the admin panel."""
+    status_badge = (
+        '<span class="px-2 py-0.5 text-xs font-semibold rounded-full bg-emerald-500/10 text-emerald-400 border border-emerald-500/20">AKTIF</span>'
+        if user.is_active
+        else '<span class="px-2 py-0.5 text-xs font-semibold rounded-full bg-rose-500/10 text-rose-400 border border-rose-500/20">NONAKTIF</span>'
+    )
+
+    if user.is_active:
+        action_button = f"""
+        <div class="flex gap-2">
+            <button 
+                hx-post="/api/v1/admin/users/{user.id}/deactivate"
+                hx-confirm="Apakah Anda yakin ingin menonaktifkan (blokir) user ini?"
+                hx-target="closest tr"
+                hx-swap="outerHTML"
+                class="px-3 py-1.5 rounded-lg bg-rose-500/10 text-rose-400 border border-rose-500/20 font-medium text-xs hover:bg-rose-500 hover:text-white transition duration-300"
+            >
+                🚫 Blokir
+            </button>
+            <button 
+                hx-post="/api/v1/admin/users/{user.id}/force-logout"
+                hx-confirm="Apakah Anda yakin ingin melakukan Force Logout untuk user ini?"
+                hx-target="closest tr"
+                hx-swap="outerHTML"
+                class="px-3 py-1.5 rounded-lg bg-amber-500/10 text-amber-400 border border-amber-500/20 font-medium text-xs hover:bg-amber-500 hover:text-white transition duration-300"
+            >
+                🔑 Force Logout
+            </button>
+        </div>
+        """
+    else:
+        action_button = f"""
+        <button 
+            hx-post="/api/v1/admin/users/{user.id}/approve"
+            hx-confirm="Apakah Anda yakin ingin menyetujui (mengaktifkan) akun ini?"
+            hx-target="closest tr"
+            hx-swap="outerHTML"
+            class="px-3 py-1.5 rounded-lg bg-emerald-500/10 text-emerald-400 border border-emerald-500/20 font-medium text-xs hover:bg-emerald-500 hover:text-white transition duration-300"
+        >
+            ✅ Setujui Akun
+        </button>
+        """
+
+    return f"""
+    <tr class="border-b border-slate-800/50 hover:bg-slate-900/30 transition">
+        <td class="px-6 py-4 whitespace-nowrap text-sm font-semibold text-slate-300">#{user.id}</td>
+        <td class="px-6 py-4 whitespace-nowrap text-sm text-slate-200">{user.full_name or '-'}</td>
+        <td class="px-6 py-4 whitespace-nowrap text-sm text-slate-400">{user.email}</td>
+        <td class="px-6 py-4 whitespace-nowrap text-sm text-slate-300">{user.quota_used} / {user.daily_quota}</td>
+        <td class="px-6 py-4 whitespace-nowrap">{status_badge}</td>
+        <td class="px-6 py-4 whitespace-nowrap text-sm">{action_button}</td>
+    </tr>
+    """
+
+
 @router.get(
     "/users",
     response_class=HTMLResponse,
@@ -222,31 +278,58 @@ async def get_users_rows(db: AsyncSession = Depends(get_db)):
         </tr>
         """)
 
-    html = ""
-    for user in users:
-        status_badge = '<span class="px-2 py-0.5 text-xs font-semibold rounded-full bg-emerald-500/10 text-emerald-400 border border-emerald-500/20">AKTIF</span>' if user.is_active else '<span class="px-2 py-0.5 text-xs font-semibold rounded-full bg-rose-500/10 text-rose-400 border border-rose-500/20">NONAKTIF</span>'
-        
-        html += f"""
-        <tr class="border-b border-slate-800/50 hover:bg-slate-900/30 transition">
-            <td class="px-6 py-4 whitespace-nowrap text-sm font-semibold text-slate-300">#{user.id}</td>
-            <td class="px-6 py-4 whitespace-nowrap text-sm text-slate-200">{user.full_name or '-'}</td>
-            <td class="px-6 py-4 whitespace-nowrap text-sm text-slate-400">{user.email}</td>
-            <td class="px-6 py-4 whitespace-nowrap text-sm text-slate-300">{user.quota_used} / {user.daily_quota}</td>
-            <td class="px-6 py-4 whitespace-nowrap">{status_badge}</td>
-            <td class="px-6 py-4 whitespace-nowrap text-sm">
-                <button 
-                    hx-post="/api/v1/admin/users/{user.id}/force-logout"
-                    hx-confirm="Apakah Anda yakin ingin melakukan Force Logout untuk user ini?"
-                    hx-target="this"
-                    hx-swap="outerHTML"
-                    class="px-3 py-1.5 rounded-lg bg-rose-500/10 text-rose-400 border border-rose-500/20 font-medium text-xs hover:bg-rose-500 hover:text-white transition duration-300"
-                >
-                    🔑 Force Logout
-                </button>
-            </td>
-        </tr>
-        """
+    html = "".join(render_user_row(user) for user in users)
     return HTMLResponse(html)
+
+
+@router.post(
+    "/users/{user_id}/approve",
+    response_class=HTMLResponse,
+    summary="Approve and activate a registered user",
+)
+async def admin_approve_user(user_id: int, db: AsyncSession = Depends(get_db)):
+    """API endpoint to approve and activate a user."""
+    result = await db.execute(
+        select(User).where(User.id == user_id)
+    )
+    user = result.scalar_one_or_none()
+    
+    if not user:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="User tidak ditemukan"
+        )
+        
+    user.is_active = True
+    db.add(user)
+    await db.commit()
+    
+    return HTMLResponse(render_user_row(user))
+
+
+@router.post(
+    "/users/{user_id}/deactivate",
+    response_class=HTMLResponse,
+    summary="Deactivate and block a registered user",
+)
+async def admin_deactivate_user(user_id: int, db: AsyncSession = Depends(get_db)):
+    """API endpoint to deactivate (block) a user."""
+    result = await db.execute(
+        select(User).where(User.id == user_id)
+    )
+    user = result.scalar_one_or_none()
+    
+    if not user:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="User tidak ditemukan"
+        )
+        
+    user.is_active = False
+    db.add(user)
+    await db.commit()
+    
+    return HTMLResponse(render_user_row(user))
 
 
 @router.post(
@@ -271,10 +354,5 @@ async def admin_force_logout(user_id: int, db: AsyncSession = Depends(get_db)):
     user.token_version += 1
     db.add(user)
     await db.commit()
-
-    # Return updated htmx representation showing logged out status
-    return HTMLResponse("""
-    <span class="inline-flex items-center px-2.5 py-1 rounded-full text-xs font-semibold bg-rose-500/20 text-rose-300 border border-rose-500/30">
-        ✓ Force Logged Out
-    </span>
-    """)
+    
+    return HTMLResponse(render_user_row(user))

@@ -56,6 +56,7 @@ async def register(body: RegisterRequest, db: AsyncSession = Depends(get_db)):
         full_name=body.full_name,
         token_version=0,
         quota_reset=now,
+        is_active=False,  # Requires admin approval
     )
     db.add(user)
     await db.commit()
