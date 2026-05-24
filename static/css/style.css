@@ -1103,7 +1103,7 @@ body {
     font-size: 0.88rem;
     font-weight: 500;
     box-shadow: 0 8px 32px rgba(239, 68, 68, 0.3);
-    z-index: 1000;
+    z-index: 100000;
     opacity: 0;
     transition: all 0.3s ease-out;
     max-width: 90%;
