@@ -5,6 +5,7 @@ Handles video generation pipeline offloaded to background workers.
 
 import sys
 from pathlib import Path
+from typing import Optional
 
 # Programmatically append project root to sys.path for server path resolution
 BASE_DIR = Path(__file__).parent.parent.resolve()
@@ -53,7 +54,7 @@ def render_video_task(
     watermark_mode: str,
     watermark_text: str,
     watermark_position: str,
-    logo_path: str | None,
+    logo_path: Optional[str],
     user_id: int,
 ):
     """Celery task to run the video generation pipeline in a background worker."""
@@ -72,7 +73,7 @@ async def async_render_video(
     watermark_mode: str,
     watermark_text: str,
     watermark_position: str,
-    logo_path: str | None,
+    logo_path: Optional[str],
     user_id: int,
 ):
     """Async pipeline implementation called inside the Celery worker."""

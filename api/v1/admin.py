@@ -210,7 +210,15 @@ def render_user_row(user: User) -> str:
         else '<span class="px-2 py-0.5 text-xs font-semibold rounded-full bg-rose-500/10 text-rose-400 border border-rose-500/20">NONAKTIF</span>'
     )
 
-    # Standard edit and delete actions
+    plan_names = {
+        "monthly": "Bulanan (298k)",
+        "6months": "6 Bulan (1295k)",
+        "1year": "1 Tahun (1998k)"
+    }
+    plan_display = plan_names.get(user.price_plan, user.price_plan or "-")
+    expired_str = user.expired_at.strftime("%Y-%m-%d") if user.expired_at else "-"
+
+    # Standard edit and delete actions (switching delete to hx-post)
     common_actions = f"""
     <button 
         hx-get="/api/v1/admin/users/{user.id}/edit"
@@ -222,7 +230,7 @@ def render_user_row(user: User) -> str:
         📝 Edit
     </button>
     <button 
-        hx-delete="/api/v1/admin/users/{user.id}/delete"
+        hx-post="/api/v1/admin/users/{user.id}/delete"
         hx-confirm="Apakah Anda yakin ingin menghapus pengguna {user.email} secara permanen?"
         hx-target="closest tr"
         hx-swap="outerHTML"
@@ -245,6 +253,16 @@ def render_user_row(user: User) -> str:
         >
             🔑 Logout
         </button>
+        <button 
+            hx-post="/api/v1/admin/users/{user.id}/deactivate"
+            hx-confirm="Apakah Anda yakin ingin menonaktifkan akun ini?"
+            hx-target="closest tr"
+            hx-swap="outerHTML"
+            class="px-2.5 py-1.5 rounded-lg bg-slate-500/10 text-slate-400 border border-slate-500/20 font-semibold text-xs hover:bg-slate-500 hover:text-white transition duration-200"
+            title="Nonaktifkan Akun"
+        >
+            🚫 Block
+        </button>
         """
     else:
         specific_actions = f"""
@@ -264,9 +282,17 @@ def render_user_row(user: User) -> str:
     <tr class="border-b border-slate-800/50 hover:bg-slate-900/30 transition">
         <td class="px-6 py-4 whitespace-nowrap text-sm font-semibold text-slate-300">#{user.id}</td>
         <td class="px-6 py-4 whitespace-nowrap text-sm text-slate-200">{user.full_name or '-'}</td>
-        <td class="px-6 py-4 whitespace-nowrap text-sm text-slate-400">{user.email}</td>
+        <td class="px-6 py-4 whitespace-nowrap text-sm text-slate-400">
+            <div>{user.email}</div>
+            <div class="text-[11px] text-indigo-400 font-semibold mt-0.5">Paket: {plan_display}</div>
+        </td>
         <td class="px-6 py-4 whitespace-nowrap text-sm text-slate-300">{user.quota_used} / {user.daily_quota}</td>
-        <td class="px-6 py-4 whitespace-nowrap">{status_badge}</td>
+        <td class="px-6 py-4 whitespace-nowrap">
+            <div class="flex flex-col gap-1 items-start">
+                {status_badge}
+                <div class="text-[10px] text-slate-400 mt-0.5">Expired: <span class="font-semibold text-slate-300">{expired_str}</span></div>
+            </div>
+        </td>
         <td class="px-6 py-4 whitespace-nowrap text-sm">
             <div class="flex gap-1.5 flex-wrap">
                 {specific_actions}
@@ -279,6 +305,7 @@ def render_user_row(user: User) -> str:
 
 def render_user_edit_row(user: User) -> str:
     """Helper to render an inline edit form row in the admin panel table."""
+    expired_str = user.expired_at.strftime("%Y-%m-%d") if user.expired_at else ""
     return f"""
     <tr class="bg-slate-900/60 border-b border-indigo-500/30">
         <td class="px-6 py-4 whitespace-nowrap text-sm font-semibold text-slate-300">#{user.id}</td>
@@ -289,21 +316,37 @@ def render_user_edit_row(user: User) -> str:
             <input type="email" name="email" value="{user.email}" class="bg-slate-950 border border-slate-800 rounded-lg px-2 py-1 text-sm text-slate-200 w-44 focus:border-indigo-500 focus:outline-none">
         </td>
         <td class="px-6 py-4 whitespace-nowrap">
-            <div class="flex items-center gap-1.5">
-                <input type="number" name="daily_quota" value="{user.daily_quota}" class="bg-slate-950 border border-slate-800 rounded-lg px-2 py-1 text-sm text-slate-200 w-16 focus:border-indigo-500 focus:outline-none">
-                <span class="text-xs text-slate-500">video/hari</span>
+            <div class="flex flex-col gap-1">
+                <div class="flex items-center gap-1.5">
+                    <input type="number" name="daily_quota" value="{user.daily_quota}" class="bg-slate-950 border border-slate-800 rounded-lg px-2 py-1 text-sm text-slate-200 w-16 focus:border-indigo-500 focus:outline-none">
+                    <span class="text-xs text-slate-500">video/hari</span>
+                </div>
+                <div class="flex flex-col gap-0.5">
+                    <span class="text-[10px] text-slate-500 uppercase tracking-wider font-semibold">Paket</span>
+                    <select name="price_plan" class="bg-slate-950 border border-slate-800 rounded-lg px-1.5 py-0.5 text-xs text-slate-300 focus:border-indigo-500 focus:outline-none">
+                        <option value="monthly" {"selected" if user.price_plan == "monthly" else ""}>Bulanan (298k)</option>
+                        <option value="6months" {"selected" if user.price_plan == "6months" else ""}>6 Bulan (1295k)</option>
+                        <option value="1year" {"selected" if user.price_plan == "1year" else ""}>1 Tahun (1998k)</option>
+                    </select>
+                </div>
             </div>
         </td>
         <td class="px-6 py-4 whitespace-nowrap">
-            <select name="is_active" class="bg-slate-950 border border-slate-800 rounded-lg px-2 py-1 text-sm text-slate-200 focus:border-indigo-500 focus:outline-none">
-                <option value="1" {"selected" if user.is_active else ""}>AKTIF</option>
-                <option value="0" {"selected" if not user.is_active else ""}>NONAKTIF</option>
-            </select>
+            <div class="flex flex-col gap-1">
+                <select name="is_active" class="bg-slate-950 border border-slate-800 rounded-lg px-2 py-1 text-sm text-slate-200 focus:border-indigo-500 focus:outline-none">
+                    <option value="1" {"selected" if user.is_active else ""}>AKTIF</option>
+                    <option value="0" {"selected" if not user.is_active else ""}>NONAKTIF</option>
+                </select>
+                <div class="flex flex-col gap-0.5">
+                    <span class="text-[10px] text-slate-500 uppercase tracking-wider font-semibold">Expired At</span>
+                    <input type="date" name="expired_at" value="{expired_str}" class="bg-slate-950 border border-slate-800 rounded-lg px-2 py-0.5 text-xs text-slate-200 focus:border-indigo-500 focus:outline-none">
+                </div>
+            </div>
         </td>
         <td class="px-6 py-4 whitespace-nowrap text-sm">
             <div class="flex gap-1.5">
                 <button 
-                    hx-put="/api/v1/admin/users/{user.id}/update"
+                    hx-post="/api/v1/admin/users/{user.id}/update"
                     hx-include="closest tr"
                     hx-target="closest tr"
                     hx-swap="outerHTML"
@@ -359,6 +402,7 @@ async def admin_create_user(
     full_name: str = Form(...),
     email: str = Form(...),
     password: str = Form(...),
+    price_plan: str = Form("monthly"),
     db: AsyncSession = Depends(get_db)
 ):
     """API endpoint for admin to manually add a new user."""
@@ -372,13 +416,34 @@ async def admin_create_user(
             detail="Email sudah terdaftar"
         )
         
+    from datetime import timedelta
+    now = datetime.now(timezone.utc)
+    
+    plan_prices = {
+        "monthly": 298000,
+        "6months": 1295000,
+        "1year": 1998000
+    }
+    plan_durations = {
+        "monthly": 30,
+        "6months": 180,
+        "1year": 365
+    }
+    
+    plan = price_plan if price_plan in plan_prices else "monthly"
+    price = plan_prices[plan]
+    expired_at = now + timedelta(days=plan_durations[plan])
+
     user = User(
         email=email,
         hashed_pw=hash_password(password),
         full_name=full_name,
         is_active=True,  # Admin-created users are active by default
         token_version=0,
-        quota_reset=datetime.utcnow(),
+        quota_reset=now,
+        price_plan=plan,
+        price=price,
+        expired_at=expired_at,
     )
     db.add(user)
     await db.commit()
@@ -419,7 +484,7 @@ async def get_user_edit_row_endpoint(user_id: int, db: AsyncSession = Depends(ge
     return HTMLResponse(render_user_edit_row(user))
 
 
-@router.put(
+@router.post(
     "/users/{user_id}/update",
     response_class=HTMLResponse,
     summary="Update a user's details inline",
@@ -430,6 +495,8 @@ async def admin_update_user(
     email: str = Form(...),
     daily_quota: int = Form(...),
     is_active: int = Form(...),
+    price_plan: str = Form(...),
+    expired_at: str = Form(None),
     db: AsyncSession = Depends(get_db)
 ):
     """API endpoint to update user details and return updated row."""
@@ -455,6 +522,22 @@ async def admin_update_user(
     user.email = email
     user.daily_quota = daily_quota
     user.is_active = bool(is_active)
+    user.price_plan = price_plan
+    
+    plan_prices = {
+        "monthly": 298000,
+        "6months": 1295000,
+        "1year": 1998000
+    }
+    if price_plan in plan_prices:
+        user.price = plan_prices[price_plan]
+        
+    if expired_at:
+        try:
+            dt = datetime.strptime(expired_at, "%Y-%m-%d")
+            user.expired_at = dt.replace(tzinfo=timezone.utc)
+        except ValueError:
+            pass
     
     db.add(user)
     await db.commit()
@@ -462,7 +545,7 @@ async def admin_update_user(
     return HTMLResponse(render_user_row(user))
 
 
-@router.delete(
+@router.post(
     "/users/{user_id}/delete",
     response_class=HTMLResponse,
     summary="Permanently delete a user",

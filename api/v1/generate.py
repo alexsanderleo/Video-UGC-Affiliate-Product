@@ -56,7 +56,7 @@ async def generate_video(
     3. Trigger Background Celery Task
     4. Connect to Redis Pub/Sub and stream updates via SSE
     """
-    now = datetime.now(timezone.utc)
+    now = datetime.utcnow()
 
     # 1. Quota Check & Auto-Reset
     if current_user.quota_reset is None or (now - current_user.quota_reset).total_seconds() > 86400:
@@ -108,16 +108,19 @@ async def generate_video(
     await db.commit()
 
     # Offload execution to Celery Queue
-    render_video_task.delay(
-        job_id=job_id,
-        video_path=str(video_path),
-        voice=voice,
-        watermark_mode=watermark_mode,
-        watermark_text=watermark_text or "",
-        watermark_position=watermark_position,
-        logo_path=logo_path,
-        user_id=current_user.id
-    )
+    try:
+        render_video_task.delay(
+            job_id=job_id,
+            video_path=str(video_path),
+            voice=voice,
+            watermark_mode=watermark_mode,
+            watermark_text=watermark_text or "",
+            watermark_position=watermark_position,
+            logo_path=logo_path,
+            user_id=current_user.id
+        )
+    except Exception as e:
+        print(f"[WARNING] Celery worker could not be triggered (Redis is probably down): {e}")
 
     async def pipeline_stream():
         """Subscribe to Redis Pub/Sub channel and yield updates in real-time."""

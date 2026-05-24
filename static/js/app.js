@@ -599,12 +599,13 @@
         const full_name = registerName.value.trim();
         const email = registerEmail.value.trim();
         const password = registerPassword.value;
+        const price_plan = document.getElementById('registerPricePlan').value;
 
         try {
             const res = await fetch('/api/v1/auth/register', {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ email, password, full_name })
+                body: JSON.stringify({ email, password, full_name, price_plan })
             });
 
             if (!res.ok) {

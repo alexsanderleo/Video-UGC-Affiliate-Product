@@ -49,7 +49,24 @@ async def register(body: RegisterRequest, db: AsyncSession = Depends(get_db)):
         )
 
     # Create user
-    now = datetime.utcnow()
+    now = datetime.now(timezone.utc)
+    from datetime import timedelta
+    
+    plan_prices = {
+        "monthly": 298000,
+        "6months": 1295000,
+        "1year": 1998000
+    }
+    plan_durations = {
+        "monthly": 30,
+        "6months": 180,
+        "1year": 365
+    }
+    
+    price_plan = body.price_plan if body.price_plan in plan_prices else "monthly"
+    price = plan_prices[price_plan]
+    expired_at = now + timedelta(days=plan_durations[price_plan])
+
     user = User(
         email=body.email,
         hashed_pw=hash_password(body.password),
@@ -57,6 +74,9 @@ async def register(body: RegisterRequest, db: AsyncSession = Depends(get_db)):
         token_version=0,
         quota_reset=now,
         is_active=False,  # Requires admin approval
+        price_plan=price_plan,
+        price=price,
+        expired_at=expired_at,
     )
     db.add(user)
     await db.commit()
@@ -90,11 +110,20 @@ async def login(body: LoginRequest, db: AsyncSession = Depends(get_db)):
             detail="Email atau password salah.",
         )
 
+    # Check for plan expiration
+    if user.expired_at and datetime.utcnow() > user.expired_at:
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="Masa aktif akun Anda telah berakhir. Silakan hubungi Admin untuk melakukan perpanjangan.",
+        )
+
+    # Check if user is active / approved
     if not user.is_active:
         raise HTTPException(
             status_code=status.HTTP_403_FORBIDDEN,
-            detail="Akun Anda telah dinonaktifkan. Hubungi admin.",
+            detail="Akun Anda belum diaktifkan oleh Admin. Silakan hubungi Admin untuk konfirmasi pembayaran dan aktivasi.",
         )
+
 
     # Generate JWT with current token_version
     access_token = create_access_token(

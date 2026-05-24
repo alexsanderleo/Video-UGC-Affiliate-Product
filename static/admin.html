@@ -170,7 +170,7 @@
                     hx-target="#users-rows" 
                     hx-swap="beforeend" 
                     onsubmit="this.reset(); document.getElementById('addUserFormContainer').classList.add('hidden')"
-                    class="grid grid-cols-1 sm:grid-cols-3 gap-4"
+                    class="grid grid-cols-1 sm:grid-cols-4 gap-4"
                 >
                     <div>
                         <label class="block text-xs font-semibold text-slate-400 mb-1">Nama Lengkap</label>
@@ -184,7 +184,15 @@
                         <label class="block text-xs font-semibold text-slate-400 mb-1">Password</label>
                         <input type="password" name="password" placeholder="Minimal 8 karakter" required minlength="8" class="w-full text-sm bg-slate-950/80 border border-slate-800 rounded-lg px-3 py-2 text-slate-200 focus:outline-none focus:border-indigo-500 transition">
                     </div>
-                    <div class="sm:col-span-3 flex justify-end gap-3 mt-2">
+                    <div>
+                        <label class="block text-xs font-semibold text-slate-400 mb-1">Paket Harga</label>
+                        <select name="price_plan" required class="w-full text-sm bg-slate-950/80 border border-slate-800 rounded-lg px-3 py-2 text-slate-200 focus:outline-none focus:border-indigo-500 transition">
+                            <option value="monthly">Bulanan — Rp 298.000</option>
+                            <option value="6months">6 Bulan — Rp 1.295.000</option>
+                            <option value="1year">1 Tahun — Rp 1.998.000</option>
+                        </select>
+                    </div>
+                    <div class="sm:col-span-4 flex justify-end gap-3 mt-2">
                         <button type="button" onclick="document.getElementById('addUserFormContainer').classList.add('hidden')" class="px-4 py-2 text-xs font-semibold rounded-lg bg-slate-800 text-slate-300 hover:bg-slate-700 transition">
                             Batal
                         </button>
@@ -210,7 +218,7 @@
                         </thead>
                         <tbody id="users-rows" 
                                hx-get="/api/v1/admin/users" 
-                               hx-trigger="load, every 5s">
+                               hx-trigger="load">
                             <tr>
                                 <td colspan="6" class="px-6 py-8 text-center text-slate-500 animate-pulse">
                                     Memuat daftar pengguna...

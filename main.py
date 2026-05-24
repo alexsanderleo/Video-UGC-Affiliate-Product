@@ -109,6 +109,15 @@ async def serve_admin():
     return HTMLResponse("<h3>Static folder admin.html not found.</h3>", status_code=404)
 
 
+@app.get("/admin", tags=["UI"], summary="Serve admin dashboard")
+async def serve_admin_dashboard_root():
+    """Serve admin.html at /admin url."""
+    admin_path = os.path.join("static", "admin.html")
+    if os.path.exists(admin_path):
+        return FileResponse(admin_path)
+    return HTMLResponse("<h3>Static folder admin.html not found.</h3>", status_code=404)
+
+
 # --- Health Check ---
 @app.get("/health", tags=["System"])
 async def health_check():

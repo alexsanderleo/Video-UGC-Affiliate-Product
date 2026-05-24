@@ -42,5 +42,11 @@ class User(TimestampMixin, Base):
     quota_used = Column(Integer, default=0, nullable=False)
     quota_reset = Column(DateTime(timezone=True), nullable=True)
 
+    # SaaS pricing plan & expiration
+    price_plan = Column(String(50), nullable=True)
+    price = Column(Integer, nullable=True)
+    expired_at = Column(DateTime(timezone=True), nullable=True)
+
     def __repr__(self) -> str:
         return f"<User id={self.id} email={self.email}>"
+

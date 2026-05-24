@@ -58,10 +58,18 @@ async def get_current_user(
             detail="User tidak ditemukan.",
         )
 
+    # Check if account has expired
+    from datetime import datetime
+    if user.expired_at and datetime.utcnow() > user.expired_at:
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="Masa aktif akun Anda telah berakhir. Silakan hubungi Admin untuk melakukan perpanjangan.",
+        )
+
     if not user.is_active:
         raise HTTPException(
             status_code=status.HTTP_403_FORBIDDEN,
-            detail="Akun Anda telah dinonaktifkan.",
+            detail="Akun Anda belum diaktifkan oleh Admin atau telah dinonaktifkan.",
         )
 
     # Force Logout check: compare token_version

@@ -19,6 +19,9 @@ class UserResponse(BaseModel):
     is_verified: bool
     daily_quota: int
     quota_used: int
+    price_plan: Optional[str] = None
+    price: Optional[int] = None
+    expired_at: Optional[datetime] = None
     created_at: Optional[datetime] = None
 
     model_config = {"from_attributes": True}
