@@ -105,6 +105,7 @@ async def init_db():
     from sqlalchemy import select
     from models.user import User
     from core.security import hash_password
+    from sqlalchemy.exc import IntegrityError
     async with async_session() as session:
         result = await session.execute(select(User).where(User.email == "admin@gmail.com"))
         if result.scalar_one_or_none() is None:
@@ -121,8 +122,12 @@ async def init_db():
                 token_version=0
             )
             session.add(admin_user)
-            await session.commit()
-            print("[SEED] Created default admin user: admin@gmail.com / admin123456")
+            try:
+                await session.commit()
+                print("[SEED] Created default admin user: admin@gmail.com / admin123456")
+            except IntegrityError:
+                await session.rollback()
+                print("[SEED] Admin user already created by another worker process.")
 
 
 async def close_db():
