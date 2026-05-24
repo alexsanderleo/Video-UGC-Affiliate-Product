@@ -163,12 +163,24 @@ async def generate_video(
                     else:
                         await asyncio.sleep(0.1)
             finally:
-                # Cleanup connection
-                await pubsub.unsubscribe(channel_name)
-                await r.close()
+                # Cleanup connection safely
+                try:
+                    await pubsub.unsubscribe(channel_name)
+                except Exception:
+                    pass
+                try:
+                    await r.close()
+                except Exception:
+                    pass
         else:
-            await pubsub.unsubscribe(channel_name)
-            await r.close()
+            try:
+                await pubsub.unsubscribe(channel_name)
+            except Exception:
+                pass
+            try:
+                await r.close()
+            except Exception:
+                pass
 
     return StreamingResponse(
         pipeline_stream(),
