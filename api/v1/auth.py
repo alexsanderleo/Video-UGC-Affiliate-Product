@@ -49,16 +49,19 @@ async def register(body: RegisterRequest, db: AsyncSession = Depends(get_db)):
         )
 
     # Create user
+    now = datetime.utcnow()
     user = User(
         email=body.email,
         hashed_pw=hash_password(body.password),
         full_name=body.full_name,
         token_version=0,
-        quota_reset=datetime.now(timezone.utc),
+        quota_reset=now,
     )
     db.add(user)
     await db.commit()
-    await db.refresh(user)
+
+    # Manually populate generated fields to avoid db.refresh issues with MySQL
+    user.created_at = now
 
     return user
 

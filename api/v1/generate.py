@@ -64,7 +64,6 @@ async def generate_video(
         current_user.quota_reset = now
         db.add(current_user)
         await db.commit()
-        await db.refresh(current_user)
 
     if current_user.quota_used >= current_user.daily_quota:
         raise HTTPException(
