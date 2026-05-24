@@ -86,6 +86,17 @@ async def async_render_video(
     user_id: int,
 ):
     """Async pipeline implementation called inside the Celery worker."""
+    # Construct a local engine bound to the current task's event loop to prevent "attached to a different loop" errors
+    from sqlalchemy.ext.asyncio import create_async_engine, async_sessionmaker, AsyncSession
+    from sqlalchemy.pool import NullPool
+    
+    _engine_kwargs = {"echo": settings.DEBUG, "future": True}
+    if "sqlite" not in settings.DATABASE_URL:
+        _engine_kwargs["poolclass"] = NullPool
+        
+    task_engine = create_async_engine(settings.DATABASE_URL, **_engine_kwargs)
+    task_session = async_sessionmaker(task_engine, class_=AsyncSession, expire_on_commit=False)
+
     tts_path = None
     srt_path = None
     output_path = None
@@ -93,7 +104,7 @@ async def async_render_video(
 
     async def update_log(status_str: str, duration: float = 0.0, bandwidth: int = 0, error: str = None, video_name: str = None):
         """Helper to update logging database record."""
-        async with async_session() as session:
+        async with task_session() as session:
             result = await session.execute(
                 select(GenerationLog).where(GenerationLog.job_id == job_id)
             )
@@ -221,6 +232,12 @@ async def async_render_video(
             error=str(e)
         )
     finally:
+        # Dispose the local engine to clean up connection resources bound to this event loop
+        try:
+            await task_engine.dispose()
+        except Exception:
+            pass
+
         # Secure cleanups of intermediate media files
         for p in [video_path, tts_path, srt_path]:
             if p and Path(p).exists():
