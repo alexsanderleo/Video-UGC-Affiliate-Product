@@ -1,0 +1,110 @@
+# =============================================================================
+# AULEX SAAS — AUTOMATED GIT & DEPLOYMENT WORKFLOW
+# Panduan Lengkap Sinkronisasi Otomatis PC Lokal <-> GitHub <-> aaPanel
+# =============================================================================
+
+Panduan ini berisi seluruh perintah Git yang Anda perlukan di PC lokal dan 
+server aaPanel agar proses update kode berjalan otomatis tanpa drag & drop manual.
+
+---
+
+## 💻 BAGIAN A: DI PC LOKAL (Kirim Perubahan ke GitHub)
+
+Gunakan perintah-perintah berikut di terminal PC lokal Anda (PowerShell / CMD / VS Code Terminal)
+setiap kali Anda selesai menulis atau mengubah kode.
+
+# 1. Masuk ke folder project
+cd "d:\AULEX\Video Automation"
+
+# 2. Cek status file yang berubah
+git status
+
+# 3. Tambahkan semua perubahan file baru (termasuk login/register UI)
+git add .
+
+# 4. Commit perubahan dengan pesan
+git commit -m "feat: implementasi antrean Celery, admin panel mimin, dan UI login register"
+
+# 5. Kirim perubahan ke GitHub (asumsi nama branch utama adalah 'main')
+git push origin main
+
+# Note: Jika pindah ke PC baru, Anda cukup melakukan clone pertama kali:
+# git clone <URL_REPOS_GITHUB_ANDA>
+
+---
+
+## 🌐 BAGIAN B: DI SERVER aaPANEL (Menghubungkan Folder yang Sudah Ada ke Git)
+
+Karena Anda sebelumnya meng-upload file secara manual (tanpa Git), ikuti langkah ini 
+HANYA SATU KALI SAJA di terminal SSH server aaPanel Anda untuk menyambungkannya ke GitHub:
+
+# 1. Hubungkan SSH ke server aaPanel Anda
+# 2. Masuk ke folder website Anda di server
+cd /www/wwwroot/ai.agomart.com
+
+# 3. Inisialisasi Git di server
+git init
+
+# 4. Daftarkan URL repository GitHub Anda ke server
+git remote add origin <MASUKKAN_URL_REPOSITORY_GITHUB_ANDA>
+# Contoh: git remote add origin https://github.com/username/aulex-video.git
+
+# 5. Ambil data branch dari GitHub tanpa menimpa file lokal dulu
+git fetch
+
+# 6. Paksa penyelarasan awal agar melacak branch utama
+git branch --set-upstream-to=origin/main main
+
+# 7. Lakukan pull awal (tambahkan flag --allow-unrelated-histories jika diperlukan)
+git pull origin main --allow-unrelated-histories
+
+# -----------------------------------------------------------------------------
+# SETELAH DISAMBUNGKAN, SETIAP KALI ANDA INGIN UPDATE KODE DI aaPANEL:
+# Cukup jalankan perintah ini di SSH server aaPanel Anda:
+# -----------------------------------------------------------------------------
+cd /www/wwwroot/ai.agomart.com
+git pull origin main
+# -----------------------------------------------------------------------------
+
+---
+
+## 🚀 BAGIAN C: OTOMATISASI PENUH TANPA SSH (Gunakan aaPanel Webhook)
+
+Jika Anda ingin aaPanel **otomatis melakukan `git pull` secara instan** setiap kali Anda mengetik `git push` di PC lokal (Continuous Deployment / CD), ikuti cara ini:
+
+### Langkah 1: Pasang Webhook di aaPanel
+1. Buka dashboard aaPanel, masuk ke **App Store**.
+2. Cari dan install plugin gratis bernama **WebHook**.
+3. Buka **WebHook**, lalu klik **Add Webhook**.
+4. Isi data Webhook:
+   - **Name:** `aulex-deploy`
+   - **Script:** Masukkan script bash di bawah ini secara persis:
+     ```bash
+     #!/bin/bash
+     echo "Starting deployment..."
+     cd /www/wwwroot/ai.agomart.com
+     git pull origin main
+     # Restart backend agar memuat kode baru otomatis
+     supervisorctl restart aulex-fastapi
+     supervisorctl restart aulex-celery
+     echo "Deployment successfully completed!"
+     ```
+5. Klik **Submit**.
+6. Setelah terbuat, klik tombol **Show Key** pada Webhook tersebut. Anda akan melihat sebuah URL link (contoh: `http://ip-server:port/hook?access_key=XYZ`).
+
+### Langkah 2: Daftarkan Webhook di GitHub
+1. Buka repository project Anda di website **GitHub**.
+2. Masuk ke menu **Settings** -> **Webhooks** -> klik **Add webhook**.
+3. Konfigurasikan Webhook:
+   - **Payload URL:** Masukkan URL link yang Anda dapat dari aaPanel di atas.
+   - **Content type:** Pilih `application/json`.
+   - **Secret:** Biarkan kosong.
+   - **Which events...:** Pilih `Just the push event`.
+4. Klik **Add webhook**.
+
+---
+
+### 🔥 SEKARANG ALUR KERJA ANDA MENJADI SANGAT SEDERHANA:
+1. Anda edit kode di PC lokal.
+2. Anda ketik `git add .` -> `git commit` -> `git push` di PC lokal Anda.
+3. **BOOM!** GitHub akan memicu aaPanel Webhook secara otomatis, server aaPanel akan melakukan `git pull` secara mandiri di background, merestart server FastAPI & Celery Anda, dan web langsung ter-update seketika!

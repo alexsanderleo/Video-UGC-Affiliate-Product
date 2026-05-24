@@ -9,13 +9,117 @@
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800;900&family=Outfit:wght@400;500;600;700;800&display=swap" rel="stylesheet">
     <link rel="stylesheet" href="/static/css/style.css">
+    <style>
+        .auth-overlay {
+            position: fixed;
+            inset: 0;
+            background: rgba(10, 10, 15, 0.95);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            z-index: 9999;
+            backdrop-filter: blur(20px);
+            padding: 20px;
+        }
+        .auth-card {
+            width: 100%;
+            max-width: 420px;
+            animation: authFadeIn 0.4s cubic-bezier(0.16, 1, 0.3, 1);
+        }
+        @keyframes authFadeIn {
+            from { opacity: 0; transform: scale(0.95) translateY(10px); }
+            to { opacity: 1; transform: scale(1) translateY(0); }
+        }
+        .auth-switch {
+            text-align: center;
+            margin-top: 16px;
+            font-size: 0.85rem;
+            color: var(--text-secondary);
+        }
+        .auth-switch a {
+            color: var(--text-accent);
+            text-decoration: none;
+            font-weight: 600;
+        }
+        .auth-switch a:hover {
+            text-decoration: underline;
+        }
+        .user-profile-header {
+            display: flex;
+            align-items: center;
+            gap: 12px;
+        }
+        .user-email-badge {
+            font-size: 0.8rem;
+            color: var(--text-secondary);
+            background: rgba(255,255,255,0.05);
+            padding: 6px 12px;
+            border-radius: 20px;
+            border: 1px solid var(--border-subtle);
+            font-weight: 500;
+        }
+    </style>
 </head>
 <body>
     <!-- Animated Background Particles -->
     <div class="bg-particles" id="bgParticles"></div>
 
+    <!-- Login/Register Overlay -->
+    <div id="authOverlay" class="auth-overlay" style="display: none;">
+        <div class="card glass-card auth-card">
+            <div class="card-header">
+                <div class="card-icon upload-icon">🔑</div>
+                <h2 class="card-title" id="authTitle">Login Akun SaaS</h2>
+            </div>
+            
+            <!-- Login Form -->
+            <form id="loginForm" class="auth-form">
+                <div style="margin-bottom: 16px;">
+                    <label class="input-label">Email</label>
+                    <input type="email" id="loginEmail" class="text-input" placeholder="nama@email.com" required>
+                </div>
+                <div style="margin-bottom: 16px;">
+                    <label class="input-label">Password</label>
+                    <input type="password" id="loginPassword" class="text-input" placeholder="******" required>
+                </div>
+                <button type="submit" class="btn-generate" style="margin-top: 12px; width: 100%;">
+                    Masuk (Login)
+                </button>
+                <p class="auth-switch">Belum punya akun? <a href="#" id="switchToRegister">Daftar Sekarang</a></p>
+            </form>
+
+            <!-- Register Form (Hidden by default) -->
+            <form id="registerForm" class="auth-form" style="display: none;">
+                <div style="margin-bottom: 16px;">
+                    <label class="input-label">Nama Lengkap</label>
+                    <input type="text" id="registerName" class="text-input" placeholder="Nama Anda" required>
+                </div>
+                <div style="margin-bottom: 16px;">
+                    <label class="input-label">Email</label>
+                    <input type="email" id="registerEmail" class="text-input" placeholder="nama@email.com" required>
+                </div>
+                <div style="margin-bottom: 16px;">
+                    <label class="input-label">Password</label>
+                    <input type="password" id="registerPassword" class="text-input" placeholder="Minimal 8 karakter" minlength="8" required>
+                </div>
+                <button type="submit" class="btn-generate" style="margin-top: 12px; width: 100%;">
+                    Buat Akun (Register)
+                </button>
+                <p class="auth-switch">Sudah punya akun? <a href="#" id="switchToLogin">Masuk Saja</a></p>
+            </form>
+        </div>
+    </div>
+
     <!-- Main Container -->
     <div class="app-container">
+        <!-- Floating User Profile Pill -->
+        <div id="userProfile" class="user-profile-header" style="display: none; position: absolute; top: 20px; right: 20px; z-index: 100; align-items: center; gap: 10px;">
+            <span id="userEmail" class="user-email-badge">User</span>
+            <button id="btnLogout" class="btn-remove" style="position: static; width: auto; height: auto; padding: 6px 12px; border-radius: var(--radius-sm); font-size: 0.8rem; font-weight: 600;" title="Logout">
+                Keluar
+            </button>
+        </div>
+
         <!-- Header -->
         <header class="app-header">
             <div class="header-glow"></div>

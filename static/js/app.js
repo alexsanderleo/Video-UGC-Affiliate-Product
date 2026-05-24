@@ -361,10 +361,18 @@
             progressBar.style.width = '10%';
             btnLoadingText.textContent = 'AI menganalisis video...';
 
+            // Retrieve JWT token
+            const token = localStorage.getItem('token');
+            const headers = {};
+            if (token) {
+                headers['Authorization'] = `Bearer ${token}`;
+            }
+
             // Send to backend
             const response = await fetch('/api/generate', {
                 method: 'POST',
-                body: formData
+                body: formData,
+                headers: headers
             });
 
             if (!response.ok) {
@@ -525,7 +533,141 @@
         }
     });
 
+    // === Authentication Logic ===
+    const authOverlay = document.getElementById('authOverlay');
+    const loginForm = document.getElementById('loginForm');
+    const registerForm = document.getElementById('registerForm');
+    const loginEmail = document.getElementById('loginEmail');
+    const loginPassword = document.getElementById('loginPassword');
+    const registerName = document.getElementById('registerName');
+    const registerEmail = document.getElementById('registerEmail');
+    const registerPassword = document.getElementById('registerPassword');
+    const switchToRegister = document.getElementById('switchToRegister');
+    const switchToLogin = document.getElementById('switchToLogin');
+    const authTitle = document.getElementById('authTitle');
+    
+    const userProfile = document.getElementById('userProfile');
+    const userEmailBadge = document.getElementById('userEmail');
+    const btnLogout = document.getElementById('btnLogout');
+
+    // Switch forms
+    switchToRegister.addEventListener('click', (e) => {
+        e.preventDefault();
+        loginForm.style.display = 'none';
+        registerForm.style.display = 'block';
+        authTitle.textContent = 'Daftar Akun Baru';
+    });
+
+    switchToLogin.addEventListener('click', (e) => {
+        e.preventDefault();
+        registerForm.style.display = 'none';
+        loginForm.style.display = 'block';
+        authTitle.textContent = 'Login Akun SaaS';
+    });
+
+    // Handle Login
+    loginForm.addEventListener('submit', async (e) => {
+        e.preventDefault();
+        const email = loginEmail.value.trim();
+        const password = loginPassword.value;
+
+        try {
+            const res = await fetch('/api/v1/auth/login', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ email, password })
+            });
+
+            if (!res.ok) {
+                const err = await res.json().catch(() => ({ detail: 'Login gagal' }));
+                throw new Error(err.detail || 'Email atau password salah');
+            }
+
+            const data = await res.json();
+            localStorage.setItem('token', data.access_token);
+            localStorage.setItem('email', email);
+            showToast('✅ Berhasil masuk!', false);
+            initAuth();
+        } catch (err) {
+            showToast('❌ ' + err.message);
+        }
+    });
+
+    // Handle Register
+    registerForm.addEventListener('submit', async (e) => {
+        e.preventDefault();
+        const full_name = registerName.value.trim();
+        const email = registerEmail.value.trim();
+        const password = registerPassword.value;
+
+        try {
+            const res = await fetch('/api/v1/auth/register', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ email, password, full_name })
+            });
+
+            if (!res.ok) {
+                const err = await res.json().catch(() => ({ detail: 'Registrasi gagal' }));
+                throw new Error(err.detail || 'Email sudah terdaftar');
+            }
+
+            showToast('✅ Pendaftaran sukses! Silakan login.', false);
+            // Switch back to login
+            registerForm.style.display = 'none';
+            loginForm.style.display = 'block';
+            authTitle.textContent = 'Login Akun SaaS';
+            loginEmail.value = email;
+            loginPassword.value = '';
+        } catch (err) {
+            showToast('❌ ' + err.message);
+        }
+    });
+
+    // Handle Logout
+    btnLogout.addEventListener('click', () => {
+        localStorage.removeItem('token');
+        localStorage.removeItem('email');
+        showToast('🚪 Keluar dari sesi...', false);
+        initAuth();
+    });
+
+    // Initialize Auth state
+    async function initAuth() {
+        const token = localStorage.getItem('token');
+
+        if (!token) {
+            authOverlay.style.display = 'flex';
+            userProfile.style.display = 'none';
+            return;
+        }
+
+        // Verify token is still valid with /auth/me
+        try {
+            const res = await fetch('/api/v1/auth/me', {
+                headers: { 'Authorization': `Bearer ${token}` }
+            });
+
+            if (!res.ok) {
+                throw new Error('Sesi kedaluwarsa');
+            }
+
+            const userData = await res.json();
+            
+            // Success: hide auth and show profile
+            authOverlay.style.display = 'none';
+            userProfile.style.display = 'flex';
+            userEmailBadge.textContent = userData.email;
+        } catch (err) {
+            localStorage.removeItem('token');
+            localStorage.removeItem('email');
+            authOverlay.style.display = 'flex';
+            userProfile.style.display = 'none';
+        }
+    }
+
     // === Init ===
+    initAuth();
     updateGenerateBtn();
 
 })();

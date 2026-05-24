@@ -1,0 +1,224 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Aulex Admin — Dashboard & Monitoring</title>
+    <link rel="icon" type="image/png" href="https://img.icons8.com/color/48/dashboard.png">
+    
+    <!-- Google Fonts -->
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&family=Outfit:wght@400;500;600;700;800;900&display=swap" rel="stylesheet">
+    
+    <!-- Tailwind CSS CDN -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    
+    <!-- HTMX CDN -->
+    <script src="https://unpkg.com/htmx.org@1.9.10"></script>
+    
+    <script>
+        tailwind.config = {
+            theme: {
+                extend: {
+                    fontFamily: {
+                        sans: ['Inter', 'sans-serif'],
+                        outfit: ['Outfit', 'sans-serif'],
+                    }
+                }
+            }
+        }
+    </script>
+    
+    <style>
+        body {
+            background-color: #0b0f19;
+            background-image: 
+                radial-gradient(at 0% 0%, hsla(253,16%,7%,1) 0, transparent 50%),
+                radial-gradient(at 50% 0%, hsla(225,39%,30%,0.2) 0, transparent 50%),
+                radial-gradient(at 100% 0%, hsla(242,84%,52%,0.08) 0, transparent 50%);
+            background-attachment: fixed;
+        }
+        
+        .glass-card {
+            background: rgba(17, 24, 39, 0.6);
+            backdrop-filter: blur(16px);
+            -webkit-backdrop-filter: blur(16px);
+            border: 1px solid rgba(255, 255, 255, 0.05);
+            border-radius: 1rem;
+        }
+
+        .glass-header {
+            background: rgba(17, 24, 39, 0.4);
+            backdrop-filter: blur(12px);
+            -webkit-backdrop-filter: blur(12px);
+            border-bottom: 1px solid rgba(255, 255, 255, 0.05);
+        }
+
+        /* Pulse animation for active rendering */
+        @keyframes pulse-glow {
+            0%, 100% {
+                opacity: 1;
+                filter: drop-shadow(0 0 2px rgba(245, 158, 11, 0.4));
+            }
+            50% {
+                opacity: 0.5;
+                filter: drop-shadow(0 0 8px rgba(245, 158, 11, 0.8));
+            }
+        }
+        .pulse {
+            animation: pulse-glow 2s infinite;
+        }
+
+        /* Custom scrollbar */
+        ::-webkit-scrollbar {
+            width: 6px;
+            height: 6px;
+        }
+        ::-webkit-scrollbar-track {
+            background: rgba(255, 255, 255, 0.02);
+        }
+        ::-webkit-scrollbar-thumb {
+            background: rgba(255, 255, 255, 0.1);
+            border-radius: 3px;
+        }
+        ::-webkit-scrollbar-thumb:hover {
+            background: rgba(255, 255, 255, 0.2);
+        }
+    </style>
+</head>
+<body class="font-sans text-slate-200 min-h-screen">
+
+    <!-- Header Navigation -->
+    <header class="glass-header sticky top-0 z-50 w-full py-4 px-6 md:px-12 flex items-center justify-between">
+        <div class="flex items-center gap-3">
+            <span class="text-2xl">⚡</span>
+            <div>
+                <h1 class="text-xl font-extrabold font-outfit bg-gradient-to-r from-indigo-400 via-purple-400 to-pink-400 bg-clip-text text-transparent">
+                    AULEX ADMIN
+                </h1>
+                <p class="text-xs text-slate-400 tracking-wider">SaaS Monitor System</p>
+            </div>
+        </div>
+        <div class="flex items-center gap-4">
+            <a href="/" class="px-4 py-2 text-sm font-semibold rounded-lg bg-indigo-600/10 text-indigo-400 hover:bg-indigo-600 hover:text-white transition duration-300">
+                ← Buka App Utama
+            </a>
+            <div class="h-2 w-2 bg-emerald-500 rounded-full animate-ping"></div>
+            <span class="text-xs font-semibold uppercase text-emerald-400 tracking-widest">Live</span>
+        </div>
+    </header>
+
+    <!-- Main Content Grid -->
+    <main class="max-w-7xl mx-auto py-8 px-4 md:px-8 space-y-8">
+        
+        <!-- Live Stats Section -->
+        <section class="space-y-4">
+            <div class="flex items-center justify-between">
+                <h2 class="text-lg font-bold font-outfit text-white flex items-center gap-2">
+                    📊 <span class="bg-gradient-to-r from-slate-100 to-slate-400 bg-clip-text text-transparent">Statistik Real-Time</span>
+                </h2>
+                <span class="text-xs text-slate-500 italic">Auto-refresh setiap 5s</span>
+            </div>
+            
+            <!-- HTMX loaded stats cards -->
+            <div id="stats-cards" 
+                 hx-get="/api/v1/admin/stats" 
+                 hx-trigger="load, every 5s" 
+                 class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6">
+                <!-- Fallback Loading skeleton -->
+                <div class="glass-card p-6 animate-pulse space-y-3">
+                    <div class="h-4 bg-slate-800 rounded w-2/3"></div>
+                    <div class="h-8 bg-slate-800 rounded w-1/3"></div>
+                </div>
+                <div class="glass-card p-6 animate-pulse space-y-3">
+                    <div class="h-4 bg-slate-800 rounded w-2/3"></div>
+                    <div class="h-8 bg-slate-800 rounded w-1/3"></div>
+                </div>
+                <div class="glass-card p-6 animate-pulse space-y-3">
+                    <div class="h-4 bg-slate-800 rounded w-2/3"></div>
+                    <div class="h-8 bg-slate-800 rounded w-1/3"></div>
+                </div>
+                <div class="glass-card p-6 animate-pulse space-y-3">
+                    <div class="h-4 bg-slate-800 rounded w-2/3"></div>
+                    <div class="h-8 bg-slate-800 rounded w-1/3"></div>
+                </div>
+            </div>
+        </section>
+
+        <!-- Dynamic User Management Section -->
+        <section class="space-y-4">
+            <h2 class="text-lg font-bold font-outfit text-white flex items-center gap-2">
+                👥 <span class="bg-gradient-to-r from-slate-100 to-slate-400 bg-clip-text text-transparent">Daftar Pengguna & Sesi</span>
+            </h2>
+            
+            <div class="glass-card overflow-hidden">
+                <div class="overflow-x-auto">
+                    <table class="w-full text-left border-collapse">
+                        <thead>
+                            <tr class="bg-slate-900/50 border-b border-slate-800/80 text-xs font-bold text-slate-400 uppercase tracking-wider">
+                                <th class="px-6 py-4">ID</th>
+                                <th class="px-6 py-4">Nama Lengkap</th>
+                                <th class="px-6 py-4">Email</th>
+                                <th class="px-6 py-4">Kuota Hari Ini</th>
+                                <th class="px-6 py-4">Status Akun</th>
+                                <th class="px-6 py-4">Aksi Keamanan</th>
+                            </tr>
+                        </thead>
+                        <tbody id="users-rows" 
+                               hx-get="/api/v1/admin/users" 
+                               hx-trigger="load, every 5s">
+                            <tr>
+                                <td colspan="6" class="px-6 py-8 text-center text-slate-500 animate-pulse">
+                                    Memuat daftar pengguna...
+                                </td>
+                            </tr>
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        </section>
+
+        <!-- Generation Logs Table Section -->
+        <section class="space-y-4">
+            <h2 class="text-lg font-bold font-outfit text-white flex items-center gap-2">
+                🎬 <span class="bg-gradient-to-r from-slate-100 to-slate-400 bg-clip-text text-transparent">Log Aktivitas Rendering Video</span>
+            </h2>
+            
+            <div class="glass-card overflow-hidden">
+                <div class="overflow-x-auto">
+                    <table class="w-full text-left border-collapse">
+                        <thead>
+                            <tr class="bg-slate-900/50 border-b border-slate-800/80 text-xs font-bold text-slate-400 uppercase tracking-wider">
+                                <th class="px-6 py-4">Job ID</th>
+                                <th class="px-6 py-4">User Email</th>
+                                <th class="px-6 py-4">Tanggal Mulai</th>
+                                <th class="px-6 py-4">Status Rendering</th>
+                                <th class="px-6 py-4">Durasi Video</th>
+                                <th class="px-6 py-4">Ukuran Video</th>
+                                <th class="px-6 py-4">Pesan Error</th>
+                            </tr>
+                        </thead>
+                        <tbody id="logs-rows" 
+                               hx-get="/api/v1/admin/logs" 
+                               hx-trigger="load, every 5s">
+                            <tr>
+                                <td colspan="7" class="px-6 py-8 text-center text-slate-500 animate-pulse">
+                                    Memuat riwayat rendering...
+                                </td>
+                            </tr>
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        </section>
+
+    </main>
+
+    <!-- Footer Banner -->
+    <footer class="mt-16 py-8 border-t border-slate-800/40 text-center text-xs text-slate-600">
+        <p>&copy; 2026 Aulex BOT AI Video Generator. All rights reserved. Platform optimized for Low-RAM VPS stability.</p>
+    </footer>
+
+</body>
+</html>

@@ -2,8 +2,11 @@
 *.mp4
 *.mp3
 
-
-
 # Mengabaikan folder virtual environment Python jika ada
 venv/
 __pycache__/
+
+# SaaS Backend
+.env
+*.db
+alembic/versions/
