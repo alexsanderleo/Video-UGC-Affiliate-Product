@@ -100,4 +100,33 @@ D. ValueError: Invalid isoformat string: 'monthly'
 * EMAIL: admin@gmail.com
 * PASSWORD: admin123456
 *(Harap segera ubah password default ini langsung dari dashboard demi keamanan).*
+
+-----------------------------------------------------------------------------
+5. CARA MELIHAT LOG ERROR DI VPS (MENGGUNAKAN PUTTY / TERMINAL SSH)
+-----------------------------------------------------------------------------
+Jika terjadi kendala (seperti 502 Bad Gateway atau error pemrosesan video), Anda
+WAJIB login ke VPS menggunakan Putty atau Terminal SSH, lalu jalankan perintah
+berikut untuk memantau log error secara langsung (real-time):
+
+A. MEMANTAU LOG EROR DARI SUPERVISOR (BACKGROUND RUN)
+   Untuk memantau aktivitas & error backend yang sedang berjalan di background:
+   $ supervisorctl tail -f video_saas
+   *(Catatan: Ganti 'video_saas' dengan nama tugas/task yang Anda buat di Supervisor aaPanel)*
+
+B. MEMANTAU LOG ERROR NGINX (WEB SERVER)
+   Untuk melihat jika request diblokir oleh Nginx (misal karena ukuran video kebesaran):
+   $ tail -n 50 -f /www/wwwlogs/ai.agomart.com.error.log
+
+C. MENJALANKAN MANUAL UNTUK MENAMPILKAN TRACEBACK ASLI (SANGAT DIREKOMENDASIKAN)
+   Jika Supervisor error terus-menerus dan Anda ingin melihat traceback asli dari Python:
+   1. Hentikan sementara semua proses background:
+      $ supervisorctl stop all
+   2. Bersihkan port 8000 yang terkunci:
+      $ fuser -k 8000/tcp
+   3. Masuk ke Virtual Environment & jalankan secara manual:
+      $ source venv/bin/activate
+      $ uvicorn main:app --host 0.0.0.0 --port 8000
+   
+   *(Semua error asli Python, koneksi database, dan log Qwen/FFmpeg akan langsung 
+     tercetak di layar Putty secara instan saat Anda mencoba mengakses website!)*
 =============================================================================
