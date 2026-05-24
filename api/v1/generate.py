@@ -146,8 +146,10 @@ async def generate_video(
 
         if not has_sent_complete:
             try:
-                async for message in pubsub.listen():
-                    if message['type'] == 'message':
+                while True:
+                    # Non-blocking get_message with timeout to support periodic keep-alive comments
+                    message = await pubsub.get_message(ignore_subscribe_messages=True, timeout=5.0)
+                    if message and message.get('type') == 'message':
                         try:
                             data = json.loads(message['data'])
                             yield sse_event(data)
@@ -155,6 +157,11 @@ async def generate_video(
                                 break
                         except Exception:
                             pass
+                    elif message is None:
+                        # Yield keep-alive SSE comment to prevent Nginx, Cloudflare, and HTTP/2 timeouts
+                        yield ": keepalive\n\n"
+                    else:
+                        await asyncio.sleep(0.1)
             finally:
                 # Cleanup connection
                 await pubsub.unsubscribe(channel_name)
