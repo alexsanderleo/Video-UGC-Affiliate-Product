@@ -1,0 +1,19 @@
+Tahap 1: Kunci Struktur Database & Koneksi aaPanel (Fondasi)
+Kirimkan Part 2 & Part 3 (Database, FastAPI Router, & Auth) terlebih dahulu.
+
+Prompnya: "Tim Antigravity, kita mau bikin SaaS untuk 10.000 user mobile pakai FastAPI + SQLAlchemy. Tolong buatkan struktur folder modularnya (APIRouter) dan skrip tabel database PostgreSQL/MySQL untuk registrasi, login JWT, dan kolom token_version untuk fitur Force Logout. Buat kodenya sedetail mungkin."
+
+🛑 Tahap 2: Selesaikan Masalah Inti Video & Subtitle (Core Engine)
+Setelah Tahap 1 beres dan kodenya rapi, masukkan Part 1 (Koreksi Bug Video, Audio-Driven Sync, & FFmpeg Drawtext/Subtitle).
+
+Promptnya: "Sekarang kita masuk ke core engine-nya. Tolong buatkan fungsi Python untuk membaca durasi video pakai ffprobe, membersihkan teks Qwen dengan Regex, dan men-generate file subtitles.srt yang durasinya pas dengan output edge-tts (Audio-Driven Sync), lalu render pakai filter FFmpeg yang aman anti-copyright."
+
+🛑 Tahap 3: Pasang Pengaman Server (Queue System)
+Setelah core engine bisa menghasilkan video yang pas, masukkan Part 4 (Celery + Redis Queue).
+
+Promptnya: "Biar VPS aaPanel gak meledak saat 10.000 user akses, tolong buatkan konfigurasi Celery + Redis sebagai antrean render video dari fungsi FFmpeg yang sudah kita buat di Tahap 2 tadi. Batasi maksimal 4 proses simultan."
+
+🛑 Tahap 4: Bangun Dashboard Admin & Log Aktivitas (Monitoring)
+Terakhir, barulah masukkan Part 5 & Part 6 (Log, Bandwidth Counter, & Frontend HTMX).
+
+Promptnya: "Terakhir, buatkan halaman Admin Panel memakai HTML Tailwind + HTMX untuk memantau tabel generation_logs, status user online di Redis, counter bandwidth, dan tombol eksekusi Force Logout."
