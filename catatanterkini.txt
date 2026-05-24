@@ -1,19 +1,103 @@
-Tahap 1: Kunci Struktur Database & Koneksi aaPanel (Fondasi)
-Kirimkan Part 2 & Part 3 (Database, FastAPI Router, & Auth) terlebih dahulu.
+=============================================================================
+             📖 AULEX SAAS VIDEO AFFILIATE AI GENERATOR
+               REKAPAN MAINTENANCE & PANDUAN VPS AAPANEL
+=============================================================================
 
-Prompnya: "Tim Antigravity, kita mau bikin SaaS untuk 10.000 user mobile pakai FastAPI + SQLAlchemy. Tolong buatkan struktur folder modularnya (APIRouter) dan skrip tabel database PostgreSQL/MySQL untuk registrasi, login JWT, dan kolom token_version untuk fitur Force Logout. Buat kodenya sedetail mungkin."
+Dokumen ini mencatat detail riwayat perbaikan (maintenance), kendala teknis VPS aaPanel,
+dan solusi pemecahannya untuk referensi tim pengembang/administrator di masa depan.
 
-🛑 Tahap 2: Selesaikan Masalah Inti Video & Subtitle (Core Engine)
-Setelah Tahap 1 beres dan kodenya rapi, masukkan Part 1 (Koreksi Bug Video, Audio-Driven Sync, & FFmpeg Drawtext/Subtitle).
+-----------------------------------------------------------------------------
+1. FITUR ADMIN, PERAN (ROLE), DAN SISTEM SEEDING
+-----------------------------------------------------------------------------
+* KENDALA AWAL:
+  - Admin default tidak ter-seed jika database sudah berisi satu atau lebih user biasa.
+  - Formulir pendaftaran manual admin tidak memiliki opsi peran (Role) pengguna.
+  - Endpoint admin (/api/v1/admin/*) belum dilindungi pengaman otentikasi admin.
+  - Risiko lockout admin jika tidak sengaja menghapus atau menonaktifkan akun sendiri.
 
-Promptnya: "Sekarang kita masuk ke core engine-nya. Tolong buatkan fungsi Python untuk membaca durasi video pakai ffprobe, membersihkan teks Qwen dengan Regex, dan men-generate file subtitles.srt yang durasinya pas dengan output edge-tts (Audio-Driven Sync), lalu render pakai filter FFmpeg yang aman anti-copyright."
+* SOLUSI & PERUBAHAN KODE:
+  - Seeding Default Admin (core/database.py):
+    Logika diubah dari mengecek kekosongan tabel menjadi mengecek secara spesifik keberadaan
+    email 'admin@gmail.com'. Ditambahkan penanganan 'IntegrityError' (try-except) untuk
+    mencegah kegagalan startup uvicorn ketika dijalankan dalam mode multi-worker.
+  - Keamanan API (api/deps.py & api/v1/admin.py):
+    Menambahkan dependency 'get_current_admin' yang mengecek status 'is_admin = True'.
+    Seluruh API dashboard admin kini dilindungi dengan dependensi ini.
+  - Fitur Saling Menghapus Admin:
+    Admin diperbolehkan menghapus admin lain. Namun, ditambahkan proteksi pengecekan
+    (user_id == admin.id) pada aksi DELETE, DEACTIVATE, dan FORCE LOGOUT agar admin
+    tidak bisa melukai akunnya sendiri (menghindari lockout).
+  - Formulir Tambah Admin Manual (static/admin.html):
+    Menambahkan select-dropdown 'Role Pengguna' (USER / ADMIN) dan merapikan layout
+    formulir pendaftaran manual menjadi 5 kolom grid di desktop.
 
-🛑 Tahap 3: Pasang Pengaman Server (Queue System)
-Setelah core engine bisa menghasilkan video yang pas, masukkan Part 4 (Celery + Redis Queue).
+-----------------------------------------------------------------------------
+2. PENANGANAN KENDALA TEKNIS VPS AAPANEL & NGINX
+-----------------------------------------------------------------------------
 
-Promptnya: "Biar VPS aaPanel gak meledak saat 10.000 user akses, tolong buatkan konfigurasi Celery + Redis sebagai antrean render video dari fungsi FFmpeg yang sudah kita buat di Tahap 2 tadi. Batasi maksimal 4 proses simultan."
+A. ERR_HTTP2_PROTOCOL_ERROR / TypeError: Network Error saat Video Render
+   * GEJALA: Progres bar mendadak macet, muncul "TypeError: network error" di PC
+     atau "load failed" di HP saat video sedang dianalisis oleh AI.
+   * PENYEBAB: Proses AI analisis & FFmpeg rendering memakan waktu 15-40 detik. Selama
+     rentang waktu ini, tidak ada bytes data baru yang dikirim di jaringan TCP.
+     Nginx, Cloudflare, atau browser menganggap koneksi mati dan memutusnya secara paksa.
+   * SOLUSI: Menerapkan mekanisme 'Heartbeat / Keep-Alive' di backend (api/v1/generate.py).
+     Jika tidak ada update baru dari Redis selama 5 detik, backend akan mengirimkan
+     SSE comment `: keepalive\n\n` secara terus menerus agar koneksi tetap dianggap aktif.
 
-🛑 Tahap 4: Bangun Dashboard Admin & Log Aktivitas (Monitoring)
-Terakhir, barulah masukkan Part 5 & Part 6 (Log, Bandwidth Counter, & Frontend HTMX).
+B. HTMX 401 Unauthorized pada Load Pertama
+   * GEJALA: Saat admin membuka dashboard, tabel stats, user, dan log memunculkan
+     pesan merah "Response Status Error Code 401" padahal admin sudah login.
+   * PENYEBAB: Pustaka HTMX dimuat sebelum event listener 'htmx:configRequest' didaftarkan.
+     HTMX langsung mengirim request onload tanpa membawa token JWT Bearer.
+   * SOLUSI: Mengatur ulang urutan script di kepala halaman <head> (static/admin.html).
+     Script pendaftaran token JWT HTMX dan client-side redirect guard dipindahkan ke
+     paling atas sebelum script CDN HTMX dimuat.
 
-Promptnya: "Terakhir, buatkan halaman Admin Panel memakai HTML Tailwind + HTMX untuk memantau tabel generation_logs, status user online di Redis, counter bandwidth, dan tombol eksekusi Force Logout."
+C. Address Already in Use (Errno 98) / 502 Bad Gateway
+   * GEJALA: Nginx menampilkan 502 Bad Gateway, dan log supervisor/terminal memunculkan
+     pesan "Address already in use".
+   * PENYEBAB: Proses uvicorn lama masih aktif berjalan di background dan mengunci port 8000.
+     Hal ini biasa terjadi ketika reload Supervisor tidak sempurna mematikan proses lama.
+   * SOLUSI: Matikan paksa proses lama yang mengunci port 8000 di terminal VPS:
+     $ fuser -k 8000/tcp
+     atau
+     $ kill -9 $(lsof -t -i:8000)
+     Setelah itu jalankan `$ supervisorctl reload` untuk menyalakan kembali.
+
+D. ValueError: Invalid isoformat string: 'monthly'
+   * GEJALA: Aplikasi gagal me-load daftar user di dashboard admin.
+   * PENYEBAB: Nilai string teks 'monthly' masuk ke dalam kolom bertipe tanggal 'expired_at'
+     (kemungkinan akibat bug input manual lama sebelum diperbaiki).
+   * SOLUSI: Membuat skrip pembersih database agnostic 'db_clean.py'. Skrip ini membaca
+     DATABASE_URL dari file .env secara otomatis dan membersihkan nilai 'monthly'
+     pada kolom 'expired_at' menjadi NULL secara aman.
+     Cara menjalankan di VPS:
+     $ source venv/bin/activate
+     $ python3 db_clean.py
+
+-----------------------------------------------------------------------------
+3. MIGRASI DATABASE KE MYSQL AAPANEL (100% SUKSES)
+-----------------------------------------------------------------------------
+* KENAPA BERMIGRASI KE MYSQL?
+  - SQLite kurang optimal untuk ribuan pengguna konkuren karena mengunci file database
+    saat melakukan operasi tulis (menyebabkan database locked).
+  - MySQL bawaan aaPanel sangat handal menangani ribuan concurrent write dan stabil.
+  - Arsitektur backend kita sudah dinamis (dialect-aware). Cukup ubah konfigurasi .env
+    di VPS, sistem akan otomatis melakukan migrasi skema tabel tanpa mengubah kode Python.
+
+* FORMAT DATABASE_URL MYSQL (di VPS .env):
+  DATABASE_URL="mysql+aiomysql://username_db:password_db@127.0.0.1:3306/nama_db"
+
+* CARA RESTART SERVER SETELAH UBAH .ENV:
+  $ source venv/bin/activate
+  $ fuser -k 8000/tcp
+  $ supervisorctl reload
+
+-----------------------------------------------------------------------------
+4. KREDENSIAL DEFAULT SUPERADMIN SEEDING
+-----------------------------------------------------------------------------
+* EMAIL: admin@gmail.com
+* PASSWORD: admin123456
+*(Harap segera ubah password default ini langsung dari dashboard demi keamanan).*
+=============================================================================
