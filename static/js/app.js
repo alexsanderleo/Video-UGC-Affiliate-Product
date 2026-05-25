@@ -363,7 +363,7 @@
         const formData = new FormData();
         formData.append('video', selectedVideoFile);
         formData.append('voice', voiceSelect.value);
-        
+
         // Dynamic watermarks overlay (both can exist concurrently!)
         const wmText = watermarkText.value.trim();
         if (wmText) {
@@ -521,7 +521,7 @@
             case 'C_start':
                 setStepState(stepC, stepCStatus, 'active', 'Merender video final dengan FENGINE...');
                 progressBar.style.width = '65%';
-                btnLoadingText.textContent = 'FFmpeg rendering video...';
+                btnLoadingText.textContent = 'FENGINE rendering video...';
                 break;
             case 'C_progress':
                 if (data.percent) {
@@ -1065,7 +1065,7 @@
             case 'C_start':
                 setStepState(convertStepC, convertStepCStatus, 'active', 'Mengkompresi video dengan FFmpeg...');
                 convertProgressBar.style.width = '20%';
-                btnConvertLoadingText.textContent = 'FFmpeg rendering...';
+                btnConvertLoadingText.textContent = 'FENGINE rendering...';
                 break;
             case 'C_progress':
                 if (data.percent) {

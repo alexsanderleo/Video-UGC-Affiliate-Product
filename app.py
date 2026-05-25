@@ -1037,7 +1037,7 @@ def generate():
                 )
             except Exception as e:
                 print(f"[Step C] Error: {e}")
-                raise RuntimeError(f"FFmpeg rendering gagal: {str(e)[:200]}")
+                raise RuntimeError(f"Fengine rendering gagal: {str(e)[:200]}")
 
             yield sse_event({'step': 'C_done', 'status': 'done'})
 
