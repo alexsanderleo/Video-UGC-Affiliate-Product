@@ -741,28 +741,39 @@
 
     // === Multi-Page / Tab Navigation ===
     const menuBtnGenerator = document.getElementById('menuBtnGenerator');
+    const menuBtnBulkGenerator = document.getElementById('menuBtnBulkGenerator');
     const menuBtnConverter = document.getElementById('menuBtnConverter');
     const videoGeneratorPage = document.getElementById('videoGeneratorPage');
+    const bulkGeneratorPage = document.getElementById('bulkGeneratorPage');
     const convertVideoPage = document.getElementById('convertVideoPage');
 
-    if (menuBtnGenerator && menuBtnConverter && videoGeneratorPage && convertVideoPage) {
-        menuBtnGenerator.addEventListener('click', () => {
-            menuBtnGenerator.classList.add('active');
-            menuBtnConverter.classList.remove('active');
-            videoGeneratorPage.classList.add('active');
-            videoGeneratorPage.style.display = 'block';
-            convertVideoPage.classList.remove('active');
-            convertVideoPage.style.display = 'none';
+    function switchTab(activeBtn, activePage) {
+        [menuBtnGenerator, menuBtnBulkGenerator, menuBtnConverter].forEach(btn => {
+            if (btn) btn.classList.remove('active');
+        });
+        [videoGeneratorPage, bulkGeneratorPage, convertVideoPage].forEach(page => {
+            if (page) {
+                page.classList.remove('active');
+                page.style.display = 'none';
+            }
         });
 
-        menuBtnConverter.addEventListener('click', () => {
-            menuBtnConverter.classList.add('active');
-            menuBtnGenerator.classList.remove('active');
-            convertVideoPage.classList.add('active');
-            convertVideoPage.style.display = 'block';
-            videoGeneratorPage.classList.remove('active');
-            videoGeneratorPage.style.display = 'none';
-        });
+        if (activeBtn) activeBtn.classList.add('active');
+        if (activePage) {
+            activePage.classList.add('active');
+            activePage.style.display = 'block';
+        }
+    }
+
+    if (menuBtnGenerator) {
+        menuBtnGenerator.addEventListener('click', () => switchTab(menuBtnGenerator, videoGeneratorPage));
+    }
+    if (menuBtnBulkGenerator) {
+        menuBtnBulkGenerator.addEventListener('click', () => switchTab(menuBtnBulkGenerator, bulkGeneratorPage));
+    }
+    if (menuBtnConverter) {
+        menuBtnConverter.addEventListener('click', () => switchTab(menuBtnConverter, convertVideoPage));
+    }
     }
 
     // === Convert Video Size Logic ===
@@ -1054,6 +1065,555 @@
         }, 300);
 
         showToast('✅ Video berhasil dikompresi!', false);
+    }
+
+    // === Generate Video Massal Logic ===
+    const bulkDropZone = document.getElementById('bulkDropZone');
+    const bulkDropZoneContent = document.getElementById('bulkDropZoneContent');
+    const bulkFileInput = document.getElementById('bulkFileInput');
+    const bulkQueueList = document.getElementById('bulkQueueList');
+    const bulkDashboard = document.getElementById('bulkDashboard');
+
+    const bulkStatTotal = document.getElementById('bulkStatTotal');
+    const bulkStatQueue = document.getElementById('bulkStatQueue');
+    const bulkStatActive = document.getElementById('bulkStatActive');
+    const bulkStatDone = document.getElementById('bulkStatDone');
+    const bulkStatError = document.getElementById('bulkStatError');
+
+    const btnBulkStart = document.getElementById('btnBulkStart');
+    const btnBulkClear = document.getElementById('btnBulkClear');
+
+    const bulkVoiceSelect = document.getElementById('bulkVoiceSelect');
+    const bulkWatermarkMode = document.getElementById('bulkWatermarkMode');
+    const bulkWatermarkTextGroup = document.getElementById('bulkWatermarkTextGroup');
+    const bulkWatermarkLogoGroup = document.getElementById('bulkWatermarkLogoGroup');
+    const bulkWatermarkText = document.getElementById('bulkWatermarkText');
+    const bulkWatermarkPosition = document.getElementById('bulkWatermarkPosition');
+
+    const bulkLogoInput = document.getElementById('bulkLogoInput');
+    const bulkLogoUploadZone = document.getElementById('bulkLogoUploadZone');
+    const bulkLogoUploadContent = document.getElementById('bulkLogoUploadContent');
+    const bulkLogoPreview = document.getElementById('bulkLogoPreview');
+    const bulkLogoPreviewImg = document.getElementById('bulkLogoPreviewImg');
+    const btnRemoveBulkLogo = document.getElementById('btnRemoveBulkLogo');
+
+    let selectedBulkLogoFile = null;
+    let bulkQueue = [];
+    const MAX_CONCURRENT = 3;
+
+    // Toggle Watermark Group for Bulk Settings
+    if (bulkWatermarkMode) {
+        bulkWatermarkMode.addEventListener('change', () => {
+            const mode = bulkWatermarkMode.value;
+            if (mode === 'text') {
+                bulkWatermarkTextGroup.style.display = 'block';
+                bulkWatermarkLogoGroup.style.display = 'none';
+            } else {
+                bulkWatermarkTextGroup.style.display = 'none';
+                bulkWatermarkLogoGroup.style.display = 'block';
+            }
+        });
+    }
+
+    // Logo Upload for Bulk Settings
+    if (bulkLogoUploadZone) {
+        bulkLogoUploadZone.addEventListener('click', () => bulkLogoInput.click());
+    }
+
+    if (bulkLogoInput) {
+        bulkLogoInput.addEventListener('change', (e) => {
+            if (e.target.files.length > 0) {
+                const file = e.target.files[0];
+                if (!file.type.match(/image\/png/)) {
+                    showToast('❌ Hanya file .png yang diterima untuk logo!');
+                    return;
+                }
+                selectedBulkLogoFile = file;
+                const url = URL.createObjectURL(file);
+                bulkLogoPreviewImg.src = url;
+                bulkLogoUploadContent.style.display = 'none';
+                bulkLogoPreview.style.display = 'inline-flex';
+            }
+        });
+    }
+
+    if (btnRemoveBulkLogo) {
+        btnRemoveBulkLogo.addEventListener('click', (e) => {
+            e.stopPropagation();
+            selectedBulkLogoFile = null;
+            bulkLogoPreviewImg.src = '';
+            bulkLogoInput.value = '';
+            bulkLogoUploadContent.style.display = 'flex';
+            bulkLogoPreview.style.display = 'none';
+        });
+    }
+
+    // Video Selection and Drag-Drop for Bulk Page
+    if (bulkDropZone) {
+        bulkDropZone.addEventListener('click', (e) => {
+            if (e.target.closest('.btn-remove')) return;
+            bulkFileInput.click();
+        });
+
+        bulkFileInput.addEventListener('change', (e) => {
+            if (e.target.files.length > 0) {
+                handleBulkVideoFiles(e.target.files);
+            }
+        });
+
+        bulkDropZone.addEventListener('dragover', (e) => {
+            e.preventDefault();
+            e.stopPropagation();
+            bulkDropZone.classList.add('drag-over');
+        });
+
+        bulkDropZone.addEventListener('dragleave', (e) => {
+            e.preventDefault();
+            e.stopPropagation();
+            bulkDropZone.classList.remove('drag-over');
+        });
+
+        bulkDropZone.addEventListener('drop', (e) => {
+            e.preventDefault();
+            e.stopPropagation();
+            bulkDropZone.classList.remove('drag-over');
+            if (e.dataTransfer.files.length > 0) {
+                handleBulkVideoFiles(e.dataTransfer.files);
+            }
+        });
+    }
+
+    // Add Files to Queue
+    function handleBulkVideoFiles(files) {
+        if (bulkQueue.length + files.length > 20) {
+            showToast('❌ Maksimal 20 video dalam satu antrean massal!');
+            return;
+        }
+
+        let hasAdded = false;
+        for (let i = 0; i < files.length; i++) {
+            const file = files[i];
+            
+            // Format check
+            if (!file.type.match(/video\/mp4/) && !file.name.toLowerCase().endsWith('.mp4')) {
+                showToast(`❌ ${file.name} dilewati: Hanya file .mp4 yang diterima!`);
+                continue;
+            }
+
+            // Size check
+            if (file.size > MAX_FILE_SIZE) {
+                showToast(`❌ ${file.name} dilewati: Ukuran melebihi ${formatSize(MAX_FILE_SIZE)}`);
+                continue;
+            }
+
+            // Create unique job object
+            const job = {
+                id: 'bulk_' + Math.random().toString(36).substr(2, 9),
+                file: file,
+                status: 'pending', // 'pending' | 'processing' | 'success' | 'error'
+                progress: 0,
+                statusText: 'Menunggu Antrean...',
+                errorMsg: '',
+                outputUrl: '',
+                filename: '',
+                caption: '',
+                reader: null
+            };
+
+            bulkQueue.push(job);
+            hasAdded = true;
+        }
+
+        if (hasAdded) {
+            bulkDashboard.style.display = 'block';
+            updateBulkStats();
+            renderBulkQueue();
+            
+            // Auto scroll to queue
+            setTimeout(() => {
+                bulkDashboard.scrollIntoView({ behavior: 'smooth', block: 'start' });
+            }, 300);
+        }
+    }
+
+    // Update Statistics Counter
+    function updateBulkStats() {
+        const total = bulkQueue.length;
+        const queue = bulkQueue.filter(j => j.status === 'pending').length;
+        const active = bulkQueue.filter(j => j.status === 'processing').length;
+        const done = bulkQueue.filter(j => j.status === 'success').length;
+        const error = bulkQueue.filter(j => j.status === 'error').length;
+
+        bulkStatTotal.textContent = total;
+        bulkStatQueue.textContent = queue;
+        bulkStatActive.textContent = active;
+        bulkStatDone.textContent = done;
+        bulkStatError.textContent = error;
+
+        // Start button state
+        btnBulkStart.disabled = total === 0 || active > 0 || queue === 0;
+    }
+
+    // Render Queue Items in Grid
+    function renderBulkQueue() {
+        bulkQueueList.innerHTML = '';
+        if (bulkQueue.length === 0) {
+            bulkDashboard.style.display = 'none';
+            return;
+        }
+
+        bulkQueue.forEach(job => {
+            const card = document.createElement('div');
+            card.className = `queue-card status-${job.status}`;
+            card.id = `card_${job.id}`;
+
+            let outputHtml = '';
+            if (job.status === 'success') {
+                outputHtml = `
+                    <div class="queue-card-output">
+                        <div class="queue-card-video-wrapper">
+                            <video class="queue-card-video" src="${job.outputUrl}" controls></video>
+                        </div>
+                        <div class="queue-card-btn-container">
+                            <a href="${job.outputUrl}" download="${job.filename || 'video.mp4'}" class="queue-card-btn-download">
+                                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                                    <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/>
+                                    <polyline points="7 10 12 15 17 10"/>
+                                    <line x1="12" y1="15" x2="12" y2="3"/>
+                                </svg>
+                                Download
+                            </a>
+                        </div>
+                    </div>
+                `;
+            } else if (job.status === 'error') {
+                outputHtml = `
+                    <div style="margin-top: 12px;">
+                        <button class="btn-retry" data-id="${job.id}">
+                            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                                <path d="M21.5 2v6h-6M21.34 15.57a10 10 0 1 1-.57-8.38l5.67-5.67"/>
+                            </svg>
+                            Ulangi (Retry)
+                        </button>
+                    </div>
+                `;
+            }
+
+            card.innerHTML = `
+                <button class="queue-card-remove" data-id="${job.id}">&times;</button>
+                <div class="queue-card-header">
+                    <span class="queue-card-title" title="${job.file.name}">${job.file.name}</span>
+                    <span class="queue-card-size">${formatSize(job.file.size)}</span>
+                </div>
+                <div style="display: flex; justify-content: space-between; align-items: center;">
+                    <span class="queue-card-status-badge ${job.status}">${job.status === 'pending' ? 'Antrean' : job.status === 'processing' ? 'Proses' : job.status === 'success' ? 'Sukses' : 'Gagal'}</span>
+                </div>
+                <div class="queue-card-progress">
+                    <div class="queue-card-progress-bar-container">
+                        <div class="queue-card-progress-bar" style="width: ${job.progress}%"></div>
+                    </div>
+                    <span class="queue-card-progress-text" title="${job.statusText}">${job.statusText}</span>
+                </div>
+                ${outputHtml}
+            `;
+
+            // Attach card events
+            const btnRemove = card.querySelector('.queue-card-remove');
+            if (btnRemove) {
+                btnRemove.addEventListener('click', () => removeJobFromQueue(job.id));
+            }
+
+            const btnRetry = card.querySelector('.btn-retry');
+            if (btnRetry) {
+                btnRetry.addEventListener('click', () => retryJob(job.id));
+            }
+
+            bulkQueueList.appendChild(card);
+        });
+    }
+
+    // Remove Item from Queue
+    function removeJobFromQueue(id) {
+        const index = bulkQueue.findIndex(j => j.id === id);
+        if (index !== -1) {
+            const job = bulkQueue[index];
+            if (job.status === 'processing') {
+                showToast('⚠️ Video sedang diproses, tidak bisa dihapus!');
+                return;
+            }
+            bulkQueue.splice(index, 1);
+            updateBulkStats();
+            renderBulkQueue();
+        }
+    }
+
+    // Scheduler: concurrent worker execution
+    async function processBulkQueue() {
+        const activeJobs = bulkQueue.filter(j => j.status === 'processing');
+        const pendingJobs = bulkQueue.filter(j => j.status === 'pending');
+
+        if (activeJobs.length >= MAX_CONCURRENT || pendingJobs.length === 0) {
+            updateBulkStats();
+            return;
+        }
+
+        // Trigger up to MAX_CONCURRENT jobs concurrently
+        const vacantSlots = MAX_CONCURRENT - activeJobs.length;
+        const jobsToStart = pendingJobs.slice(0, vacantSlots);
+
+        jobsToStart.forEach(job => {
+            startBulkJob(job);
+        });
+
+        updateBulkStats();
+    }
+
+    // Start single job pipeline
+    async function startBulkJob(job) {
+        // Force Login Check per job execution (just in case they logged out mid-run)
+        const token = localStorage.getItem('token');
+        if (!token) {
+            authOverlay.style.display = 'flex';
+            loginForm.style.display = 'block';
+            registerForm.style.display = 'none';
+            authTitle.textContent = 'Login dahulu';
+            showToast('⚠️ Silakan login terlebih dahulu untuk melakukan generate massal!');
+            
+            // Revert job back to pending
+            job.status = 'pending';
+            job.progress = 0;
+            job.statusText = 'Menunggu Antrean...';
+            updateBulkStats();
+            renderBulkQueue();
+            return;
+        }
+
+        job.status = 'processing';
+        job.progress = 5;
+        job.statusText = 'Menghubungkan ke server...';
+        updateBulkStats();
+        renderBulkQueue();
+
+        const formData = new FormData();
+        formData.append('video', job.file);
+        formData.append('voice', bulkVoiceSelect.value);
+        formData.append('watermark_mode', bulkWatermarkMode.value);
+
+        if (bulkWatermarkMode.value === 'text') {
+            formData.append('watermark_text', bulkWatermarkText.value.trim());
+            formData.append('watermark_position', bulkWatermarkPosition.value);
+        } else if (selectedBulkLogoFile) {
+            formData.append('watermark_logo', selectedBulkLogoFile);
+        }
+
+        try {
+            // Register a task ID
+            const taskId = Date.now().toString() + '_' + Math.random().toString(36).substr(2, 5);
+            formData.append('task_id', taskId);
+
+            const headers = { 'Authorization': `Bearer ${token}` };
+
+            const response = await fetch('/api/generate', {
+                method: 'POST',
+                body: formData,
+                headers: headers
+            });
+
+            if (!response.ok) {
+                const errData = await response.json().catch(() => ({ error: 'Gagal memproses video di server' }));
+                throw new Error(errData.error || `HTTP ${response.status}`);
+            }
+
+            const reader = response.body.getReader();
+            job.reader = reader;
+            const decoder = new TextDecoder();
+            let buffer = '';
+            let finalResult = null;
+
+            job.progress = 10;
+            job.statusText = 'Menganalisis video dengan AI...';
+            updateBulkStats();
+            renderBulkQueue();
+
+            while (true) {
+                const { done, value } = await reader.read();
+                if (done) break;
+
+                buffer += decoder.decode(value, { stream: true });
+                const lines = buffer.split('\n');
+                buffer = lines.pop();
+
+                for (const line of lines) {
+                    if (line.startsWith('data: ')) {
+                        try {
+                            const data = JSON.parse(line.slice(6));
+                            handleJobProgressUpdate(job, data);
+                            if (data.status === 'complete') {
+                                finalResult = data;
+                            }
+                        } catch (e) { }
+                    }
+                }
+            }
+
+            if (buffer.startsWith('data: ')) {
+                try {
+                    const data = JSON.parse(buffer.slice(6));
+                    handleJobProgressUpdate(job, data);
+                    if (data.status === 'complete') {
+                        finalResult = data;
+                    }
+                } catch (e) { }
+            }
+
+            if (finalResult) {
+                job.status = 'success';
+                job.progress = 100;
+                job.statusText = '✓ Selesai';
+                job.outputUrl = finalResult.video_url;
+                job.filename = finalResult.filename;
+                job.caption = finalResult.caption;
+            } else {
+                throw new Error('Proses selesai tanpa hasil output');
+            }
+
+        } catch (err) {
+            console.error('Job error:', err);
+            job.status = 'error';
+            job.progress = 0;
+            job.statusText = '❌ Gagal: ' + err.message;
+        } finally {
+            job.reader = null;
+            updateBulkStats();
+            renderBulkQueue();
+            // Pull the next pending job instantly
+            processBulkQueue();
+        }
+    }
+
+    // Handle single job progress update
+    function handleJobProgressUpdate(job, data) {
+        switch (data.step) {
+            case 'A_start':
+                job.progress = 10;
+                job.statusText = 'AI menganalisis video...';
+                break;
+            case 'A_done':
+                job.progress = 35;
+                job.statusText = '✓ AI selesai menganalisis';
+                break;
+            case 'B_start':
+                job.progress = 40;
+                job.statusText = 'Generating suara AI...';
+                break;
+            case 'B_done':
+                job.progress = 60;
+                job.statusText = '✓ Suara AI selesai dibuat';
+                break;
+            case 'C_start':
+                job.progress = 65;
+                job.statusText = 'Rendering video final...';
+                break;
+            case 'C_progress':
+                if (data.percent) {
+                    const pct = 65 + (data.percent * 0.3); // 65-95%
+                    job.progress = Math.round(pct);
+                    job.statusText = `Rendering... ${Math.round(data.percent)}%`;
+                }
+                break;
+            case 'C_done':
+                job.progress = 98;
+                job.statusText = 'Menyimpan video...';
+                break;
+            case 'error':
+                job.status = 'error';
+                job.statusText = '❌ Gagal: ' + (data.message || 'Terjadi kesalahan');
+                break;
+        }
+
+        // Live update the card DOM element directly for extreme fast response
+        const cardEl = document.getElementById(`card_${job.id}`);
+        if (cardEl) {
+            const bar = cardEl.querySelector('.queue-card-progress-bar');
+            const txt = cardEl.querySelector('.queue-card-progress-text');
+            if (bar) bar.style.width = `${job.progress}%`;
+            if (txt) {
+                txt.textContent = job.statusText;
+                txt.title = job.statusText;
+            }
+        }
+    }
+
+    // Retry Failed Job
+    function retryJob(id) {
+        const job = bulkQueue.find(j => j.id === id);
+        if (job && job.status === 'error') {
+            const token = localStorage.getItem('token');
+            if (!token) {
+                authOverlay.style.display = 'flex';
+                loginForm.style.display = 'block';
+                registerForm.style.display = 'none';
+                authTitle.textContent = 'Login dahulu';
+                showToast('⚠️ Silakan login terlebih dahulu untuk melakukan retry!');
+                return;
+            }
+
+            job.status = 'pending';
+            job.progress = 0;
+            job.statusText = 'Menunggu Antrean...';
+            updateBulkStats();
+            renderBulkQueue();
+            processBulkQueue();
+        }
+    }
+
+    // Multi-start Trigger
+    if (btnBulkStart) {
+        btnBulkStart.addEventListener('click', () => {
+            const token = localStorage.getItem('token');
+            if (!token) {
+                authOverlay.style.display = 'flex';
+                loginForm.style.display = 'block';
+                registerForm.style.display = 'none';
+                authTitle.textContent = 'Login dahulu';
+                showToast('⚠️ Silakan login terlebih dahulu untuk memulai generate massal!');
+                return;
+            }
+
+            if (bulkWatermarkMode.value === 'logo' && !selectedBulkLogoFile) {
+                showToast('⚠️ Silakan upload logo watermark PNG terlebih dahulu!');
+                return;
+            }
+
+            showToast('⚡ Memulai pemrosesan massal paralel...', false);
+            processBulkQueue();
+        });
+    }
+
+    // Clear Bulk Queue
+    if (btnBulkClear) {
+        btnBulkClear.addEventListener('click', () => {
+            // Cancel any active readers
+            bulkQueue.forEach(job => {
+                if (job.reader) {
+                    try { job.reader.cancel(); } catch (e) { }
+                }
+            });
+            bulkQueue = [];
+            bulkFileInput.value = '';
+            selectedBulkLogoFile = null;
+            
+            if (bulkLogoPreview) {
+                bulkLogoPreviewImg.src = '';
+                bulkLogoInput.value = '';
+                bulkLogoUploadContent.style.display = 'flex';
+                bulkLogoPreview.style.display = 'none';
+            }
+
+            updateBulkStats();
+            renderBulkQueue();
+            showToast('🧹 Antrean dibersihkan!', false);
+        });
     }
 
     // === Init ===

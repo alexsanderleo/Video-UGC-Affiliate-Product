@@ -210,7 +210,8 @@
                         <span class="user-email-badge">Guest Mode</span>
                         <span class="user-role">Belum Login</span>
                     </div>
-                    <button id="btnSidebarLogin" class="btn-logout" title="Masuk / Daftar" style="color: var(--accent-secondary);">
+                    <button id="btnSidebarLogin" class="btn-logout" title="Masuk / Daftar"
+                        style="color: var(--accent-secondary);">
                         <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor"
                             stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
                             <path d="M15 3h4a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2h-4"></path>
@@ -227,6 +228,11 @@
                 <button class="menu-item active" id="menuBtnGenerator">
                     <span class="menu-icon">🎬</span>
                     <span class="menu-text">Buat Narasi Video</span>
+                </button>
+                <button class="menu-item" id="menuBtnBulkGenerator">
+                    <span class="menu-icon">📚</span>
+                    <span class="menu-text">Generate Video Massal</span>
+                    <span class="menu-badge" style="background: linear-gradient(135deg, #EC4899, #8B5CF6); font-size: 0.62rem; padding: 2px 6px; border-radius: 10px; color: white; font-weight: 700; margin-left: auto; letter-spacing: 0.5px; box-shadow: 0 0 10px rgba(236, 72, 153, 0.4);">PRO</span>
                 </button>
                 <button class="menu-item" id="menuBtnConverter">
                     <span class="menu-icon">🗜️</span>
@@ -593,6 +599,175 @@
                 </div>
             </div>
 
+            <!-- bulk-generator page -->
+            <div id="bulkGeneratorPage" class="page-container" style="display: none;">
+                <div class="app-container">
+                    <!-- Header -->
+                    <header class="app-header">
+                        <div class="header-glow"></div>
+                        <div class="header-content">
+                            <div class="logo-section">
+                                <div class="logo-icon">
+                                    <svg width="32" height="32" viewBox="0 0 32 32" fill="none">
+                                        <rect width="32" height="32" rx="8" fill="url(#logoGrad)" />
+                                        <path d="M12 10L22 16L12 22V10Z" fill="white" />
+                                    </svg>
+                                </div>
+                                <h1 class="app-title">Generate Video <span class="title-accent">Massal</span></h1>
+                            </div>
+                            <p class="app-subtitle">Unggah hingga 20 video sekaligus dan proses AI narasi premium secara massal & serentak</p>
+                        </div>
+                    </header>
+
+                    <!-- Main Content -->
+                    <main class="main-content">
+                        <!-- Universal Batch Settings Card -->
+                        <section class="input-section">
+                            <div class="card glass-card">
+                                <div class="card-header">
+                                    <div class="card-icon settings-icon" style="background: linear-gradient(135deg, #EC4899, #8B5CF6); display: flex; align-items: center; justify-content: center; width: 32px; height: 32px; border-radius: 8px; font-size: 16px; box-shadow: var(--shadow-sm);">⚙️</div>
+                                    <h2 class="card-title">Pengaturan Massal <span style="font-size:0.75rem; color:var(--text-secondary); font-weight:normal;">(Terapkan ke Semua Video)</span></h2>
+                                </div>
+                                
+                                <div class="bulk-settings-grid" style="display: grid; grid-template-columns: repeat(auto-fit, minmax(280px, 1fr)); gap: 20px; margin-top: 16px;">
+                                    <!-- Bulk Voice Selector -->
+                                    <div class="settings-col">
+                                        <label for="bulkVoiceSelect" class="input-label">Pilih Suara Narasi</label>
+                                        <div class="select-wrapper">
+                                            <select id="bulkVoiceSelect" class="select-input" style="width: 100%;">
+                                                <option value="id-ID-GadisNeural">👩 Gadis — Suara Wanita (Halus & Persuasif)</option>
+                                                <option value="id-ID-ArdiNeural">👨 Ardi — Suara Pria (Formal & Berwibawa)</option>
+                                            </select>
+                                            <div class="select-arrow">
+                                                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                                                    <polyline points="6 9 12 15 18 9" />
+                                                </svg>
+                                            </div>
+                                        </div>
+                                    </div>
+
+                                    <!-- Bulk Watermark Mode -->
+                                    <div class="settings-col">
+                                        <label for="bulkWatermarkMode" class="input-label">Jenis Watermark</label>
+                                        <div class="select-wrapper">
+                                            <select id="bulkWatermarkMode" class="select-input" style="width: 100%;">
+                                                <option value="text" selected>✍️ Watermark Teks</option>
+                                                <option value="logo">🖼️ Watermark Logo PNG</option>
+                                            </select>
+                                            <div class="select-arrow">
+                                                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                                                    <polyline points="6 9 12 15 18 9" />
+                                                </svg>
+                                            </div>
+                                        </div>
+                                    </div>
+                                </div>
+
+                                <!-- Dynamic Bulk Watermark Inputs -->
+                                <div id="bulkWatermarkTextGroup" style="margin-top: 16px;">
+                                    <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 16px; align-items: end;">
+                                        <div>
+                                            <label for="bulkWatermarkText" class="input-label">Teks Watermark</label>
+                                            <input type="text" id="bulkWatermarkText" class="text-input" placeholder="Contoh: @TokoSayaOfficial" value="@TokoSaya" maxlength="50">
+                                        </div>
+                                        <div>
+                                            <label for="bulkWatermarkPosition" class="input-label">Posisi Watermark</label>
+                                            <div class="select-wrapper">
+                                                <select id="bulkWatermarkPosition" class="select-input" style="width: 100%;">
+                                                    <option value="top-right">↗ Pojok Kanan Atas</option>
+                                                    <option value="top-left">↖ Pojok Kiri Atas</option>
+                                                    <option value="top-center">↑ Tengah Atas</option>
+                                                    <option value="center">⊕ Tengah</option>
+                                                    <option value="bottom-right" selected>↘ Pojok Kanan Bawah</option>
+                                                    <option value="bottom-left">↙ Pojok Kiri Bawah</option>
+                                                    <option value="bottom-center">↓ Tengah Bawah</option>
+                                                    <option value="random">🎲 Random (Pindah per 5 detik)</option>
+                                                </select>
+                                                <div class="select-arrow">
+                                                    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                                                        <polyline points="6 9 12 15 18 9" />
+                                                    </svg>
+                                                </div>
+                                            </div>
+                                        </div>
+                                    </div>
+                                </div>
+
+                                <div id="bulkWatermarkLogoGroup" style="display: none; margin-top: 16px;">
+                                    <label class="input-label">Upload Logo PNG Massal</label>
+                                    <div class="logo-upload-zone" id="bulkLogoUploadZone" style="max-width: 320px;">
+                                        <div class="logo-upload-content" id="bulkLogoUploadContent">
+                                            <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5">
+                                                <rect x="3" y="3" width="18" height="18" rx="2" ry="2" />
+                                                <circle cx="8.5" cy="8.5" r="1.5" />
+                                                <polyline points="21 15 16 10 5 21" />
+                                            </svg>
+                                            <span>Pilih file logo .png</span>
+                                        </div>
+                                        <div class="logo-preview" id="bulkLogoPreview" style="display:none;">
+                                            <img id="bulkLogoPreviewImg" alt="Logo preview">
+                                            <button class="btn-remove-sm" id="btnRemoveBulkLogo">×</button>
+                                        </div>
+                                    </div>
+                                    <input type="file" id="bulkLogoInput" accept=".png,image/png" hidden>
+                                </div>
+                            </div>
+
+                            <!-- Bulk Drag Drop Video Card -->
+                            <div class="card glass-card" style="margin-top: 16px;">
+                                <div class="card-header">
+                                    <div class="card-icon upload-icon" style="background: linear-gradient(135deg, #06B6D4, #0891B2); display: flex; align-items: center; justify-content: center; width: 32px; height: 32px; border-radius: 8px; font-size: 16px; box-shadow: var(--shadow-sm);">🎬</div>
+                                    <h2 class="card-title">Pilih Video Produk <span style="font-size:0.75rem; color:var(--text-secondary); font-weight:normal;">(Maksimal 20 Video)</span></h2>
+                                </div>
+                                <div class="drop-zone" id="bulkDropZone" style="padding: 40px 20px;">
+                                    <div class="drop-zone-content" id="bulkDropZoneContent">
+                                        <div class="drop-icon">
+                                            <svg width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round">
+                                                <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4" />
+                                                <polyline points="17 8 12 3 7 8" />
+                                                <line x1="12" y1="3" x2="12" y2="15" />
+                                            </svg>
+                                        </div>
+                                        <p class="drop-text" style="font-size: 1.1rem; font-weight:600; color:var(--text-primary);">Drag & drop file video di sini</p>
+                                        <p class="drop-subtext">Mendukung banyak file video MP4 sekaligus (Maks 100 MB per file)</p>
+                                    </div>
+                                    <input type="file" id="bulkFileInput" accept=".mp4,video/mp4" multiple hidden>
+                                </div>
+                            </div>
+
+                            <!-- Queue Controls and Status Pill -->
+                            <div class="bulk-dashboard card glass-card" id="bulkDashboard" style="margin-top: 16px; display: none;">
+                                <div class="bulk-stats" style="display: flex; flex-wrap: wrap; gap: 12px; align-items: center; justify-content: space-between; width: 100%;">
+                                    <div class="stats-pills" style="display: flex; flex-wrap: wrap; gap: 8px;">
+                                        <span class="spec-badge" style="background: rgba(255,255,255,0.06); font-weight:500;">📂 Total: <strong id="bulkStatTotal">0</strong></span>
+                                        <span class="spec-badge" style="background: rgba(59, 130, 246, 0.15); border-color: rgba(59, 130, 246, 0.3); color: #60A5FA; font-weight:500;">Mengantre: <strong id="bulkStatQueue">0</strong></span>
+                                        <span class="spec-badge" style="background: rgba(6, 182, 212, 0.15); border-color: rgba(6, 182, 212, 0.3); color: #22D3EE; font-weight:500;">Memproses: <strong id="bulkStatActive">0</strong></span>
+                                        <span class="spec-badge" style="background: rgba(16, 185, 129, 0.15); border-color: rgba(16, 185, 129, 0.3); color: #34D399; font-weight:500;">Selesai: <strong id="bulkStatDone">0</strong></span>
+                                        <span class="spec-badge" style="background: rgba(239, 68, 68, 0.15); border-color: rgba(239, 68, 68, 0.3); color: #F87171; font-weight:500;">Gagal: <strong id="bulkStatError">0</strong></span>
+                                    </div>
+                                    <div class="dashboard-actions" style="display: flex; gap: 10px; width: 100%; justify-content: flex-end; margin-top: 10px;">
+                                        <button class="toggle-btn" id="btnBulkClear" style="border:1px solid rgba(239, 68, 68, 0.3); color:#EF4444; background:rgba(239, 68, 68, 0.05);">❌ Bersihkan</button>
+                                        <button class="btn-generate" id="btnBulkStart" style="margin: 0; min-height: unset; padding: 8px 24px; font-size: 0.9rem; box-shadow: 0 0 15px rgba(16, 185, 129, 0.4);">
+                                            ⚡ Mulai Generate Massal
+                                        </button>
+                                    </div>
+                                </div>
+                            </div>
+
+                            <!-- Scrollable Queue List Grid -->
+                            <div class="queue-grid-container" style="margin-top: 20px;">
+                                <div id="bulkQueueList" class="queue-grid"></div>
+                            </div>
+                        </section>
+                    </main>
+
+                    <!-- Footer -->
+                    <footer class="app-footer">
+                        <p>Powered by <strong>Aulex SaaS Engine</strong> · <strong>Parallel Processing PRO</strong></p>
+                    </footer>
+                </div>
+            </div>
+
             <!-- convert-video page -->
             <div id="convertVideoPage" class="page-container" style="display: none;">
                 <div class="app-container">
@@ -801,7 +976,7 @@
 
                     <!-- Footer -->
                     <footer class="app-footer">
-                        <p>Powered by <strong>FFmpeg Engine</strong> · <strong>aaPanel optimization</strong></p>
+                        <p>Powered by <strong>Aulex Engine</strong> · <strong>HD Pro optimization</strong></p>
                     </footer>
                 </div>
             </div>
