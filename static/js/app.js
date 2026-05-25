@@ -1453,8 +1453,8 @@
                         <div class="queue-card-video-wrapper">
                             <video class="queue-card-video" src="${job.outputUrl}" controls></video>
                         </div>
-                        <div class="queue-card-btn-container">
-                            <a href="${job.outputUrl}" download="${job.filename || 'video.mp4'}" class="queue-card-btn-download">
+                        <div class="queue-card-btn-container" style="margin-bottom: 12px;">
+                            <a href="${job.outputUrl}" download="${job.filename || 'video.mp4'}" class="queue-card-btn-download" style="flex: 1;">
                                 <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
                                     <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/>
                                     <polyline points="7 10 12 15 17 10"/>
@@ -1462,6 +1462,50 @@
                                 </svg>
                                 Download
                             </a>
+                            <button type="button" class="btn-copy-caption-toggle" style="flex: 1; display: flex; align-items: center; justify-content: center; gap: 6px; padding: 8px; background: rgba(6, 182, 212, 0.12); border: 1px solid rgba(6, 182, 212, 0.25); color: var(--accent-secondary); border-radius: var(--radius-sm); font-size: 0.8rem; font-weight: 600; cursor: pointer; transition: all 0.2s;">
+                                📝 Caption Kit
+                            </button>
+                        </div>
+                        
+                        <!-- Collapsible Caption Kit Box -->
+                        <div class="queue-card-caption-panel" style="display: none; border-top: 1px solid rgba(255,255,255,0.06); padding-top: 12px; margin-top: 10px;">
+                            <div style="margin-bottom: 8px;">
+                                <label class="input-label" style="font-size: 0.7rem; margin-bottom: 2px;">Judul Video (Bisa Diedit)</label>
+                                <input type="text" class="text-input bulk-card-title-input" value="${job.title || 'Video Affiliate UGC'}" style="padding: 6px 10px; font-size: 0.78rem;">
+                            </div>
+                            
+                            <div style="margin-bottom: 8px;">
+                                <label class="input-label" style="font-size: 0.7rem; margin-bottom: 2px;">Link Promosi Afiliasi</label>
+                                <input type="text" class="text-input bulk-card-link-input" value="s.shopee.co.id/xxxx" style="padding: 6px 10px; font-size: 0.78rem;">
+                            </div>
+                            
+                            <div style="display: grid; grid-template-columns: 1fr; gap: 8px; margin-bottom: 8px;">
+                                <div>
+                                    <label class="input-label" style="font-size: 0.7rem; margin-bottom: 2px;">Teks CTA</label>
+                                    <div class="select-wrapper">
+                                        <select class="select-input bulk-card-cta-select" style="padding: 6px 10px; font-size: 0.78rem; width: 100%;">
+                                            <option value="Ambil Promo / Pesan Sekarang Klik Di Sini" selected>👉 Pesan Sekarang</option>
+                                            <option value="Checkout Sekarang Di Sini">👉 Checkout Sekarang</option>
+                                            <option value="Beli Di Sini">👉 Beli Di Sini</option>
+                                            <option value="Dapatkan Promo Spesial Di Sini">👉 Dapatkan Promo</option>
+                                            <option value="Klik Di Sini Untuk Berbelanja">👉 Klik Di Sini</option>
+                                        </select>
+                                    </div>
+                                </div>
+                                <div>
+                                    <label class="input-label" style="font-size: 0.7rem; margin-bottom: 2px;">Hashtags</label>
+                                    <input type="text" class="text-input bulk-card-hashtags-input" value="${job.hashtags || '#produkviral #racunshopee'}" style="padding: 6px 10px; font-size: 0.78rem;">
+                                </div>
+                            </div>
+                            
+                            <div style="margin-bottom: 8px;">
+                                <label class="input-label" style="font-size: 0.7rem; margin-bottom: 2px;">Preview Caption Akhir (Siap Post)</label>
+                                <textarea class="caption-textarea bulk-card-combined-textarea" readonly style="min-height: 110px; padding: 8px; font-size: 0.75rem; line-height: 1.4; margin-bottom: 8px;"></textarea>
+                            </div>
+                            
+                            <button type="button" class="btn-copy bulk-card-btn-copy" style="width: 100%; padding: 8px; font-size: 0.8rem;">
+                                Salin Semua Caption
+                            </button>
                         </div>
                     </div>
                 `;
@@ -1505,6 +1549,87 @@
             const btnRetry = card.querySelector('.btn-retry');
             if (btnRetry) {
                 btnRetry.addEventListener('click', () => retryJob(job.id));
+            }
+
+            // Attach copywriting & caption kit event handlers for successful bulk jobs
+            if (job.status === 'success') {
+                const btnToggle = card.querySelector('.btn-copy-caption-toggle');
+                const panel = card.querySelector('.queue-card-caption-panel');
+                
+                if (btnToggle && panel) {
+                    btnToggle.addEventListener('click', (e) => {
+                        e.stopPropagation();
+                        const isHidden = panel.style.display === 'none';
+                        panel.style.display = isHidden ? 'block' : 'none';
+                    });
+                }
+                
+                const titleInput = card.querySelector('.bulk-card-title-input');
+                const linkInput = card.querySelector('.bulk-card-link-input');
+                const ctaSelect = card.querySelector('.bulk-card-cta-select');
+                const hashtagsInput = card.querySelector('.bulk-card-hashtags-input');
+                const combinedTextarea = card.querySelector('.bulk-card-combined-textarea');
+                const btnCopyAll = card.querySelector('.bulk-card-btn-copy');
+                
+                function updateCardCombined() {
+                    if (!combinedTextarea) return;
+                    const title = titleInput ? titleInput.value.trim() : '';
+                    const link = linkInput ? linkInput.value.trim() : '';
+                    const cta = ctaSelect ? ctaSelect.value.trim() : '';
+                    const hashtags = hashtagsInput ? hashtagsInput.value.trim() : '';
+                    
+                    let combined = '';
+                    if (title) {
+                        combined += `${title}\n\n`;
+                    }
+                    
+                    if (job.narration) {
+                        combined += `${job.narration}\n\n`;
+                    }
+                    
+                    if (link) {
+                        combined += `👉 ${cta}: ${link}\n\n`;
+                    }
+                    
+                    if (hashtags) {
+                        combined += `${hashtags}`;
+                    }
+                    
+                    combinedTextarea.value = combined.trim();
+                }
+                
+                // Add event listeners
+                [titleInput, linkInput, ctaSelect, hashtagsInput].forEach(inputEl => {
+                    if (inputEl) {
+                        inputEl.addEventListener('input', updateCardCombined);
+                        inputEl.addEventListener('change', updateCardCombined);
+                    }
+                });
+                
+                // Initialize combined text
+                updateCardCombined();
+                
+                if (btnCopyAll && combinedTextarea) {
+                    btnCopyAll.addEventListener('click', async (e) => {
+                        e.stopPropagation();
+                        try {
+                            await navigator.clipboard.writeText(combinedTextarea.value);
+                            btnCopyAll.textContent = '✓ Tersalin!';
+                            btnCopyAll.style.background = '#10B981';
+                            setTimeout(() => {
+                                btnCopyAll.textContent = 'Salin Semua Caption';
+                                btnCopyAll.style.background = '';
+                            }, 2000);
+                        } catch (err) {
+                            combinedTextarea.select();
+                            document.execCommand('copy');
+                            btnCopyAll.textContent = '✓ Tersalin!';
+                            setTimeout(() => {
+                                btnCopyAll.textContent = 'Salin Semua Caption';
+                            }, 2000);
+                        }
+                    });
+                }
             }
 
             bulkQueueList.appendChild(card);
@@ -1683,8 +1808,11 @@
                 job.progress = 100;
                 job.statusText = '✓ Selesai';
                 job.outputUrl = finalResult.video_url;
-                job.filename = finalResult.filename;
+                job.filename = finalResult.friendly_filename || finalResult.filename;
                 job.caption = finalResult.caption;
+                job.title = finalResult.title || 'Video Affiliate UGC';
+                job.hashtags = finalResult.hashtags || '#produkviral #racunshopee';
+                job.narration = finalResult.narration || finalResult.caption || '';
             } else {
                 throw new Error('Proses selesai tanpa hasil output');
             }
