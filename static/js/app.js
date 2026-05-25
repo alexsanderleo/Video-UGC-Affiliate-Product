@@ -1337,6 +1337,19 @@
 
         // Start button state
         btnBulkStart.disabled = total === 0 || active > 0 || queue === 0;
+
+        // Download all successful button state
+        const btnBulkDownloadAll = document.getElementById('btnBulkDownloadAll');
+        if (btnBulkDownloadAll) {
+            btnBulkDownloadAll.disabled = done === 0;
+            if (done > 0) {
+                btnBulkDownloadAll.style.opacity = '1';
+                btnBulkDownloadAll.style.cursor = 'pointer';
+            } else {
+                btnBulkDownloadAll.style.opacity = '0.5';
+                btnBulkDownloadAll.style.cursor = 'not-allowed';
+            }
+        }
     }
 
     // Render Queue Items in Grid
@@ -1719,6 +1732,29 @@
             updateBulkStats();
             renderBulkQueue();
             showToast('🧹 Antrean dibersihkan!', false);
+        });
+     }
+
+    // Download All Successful Videos Sequentially
+    const btnBulkDownloadAll = document.getElementById('btnBulkDownloadAll');
+    if (btnBulkDownloadAll) {
+        btnBulkDownloadAll.addEventListener('click', () => {
+            const successfulJobs = bulkQueue.filter(j => j.status === 'success' && j.outputUrl);
+            if (successfulJobs.length === 0) {
+                showToast('⚠️ Tidak ada video sukses yang bisa di-download.');
+                return;
+            }
+            showToast(`📥 Mengunduh ${successfulJobs.length} video sukses...`, false);
+            successfulJobs.forEach((job, index) => {
+                setTimeout(() => {
+                    const link = document.createElement('a');
+                    link.href = job.outputUrl;
+                    link.download = job.filename || `video_${job.id}.mp4`;
+                    document.body.appendChild(link);
+                    link.click();
+                    document.body.removeChild(link);
+                }, index * 400);
+            });
         });
     }
 
