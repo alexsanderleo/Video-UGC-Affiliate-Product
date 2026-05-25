@@ -50,6 +50,7 @@ def publish_progress(job_id: str, data: dict):
     """Publish progress event to Redis Pub/Sub and save cache state."""
     channel = f"task_progress:{job_id}"
     state_key = f"task_state:{job_id}"
+    data["job_id"] = job_id  # Inject job_id for frontend tracking and cancel operations
     # Cache the latest state for 1 hour to prevent race conditions
     r_client.setex(state_key, 3600, json.dumps(data, ensure_ascii=False))
     # Publish to real-time subscribers
@@ -198,7 +199,8 @@ async def async_render_video(
             watermark_logo=logo_path,
             output_path=str(output_path),
             watermark_position=watermark_position,
-            subtitle_path=str(srt_path)
+            subtitle_path=str(srt_path),
+            job_id=job_id
         )
 
         publish_progress(job_id, {'step': 'C_done', 'status': 'done'})
@@ -327,7 +329,8 @@ async def async_convert_video(
             step_ffmpeg_compress,
             input_video=video_path,
             output_path=str(output_path),
-            crf=crf_level
+            crf=crf_level,
+            job_id=job_id
         )
         
         publish_progress(job_id, {'step': 'C_progress', 'percent': 90})

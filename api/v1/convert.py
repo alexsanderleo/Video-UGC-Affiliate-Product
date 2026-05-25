@@ -76,11 +76,14 @@ async def convert_video(
 
     # Offload execution to Celery Queue
     try:
-        convert_video_task.delay(
-            job_id=job_id,
-            video_path=str(video_path),
-            crf_level=crf_level,
-            user_id=current_user.id
+        convert_video_task.apply_async(
+            kwargs={
+                'job_id': job_id,
+                'video_path': str(video_path),
+                'crf_level': crf_level,
+                'user_id': current_user.id
+            },
+            task_id=job_id
         )
     except Exception as e:
         print(f"[WARNING] Celery worker could not be triggered (Redis is probably down): {e}")

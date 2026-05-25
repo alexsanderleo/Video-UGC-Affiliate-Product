@@ -482,8 +482,11 @@
 
                             <!-- Progress Panel -->
                             <div class="progress-panel" id="progressPanel" style="display:none;">
-                                <div class="progress-header">
-                                    <h3>Analisis AI sedang berjalan...</h3>
+                                <div class="progress-header" style="display: flex; justify-content: space-between; align-items: center; gap: 16px;">
+                                    <h3 style="margin: 0;">Analisis AI sedang berjalan...</h3>
+                                    <button type="button" id="btnCancelGenerate" class="toggle-btn" style="border: 1px solid rgba(239, 68, 68, 0.3); color: #EF4444; background: rgba(239, 68, 68, 0.05); padding: 4px 12px; font-size: 0.8rem; border-radius: 4px; cursor: pointer; transition: all 0.2s; white-space: nowrap;">
+                                        ⏹️ Batal
+                                    </button>
                                 </div>
                                 <div class="progress-steps">
                                     <div class="progress-step" id="stepA">
@@ -890,8 +893,11 @@
 
                             <!-- Progress Panel -->
                             <div class="progress-panel" id="convertProgressPanel" style="display:none;">
-                                <div class="progress-header">
-                                    <h3>Proses Konversi Sedang Berjalan...</h3>
+                                <div class="progress-header" style="display: flex; justify-content: space-between; align-items: center; gap: 16px;">
+                                    <h3 style="margin: 0;">Proses Konversi Sedang Berjalan...</h3>
+                                    <button type="button" id="btnCancelConvert" class="toggle-btn" style="border: 1px solid rgba(239, 68, 68, 0.3); color: #EF4444; background: rgba(239, 68, 68, 0.05); padding: 4px 12px; font-size: 0.8rem; border-radius: 4px; cursor: pointer; transition: all 0.2s; white-space: nowrap;">
+                                        ⏹️ Batal
+                                    </button>
                                 </div>
                                 <div class="progress-steps">
                                     <div class="progress-step" id="convertStepC">

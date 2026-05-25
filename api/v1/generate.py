@@ -109,15 +109,18 @@ async def generate_video(
 
     # Offload execution to Celery Queue
     try:
-        render_video_task.delay(
-            job_id=job_id,
-            video_path=str(video_path),
-            voice=voice,
-            watermark_mode=watermark_mode,
-            watermark_text=watermark_text or "",
-            watermark_position=watermark_position,
-            logo_path=logo_path,
-            user_id=current_user.id
+        render_video_task.apply_async(
+            kwargs={
+                'job_id': job_id,
+                'video_path': str(video_path),
+                'voice': voice,
+                'watermark_mode': watermark_mode,
+                'watermark_text': watermark_text or "",
+                'watermark_position': watermark_position,
+                'logo_path': logo_path,
+                'user_id': current_user.id
+            },
+            task_id=job_id
         )
     except Exception as e:
         print(f"[WARNING] Celery worker could not be triggered (Redis is probably down): {e}")
@@ -191,3 +194,97 @@ async def generate_video(
             "Connection": "keep-alive"
         }
     )
+
+
+@router.post(
+    "/cancel",
+    summary="Cancel ongoing video generation or conversion task",
+)
+async def cancel_generation(
+    payload: dict,
+    current_user: User = Depends(get_current_user),
+    db: AsyncSession = Depends(get_db),
+):
+    """
+    Cancel an ongoing task (either generator or converter) by job_id:
+    1. Verify current user owns this job
+    2. Terminate the active FFmpeg child PID (registered in Redis)
+    3. Revoke/terminate the Celery task
+    4. Publish failure/error message to SSE Redis channel
+    5. Update DB record status to failed
+    6. Clean up temporary files
+    """
+    from sqlalchemy import select
+    import redis
+    import signal
+    import os
+    from core.celery_app import celery_app
+    from core.pipeline import UPLOAD_DIR, TEMP_DIR, OUTPUT_DIR
+
+    job_id = payload.get("job_id")
+    if not job_id:
+        raise HTTPException(status_code=400, detail="Missing job_id in payload.")
+
+    # 1. Fetch job log & verify owner
+    result = await db.execute(
+        select(GenerationLog).where(GenerationLog.job_id == job_id)
+    )
+    log = result.scalar_one_or_none()
+    if not log:
+        raise HTTPException(status_code=404, detail="Job not found.")
+
+    if log.user_id != current_user.id:
+        raise HTTPException(status_code=403, detail="You do not have permission to abort this job.")
+
+    if log.status not in ["pending", "processing"]:
+        return {"status": "success", "message": f"Job is already finished with status '{log.status}'."}
+
+    # 2. Retrieve child FFmpeg PID from Redis and kill it
+    r_sync = redis.from_url(settings.REDIS_URL)
+    pid_key = f"task_pid:{job_id}"
+    pid_bytes = r_sync.get(pid_key)
+    if pid_bytes:
+        try:
+            pid = int(pid_bytes.decode('utf-8'))
+            print(f"[CANCEL] Killing FFmpeg subprocess PID {pid} for job {job_id}")
+            os.kill(pid, signal.SIGKILL)
+        except ProcessLookupError:
+            pass  # Already dead
+        except Exception as ex:
+            print(f"[CANCEL] Error killing PID: {ex}")
+        finally:
+            r_sync.delete(pid_key)
+
+    # 3. Publish error/cancel event to SSE Pub/Sub
+    channel = f"task_progress:{job_id}"
+    cancel_event = {
+        "step": "error",
+        "status": "error",
+        "message": "Proses dibatalkan oleh pengguna."
+    }
+    r_sync.publish(channel, json.dumps(cancel_event, ensure_ascii=False))
+    r_sync.close()
+
+    # 4. Revoke the Celery task
+    try:
+        celery_app.control.revoke(job_id, terminate=True, signal='SIGKILL')
+        print(f"[CANCEL] Revoked Celery task {job_id}")
+    except Exception as ce:
+        print(f"[CANCEL] Error revoking task: {ce}")
+
+    # 5. Update DB log status to failed
+    log.status = "failed"
+    log.error_message = "Proses dibatalkan oleh pengguna."
+    await db.commit()
+
+    # 6. Clean up temporary files associated with this job_id
+    for directory in [UPLOAD_DIR, TEMP_DIR, OUTPUT_DIR]:
+        for filepath in directory.glob(f"{job_id}*"):
+            try:
+                if filepath.exists():
+                    filepath.unlink()
+                    print(f"[CANCEL] Deleted temp file: {filepath.name}")
+            except Exception as fe:
+                print(f"[CANCEL] Error deleting file {filepath.name}: {fe}")
+
+    return {"status": "success", "message": "Proses rendering dan konversi berhasil dibatalkan."}

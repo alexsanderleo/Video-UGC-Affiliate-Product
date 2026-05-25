@@ -11,6 +11,31 @@ import asyncio
 import base64
 from pathlib import Path
 from openai import OpenAI
+from typing import Optional
+
+import redis
+from core.config import get_settings
+settings = get_settings()
+
+def register_task_pid(job_id: str, pid: int):
+    """Register running FFmpeg process PID in Redis for cancellation support."""
+    try:
+        r = redis.from_url(settings.REDIS_URL)
+        r.setex(f"task_pid:{job_id}", 3600, str(pid))
+        r.close()
+        print(f"[PID REG] Registered PID {pid} for job {job_id}")
+    except Exception as e:
+        print(f"[PID REG ERROR] Error: {e}")
+
+def unregister_task_pid(job_id: str):
+    """Remove FFmpeg process PID from Redis when finished."""
+    try:
+        r = redis.from_url(settings.REDIS_URL)
+        r.delete(f"task_pid:{job_id}")
+        r.close()
+        print(f"[PID UNREG] Unregistered PID for job {job_id}")
+    except Exception as e:
+        print(f"[PID UNREG ERROR] Error: {e}")
 
 # ============================================================
 # Directory Configuration
@@ -339,13 +364,14 @@ def generate_srt(narration_text: str, audio_duration: float, output_srt_path: st
 def step_c_ffmpeg(
     input_video: str,
     tts_audio: str,
-    backsound: str,
+    backsound: Optional[str],
     watermark_text: str,
     watermark_mode: str,
-    watermark_logo: str,
+    watermark_logo: Optional[str],
     output_path: str,
     watermark_position: str = 'top-right',
-    subtitle_path: str = None
+    subtitle_path: Optional[str] = None,
+    job_id: Optional[str] = None
 ):
     """Process video using FFmpeg with anti-copyright and watermark overlay."""
     # Dynamic font path for Windows vs Linux (aaPanel)
@@ -459,9 +485,27 @@ def step_c_ffmpeg(
         output_path
     ]
 
-    process = subprocess.run(cmd, capture_output=True, text=True, timeout=300)
+    process = subprocess.Popen(
+        cmd,
+        stdout=subprocess.PIPE,
+        stderr=subprocess.PIPE,
+        text=True
+    )
+    if job_id:
+        register_task_pid(job_id, process.pid)
+        
+    try:
+        stdout, stderr = process.communicate(timeout=300)
+    except subprocess.TimeoutExpired:
+        process.kill()
+        stdout, stderr = process.communicate()
+        raise RuntimeError("FFmpeg process timed out (300 seconds limit exceeded).")
+    finally:
+        if job_id:
+            unregister_task_pid(job_id)
+            
     if process.returncode != 0:
-        stderr_last = process.stderr[-1500:] if process.stderr else 'No stderr'
+        stderr_last = stderr[-1500:] if stderr else 'No stderr'
         raise RuntimeError(f"FFmpeg render failed. Error: {stderr_last[-300:]}")
         
     if not Path(output_path).exists():
@@ -471,7 +515,8 @@ def step_c_ffmpeg(
 def step_ffmpeg_compress(
     input_video: str,
     output_path: str,
-    crf: int = 26
+    crf: int = 26,
+    job_id: Optional[str] = None
 ):
     """Compress video using FFmpeg: converts any video format to MP4 with optimal CRF size reduction."""
     cmd = [
@@ -487,9 +532,27 @@ def step_ffmpeg_compress(
         output_path
     ]
     
-    process = subprocess.run(cmd, capture_output=True, text=True, timeout=300)
+    process = subprocess.Popen(
+        cmd,
+        stdout=subprocess.PIPE,
+        stderr=subprocess.PIPE,
+        text=True
+    )
+    if job_id:
+        register_task_pid(job_id, process.pid)
+        
+    try:
+        stdout, stderr = process.communicate(timeout=300)
+    except subprocess.TimeoutExpired:
+        process.kill()
+        stdout, stderr = process.communicate()
+        raise RuntimeError("FFmpeg compression process timed out (300 seconds limit exceeded).")
+    finally:
+        if job_id:
+            unregister_task_pid(job_id)
+            
     if process.returncode != 0:
-        stderr_last = process.stderr[-1500:] if process.stderr else 'No stderr'
+        stderr_last = stderr[-1500:] if stderr else 'No stderr'
         raise RuntimeError(f"FFmpeg compression failed. Error: {stderr_last[-300:]}")
         
     if not Path(output_path).exists():

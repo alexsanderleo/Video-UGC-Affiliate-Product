@@ -57,6 +57,8 @@
     let selectedLogoFile = null;
     let watermarkMode = 'text'; // 'text' or 'logo'
     let isProcessing = false;
+    let activeGenerateJobId = null;
+    let activeConvertJobId = null;
 
     // === Constants ===
     const MAX_FILE_SIZE = 100 * 1024 * 1024; // 100 MB
@@ -433,8 +435,13 @@
                             if (data.status === 'complete') {
                                 finalResult = data;
                             }
+                            if (data.status === 'error' || data.step === 'error') {
+                                throw new Error(data.message || 'Proses dihentikan.');
+                            }
                         } catch (e) {
-                            // Ignore parse errors for incomplete chunks
+                            if (e.message === 'Proses dihentikan.' || e.message.includes('dibatalkan')) {
+                                throw e;
+                            }
                         }
                     }
                 }
@@ -478,9 +485,12 @@
     });
 
     function handleProgressUpdate(data) {
+        if (data && data.job_id) {
+            activeGenerateJobId = data.job_id;
+        }
         switch (data.step) {
             case 'A_start':
-                setStepState(stepA, stepAStatus, 'active', 'Menganalisis video dengan Qwen AI...');
+                setStepState(stepA, stepAStatus, 'active', 'Menganalisis video dengan AI...');
                 progressBar.style.width = '10%';
                 btnLoadingText.textContent = 'AI menganalisis video...';
                 break;
@@ -498,7 +508,7 @@
                 progressBar.style.width = '60%';
                 break;
             case 'C_start':
-                setStepState(stepC, stepCStatus, 'active', 'Merender video final dengan FFmpeg...');
+                setStepState(stepC, stepCStatus, 'active', 'Merender video final dengan FENGINE...');
                 progressBar.style.width = '65%';
                 btnLoadingText.textContent = 'FFmpeg rendering video...';
                 break;
@@ -994,7 +1004,14 @@
                                 if (data.status === 'complete') {
                                     finalResult = data;
                                 }
-                            } catch (e) { }
+                                if (data.status === 'error' || data.step === 'error') {
+                                    throw new Error(data.message || 'Proses dihentikan.');
+                                }
+                            } catch (e) {
+                                if (e.message === 'Proses dihentikan.' || e.message.includes('dibatalkan')) {
+                                    throw e;
+                                }
+                            }
                         }
                     }
                 }
@@ -1030,6 +1047,9 @@
     }
 
     function handleConvertProgressUpdate(data) {
+        if (data && data.job_id) {
+            activeConvertJobId = data.job_id;
+        }
         switch (data.step) {
             case 'C_start':
                 setStepState(convertStepC, convertStepCStatus, 'active', 'Mengkompresi video dengan FFmpeg...');
@@ -1199,7 +1219,7 @@
         let hasAdded = false;
         for (let i = 0; i < files.length; i++) {
             const file = files[i];
-            
+
             // Format check
             if (!file.type.match(/video\/mp4/) && !file.name.toLowerCase().endsWith('.mp4')) {
                 showToast(`❌ ${file.name} dilewati: Hanya file .mp4 yang diterima!`);
@@ -1234,7 +1254,7 @@
             bulkDashboard.style.display = 'block';
             updateBulkStats();
             renderBulkQueue();
-            
+
             // Auto scroll to queue
             setTimeout(() => {
                 bulkDashboard.scrollIntoView({ behavior: 'smooth', block: 'start' });
@@ -1339,12 +1359,23 @@
     }
 
     // Remove Item from Queue
-    function removeJobFromQueue(id) {
+    async function removeJobFromQueue(id) {
         const index = bulkQueue.findIndex(j => j.id === id);
         if (index !== -1) {
             const job = bulkQueue[index];
             if (job.status === 'processing') {
-                showToast('⚠️ Video sedang diproses, tidak bisa dihapus!');
+                if (confirm('Apakah Anda yakin ingin membatalkan dan menghapus proses video ini?')) {
+                    if (job.backendJobId) {
+                        await cancelJob(job.backendJobId);
+                    }
+                    if (job.reader) {
+                        try { job.reader.cancel(); } catch (e) { }
+                    }
+                    bulkQueue.splice(index, 1);
+                    updateBulkStats();
+                    renderBulkQueue();
+                    processBulkQueue(); // Pull next item
+                }
                 return;
             }
             bulkQueue.splice(index, 1);
@@ -1384,7 +1415,7 @@
             registerForm.style.display = 'none';
             authTitle.textContent = 'Login dahulu';
             showToast('⚠️ Silakan login terlebih dahulu untuk melakukan generate massal!');
-            
+
             // Revert job back to pending
             job.status = 'pending';
             job.progress = 0;
@@ -1457,7 +1488,14 @@
                             if (data.status === 'complete') {
                                 finalResult = data;
                             }
-                        } catch (e) { }
+                            if (data.status === 'error' || data.step === 'error') {
+                                throw new Error(data.message || 'Proses dihentikan.');
+                            }
+                        } catch (e) {
+                            if (e.message === 'Proses dihentikan.' || e.message.includes('dibatalkan')) {
+                                throw e;
+                            }
+                        }
                     }
                 }
             }
@@ -1499,6 +1537,9 @@
 
     // Handle single job progress update
     function handleJobProgressUpdate(job, data) {
+        if (data && data.job_id) {
+            job.backendJobId = data.job_id;
+        }
         switch (data.step) {
             case 'A_start':
                 job.progress = 10;
@@ -1608,7 +1649,7 @@
             bulkQueue = [];
             bulkFileInput.value = '';
             selectedBulkLogoFile = null;
-            
+
             if (bulkLogoPreview) {
                 bulkLogoPreviewImg.src = '';
                 bulkLogoInput.value = '';
@@ -1619,6 +1660,57 @@
             updateBulkStats();
             renderBulkQueue();
             showToast('🧹 Antrean dibersihkan!', false);
+        });
+    }
+
+    // === Cancellation Helper ===
+    async function cancelJob(jobId) {
+        if (!jobId) return;
+        const token = localStorage.getItem('token');
+        if (!token) return;
+
+        try {
+            const response = await fetch('/api/v1/generate/cancel', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                    'Authorization': `Bearer ${token}`
+                },
+                body: JSON.stringify({ job_id: jobId })
+            });
+
+            if (!response.ok) {
+                const errData = await response.json().catch(() => ({ detail: 'Gagal membatalkan proses.' }));
+                throw new Error(errData.detail || 'Gagal membatalkan proses.');
+            }
+
+            const data = await response.json();
+            showToast('🛑 ' + data.message, false);
+        } catch (err) {
+            console.error('Cancel job error:', err);
+            showToast('❌ ' + err.message);
+        }
+    }
+
+    const btnCancelGenerate = document.getElementById('btnCancelGenerate');
+    if (btnCancelGenerate) {
+        btnCancelGenerate.addEventListener('click', () => {
+            if (activeGenerateJobId) {
+                cancelJob(activeGenerateJobId);
+            } else {
+                showToast('⚠️ Tidak ada proses yang sedang berjalan.');
+            }
+        });
+    }
+
+    const btnCancelConvert = document.getElementById('btnCancelConvert');
+    if (btnCancelConvert) {
+        btnCancelConvert.addEventListener('click', () => {
+            if (activeConvertJobId) {
+                cancelJob(activeConvertJobId);
+            } else {
+                showToast('⚠️ Tidak ada proses yang sedang berjalan.');
+            }
         });
     }
 
