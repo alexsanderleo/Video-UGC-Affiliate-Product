@@ -99,6 +99,7 @@ async def generate_video(
         voice=voice,
         watermark_mode=watermark_mode,
         watermark_text=watermark_text or "",
+        video_name=video.filename,
     )
     db.add(log)
 

@@ -70,6 +70,7 @@ async def convert_video(
         voice="convert",
         watermark_mode="convert",
         watermark_text=f"crf={crf_level}",
+        video_name=video.filename,
     )
     db.add(log)
     await db.commit()

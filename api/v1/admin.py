@@ -712,3 +712,192 @@ async def admin_force_logout(
     await db.commit()
     
     return HTMLResponse(render_user_row(user))
+
+
+@router.get(
+    "/active-tasks",
+    response_class=HTMLResponse,
+    summary="Get HTML table rows for currently running FFmpeg processes",
+)
+async def get_active_tasks(
+    db: AsyncSession = Depends(get_db),
+    admin: User = Depends(get_current_admin),
+):
+    """Fetch active tasks from Redis and match with database logs and users."""
+    import redis
+    r = redis.from_url(settings.REDIS_URL)
+    
+    # 1. Get all task_pid keys from Redis
+    try:
+        keys = r.keys("task_pid:*")
+    except Exception as e:
+        print(f"[ACTIVE TASKS ERROR] Error reading keys from Redis: {e}")
+        keys = []
+        
+    active_jobs = []
+    for key in keys:
+        try:
+            key_str = key.decode("utf-8")
+            job_id = key_str.split(":")[1]
+            pid_bytes = r.get(key_str)
+            pid = int(pid_bytes.decode("utf-8")) if pid_bytes else None
+            active_jobs.append({"job_id": job_id, "pid": pid})
+        except Exception as ex:
+            print(f"[ACTIVE TASKS ERROR] Parsing key error: {ex}")
+            
+    r.close()
+    
+    if not active_jobs:
+        return HTMLResponse("""
+        <tr>
+            <td colspan="6" class="px-6 py-6 text-center text-slate-500 text-sm font-medium">
+                Tidak ada proses rendering video (FFmpeg) yang sedang berjalan saat ini.
+            </td>
+        </tr>
+        """)
+        
+    # 2. Query details from database for these job_ids
+    job_ids = [j["job_id"] for j in active_jobs]
+    result = await db.execute(
+        select(GenerationLog, User.email)
+        .join(User, GenerationLog.user_id == User.id)
+        .where(GenerationLog.job_id.in_(job_ids))
+    )
+    logs_data = result.all()
+    
+    # Map job details
+    job_details = {log.job_id: (log, email) for log, email in logs_data}
+    
+    html = ""
+    for job in active_jobs:
+        job_id = job["job_id"]
+        pid = job["pid"]
+        
+        if job_id in job_details:
+            log, email = job_details[job_id]
+            video_name = log.video_name or "Unknown Video"
+            start_time = log.created_at.strftime("%H:%M:%S (%d %b)")
+            status_str = log.status.upper()
+        else:
+            # Fallback if not found in db yet
+            email = "Unknown User"
+            video_name = "Unknown Video"
+            start_time = "Unknown Start Time"
+            status_str = "RUNNING"
+            
+        html += f"""
+        <tr class="border-b border-slate-800/50 hover:bg-slate-900/30 transition" id="active-task-{job_id}">
+            <td class="px-6 py-4 whitespace-nowrap text-sm font-semibold text-slate-300">#{job_id}</td>
+            <td class="px-6 py-4 whitespace-nowrap text-sm text-indigo-400 font-semibold">{email}</td>
+            <td class="px-6 py-4 text-sm text-slate-300 max-w-xs truncate font-medium" title="{video_name}">{video_name}</td>
+            <td class="px-6 py-4 whitespace-nowrap text-sm text-slate-400">{start_time}</td>
+            <td class="px-6 py-4 whitespace-nowrap text-sm font-semibold text-slate-300">
+                <span class="inline-flex items-center px-2.5 py-1 rounded-full text-xs font-semibold bg-amber-500/10 text-amber-400 border border-amber-500/20 pulse">
+                    PID: {pid or 'N/A'} ({status_str})
+                </span>
+            </td>
+            <td class="px-6 py-4 whitespace-nowrap text-sm">
+                <button 
+                    hx-post="/api/v1/admin/active-tasks/{job_id}/kill"
+                    hx-confirm="Apakah Anda yakin ingin MEMBUNUH (Kill) paksa proses FFmpeg #{job_id} ini?"
+                    hx-target="#active-task-{job_id}"
+                    hx-swap="outerHTML"
+                    class="px-2.5 py-1.5 rounded-lg bg-rose-500/10 text-rose-400 border border-rose-500/20 font-semibold text-xs hover:bg-rose-500 hover:text-white transition duration-200"
+                    title="Kill Process"
+                >
+                    ⚡ Kill Paksa
+                </button>
+            </td>
+        </tr>
+        """
+    return HTMLResponse(html)
+
+
+@router.post(
+    "/active-tasks/{job_id}/kill",
+    response_class=HTMLResponse,
+    summary="Admin kills a running FFmpeg task",
+)
+async def admin_kill_task(
+    job_id: str,
+    db: AsyncSession = Depends(get_db),
+    admin: User = Depends(get_current_admin),
+):
+    """Admin forcibly terminates an active FFmpeg process and revokes its Celery task."""
+    import redis
+    import signal
+    import os
+    import json
+    from core.celery_app import celery_app
+    from core.pipeline import UPLOAD_DIR, TEMP_DIR, OUTPUT_DIR
+    
+    # 1. Fetch job log
+    result = await db.execute(
+        select(GenerationLog).where(GenerationLog.job_id == job_id)
+    )
+    log = result.scalar_one_or_none()
+    
+    # 2. Retrieve child FFmpeg PID from Redis and kill it
+    r_sync = redis.from_url(settings.REDIS_URL)
+    pid_key = f"task_pid:{job_id}"
+    pid_bytes = r_sync.get(pid_key)
+    
+    if pid_bytes:
+        try:
+            pid = int(pid_bytes.decode('utf-8'))
+            print(f"[ADMIN KILL] Killing FFmpeg subprocess PID {pid} for job {job_id}")
+            os.kill(pid, signal.SIGKILL)
+        except ProcessLookupError:
+            pass
+        except Exception as ex:
+            print(f"[ADMIN KILL ERROR] Error killing PID: {ex}")
+        finally:
+            r_sync.delete(pid_key)
+            
+    # 3. Publish error/cancel event to SSE Pub/Sub
+    channel = f"task_progress:{job_id}"
+    cancel_event = {
+        "step": "error",
+        "status": "error",
+        "message": "Proses dihentikan paksa oleh Administrator."
+    }
+    try:
+        r_sync.publish(channel, json.dumps(cancel_event, ensure_ascii=False))
+    except Exception:
+        pass
+    r_sync.close()
+    
+    # 4. Revoke the Celery task
+    try:
+        celery_app.control.revoke(job_id, terminate=True, signal='SIGKILL')
+        print(f"[ADMIN CANCEL] Revoked Celery task {job_id}")
+    except Exception as ce:
+        print(f"[ADMIN CANCEL ERROR] Error revoking task: {ce}")
+        
+    # 5. Update DB log status to failed
+    if log:
+        log.status = "failed"
+        log.error_message = "Dihentikan paksa oleh Administrator."
+        db.add(log)
+        await db.commit()
+        
+    # 6. Clean up temporary files
+    for directory in [UPLOAD_DIR, TEMP_DIR, OUTPUT_DIR]:
+        for filepath in directory.glob(f"{job_id}*"):
+            try:
+                if filepath.exists():
+                    filepath.unlink()
+            except Exception:
+                pass
+                
+    return HTMLResponse(f"""
+    <tr class="opacity-40 bg-rose-500/5" id="active-task-{job_id}">
+        <td class="px-6 py-4 whitespace-nowrap text-sm font-semibold text-slate-500">#{job_id}</td>
+        <td colspan="4" class="px-6 py-4 text-sm text-rose-400 font-semibold text-center">
+            ⚠️ Terhenti Paksa (Killed by Admin)
+        </td>
+        <td class="px-6 py-4 whitespace-nowrap text-sm">
+            <span class="text-rose-400 font-bold">TERBUNUH</span>
+        </td>
+    </tr>
+    """)
