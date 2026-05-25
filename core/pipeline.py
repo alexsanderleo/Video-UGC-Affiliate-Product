@@ -466,3 +466,32 @@ def step_c_ffmpeg(
         
     if not Path(output_path).exists():
         raise RuntimeError("FFmpeg completed but output file was not found.")
+
+
+def step_ffmpeg_compress(
+    input_video: str,
+    output_path: str,
+    crf: int = 26
+):
+    """Compress video using FFmpeg: converts any video format to MP4 with optimal CRF size reduction."""
+    cmd = [
+        FFMPEG_PATH, '-y',
+        '-i', input_video,
+        '-c:v', 'libx264',
+        '-crf', str(crf),
+        '-preset', 'fast',
+        '-vf', "scale='min(1920,iw)':-2",  # Scale down width to max 1920, maintain aspect ratio
+        '-c:a', 'aac',
+        '-b:a', '128k',
+        '-movflags', '+faststart',
+        output_path
+    ]
+    
+    process = subprocess.run(cmd, capture_output=True, text=True, timeout=300)
+    if process.returncode != 0:
+        stderr_last = process.stderr[-1500:] if process.stderr else 'No stderr'
+        raise RuntimeError(f"FFmpeg compression failed. Error: {stderr_last[-300:]}")
+        
+    if not Path(output_path).exists():
+        raise RuntimeError("FFmpeg completed but compressed file was not found.")
+

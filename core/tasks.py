@@ -35,7 +35,8 @@ from core.pipeline import (
     get_video_duration, get_audio_duration,
     step_a_video_understanding, step_b_tts,
     generate_srt, step_c_ffmpeg,
-    clean_script_for_tts, ensure_backsound
+    clean_script_for_tts, ensure_backsound,
+    step_ffmpeg_compress
 )
 from models.generation_log import GenerationLog
 
@@ -252,3 +253,130 @@ async def async_render_video(
                 Path(logo_path).unlink()
             except Exception:
                 pass
+
+
+@shared_task(name="core.tasks.convert_video")
+def convert_video_task(
+    job_id: str,
+    video_path: str,
+    crf_level: int,
+    user_id: int,
+):
+    """Celery task to run the video conversion & compression in background."""
+    return asyncio.run(
+        async_convert_video(
+            job_id, video_path, crf_level, user_id
+        )
+    )
+
+
+async def async_convert_video(
+    job_id: str,
+    video_path: str,
+    crf_level: int,
+    user_id: int,
+):
+    """Async pipeline implementation called inside Celery worker for video compression."""
+    from sqlalchemy.ext.asyncio import create_async_engine, async_sessionmaker, AsyncSession
+    from sqlalchemy.pool import NullPool
+    
+    _engine_kwargs = {"echo": settings.DEBUG, "future": True}
+    if "sqlite" not in settings.DATABASE_URL:
+        _engine_kwargs["poolclass"] = NullPool
+        
+    task_engine = create_async_engine(settings.DATABASE_URL, **_engine_kwargs)
+    task_session = async_sessionmaker(task_engine, class_=AsyncSession, expire_on_commit=False)
+
+    output_path = None
+    original_size = Path(video_path).stat().st_size if Path(video_path).exists() else 0
+
+    async def update_log(status_str: str, duration: float = 0.0, bandwidth: int = 0, error: str = None, video_name: str = None):
+        """Helper to update logging database record."""
+        async with task_session() as session:
+            result = await session.execute(
+                select(GenerationLog).where(GenerationLog.job_id == job_id)
+            )
+            log = result.scalar_one_or_none()
+            if log:
+                log.status = status_str
+                if video_name:
+                    log.video_name = video_name
+                if duration > 0:
+                    log.duration = duration
+                if bandwidth > 0:
+                    log.bandwidth_bytes = bandwidth
+                if error:
+                    log.error_message = error
+                await session.commit()
+
+    try:
+        # --- C_start ---
+        publish_progress(job_id, {'step': 'C_start', 'status': 'processing'})
+        await update_log("processing")
+
+        # Read video duration via ffprobe
+        video_duration = await asyncio.to_thread(get_video_duration, video_path)
+
+        output_filename = f"{job_id}_output_final.mp4"
+        output_path = settings.OUTPUT_DIR / output_filename
+
+        publish_progress(job_id, {'step': 'C_progress', 'percent': 10})
+        
+        # Run conversion & compression
+        await asyncio.to_thread(
+            step_ffmpeg_compress,
+            input_video=video_path,
+            output_path=str(output_path),
+            crf=crf_level
+        )
+        
+        publish_progress(job_id, {'step': 'C_progress', 'percent': 90})
+        await asyncio.sleep(0.5)
+
+        publish_progress(job_id, {'step': 'C_done', 'status': 'done'})
+
+        # Calculate compressed bandwidth metrics
+        compressed_size = Path(output_path).stat().st_size if Path(output_path).exists() else 0
+
+        # --- Complete ---
+        publish_progress(job_id, {
+            'step': 'complete',
+            'status': 'complete',
+            'video_url': f'/outputs/{output_filename}',
+            'filename': output_filename,
+            'original_size': original_size,
+            'compressed_size': compressed_size,
+            'saving_percent': round((1 - compressed_size / max(1, original_size)) * 100) if original_size > 0 else 0
+        })
+
+        await update_log(
+            status_str="success",
+            duration=video_duration,
+            bandwidth=compressed_size,
+            video_name=output_filename
+        )
+
+    except Exception as e:
+        publish_progress(job_id, {
+            'step': 'error',
+            'status': 'error',
+            'message': str(e)
+        })
+        await update_log(
+            status_str="failed",
+            error=str(e)
+        )
+    finally:
+        # Dispose task engine connection
+        try:
+            await task_engine.dispose()
+        except Exception:
+            pass
+
+        # Cleanup original uploaded video
+        if video_path and Path(video_path).exists():
+            try:
+                Path(video_path).unlink()
+            except Exception:
+                pass
+

@@ -129,4 +129,43 @@ C. MENJALANKAN MANUAL UNTUK MENAMPILKAN TRACEBACK ASLI (SANGAT DIREKOMENDASIKAN)
    
    *(Semua error asli Python, koneksi database, dan log Qwen/FFmpeg akan langsung 
      tercetak di layar Putty secara instan saat Anda mencoba mengakses website!)*
+
+-----------------------------------------------------------------------------
+6. PANDUAN DEPLOYMENT MENGGUNAKAN GIT
+-----------------------------------------------------------------------------
+Berikut adalah panduan lengkap cara melakukan sinkronisasi kode dari komputer lokal (PC/Mac) Anda ke server VPS aaPanel menggunakan Git.
+
+A. CARA GIT COMMIT DARI PC ATAU MAC (KOMPUTER LOKAL)
+   Lakukan langkah ini setiap kali Anda selesai melakukan perubahan kode di komputer Anda:
+   
+   1. Buka Terminal (Mac) atau Command Prompt/Git Bash (Windows) di folder project.
+   2. Pastikan posisi Anda berada di branch utama (misal: 'main'):
+      $ git branch
+   3. Tambahkan semua file yang mengalami perubahan ke dalam staging area:
+      $ git add .
+   4. Buat catatan commit (simpan riwayat perubahan kode):
+      $ git commit -m "feat: tambah menu convert video size dan sidebar premium"
+   5. Kirim (upload) perubahan kode lokal tersebut ke repository online (GitHub/GitLab):
+      $ git push origin main
+
+B. CARA GIT PULL KE VPS AAPANEL (UPDATE KODE DI SERVER)
+   Lakukan langkah ini untuk menarik pembaruan kode terbaru yang baru saja Anda push:
+   
+   1. Masuk ke VPS Anda menggunakan Terminal SSH atau Putty:
+      $ ssh root@154.26.139.162
+   2. Masuk ke direktori web/project Anda di VPS (sesuaikan nama folder web):
+      $ cd /www/wwwroot/ai.agomart.com
+   3. Tarik (download) perubahan kode dari GitHub/GitLab:
+      $ git pull origin main
+      
+      *(Catatan: Jika muncul error conflict akibat ada file yang tidak sengaja terubah langsung di VPS,
+      Anda dapat membatalkan perubahan lokal VPS tersebut dengan perintah: `$ git checkout -- .` 
+      lalu ulangi langkah `$ git pull origin main`)*
+      
+   4. Terapkan perubahan dengan me-restart server backend dan Celery worker:
+      $ supervisorctl restart all
+      
+      *atau matikan paksa port 8000 dan muat ulang Supervisor:*
+      $ fuser -k 8000/tcp
+      $ supervisorctl reload
 =============================================================================

@@ -659,16 +659,319 @@
             authOverlay.style.display = 'none';
             userProfile.style.display = 'flex';
             userEmailBadge.textContent = userData.email;
+            
+            const appSidebar = document.getElementById('appSidebar');
+            if (appSidebar) appSidebar.style.display = 'flex';
         } catch (err) {
             localStorage.removeItem('token');
             localStorage.removeItem('email');
             authOverlay.style.display = 'flex';
             userProfile.style.display = 'none';
+            
+            const appSidebar = document.getElementById('appSidebar');
+            if (appSidebar) appSidebar.style.display = 'none';
         }
+    }
+
+    // === Multi-Page / Tab Navigation ===
+    const menuBtnGenerator = document.getElementById('menuBtnGenerator');
+    const menuBtnConverter = document.getElementById('menuBtnConverter');
+    const videoGeneratorPage = document.getElementById('videoGeneratorPage');
+    const convertVideoPage = document.getElementById('convertVideoPage');
+
+    if (menuBtnGenerator && menuBtnConverter && videoGeneratorPage && convertVideoPage) {
+        menuBtnGenerator.addEventListener('click', () => {
+            menuBtnGenerator.classList.add('active');
+            menuBtnConverter.classList.remove('active');
+            videoGeneratorPage.classList.add('active');
+            videoGeneratorPage.style.display = 'block';
+            convertVideoPage.classList.remove('active');
+            convertVideoPage.style.display = 'none';
+        });
+
+        menuBtnConverter.addEventListener('click', () => {
+            menuBtnConverter.classList.add('active');
+            menuBtnGenerator.classList.remove('active');
+            convertVideoPage.classList.add('active');
+            convertVideoPage.style.display = 'block';
+            videoGeneratorPage.classList.remove('active');
+            videoGeneratorPage.style.display = 'none';
+        });
+    }
+
+    // === Convert Video Size Logic ===
+    const convertDropZone = document.getElementById('convertDropZone');
+    const convertDropZoneContent = document.getElementById('convertDropZoneContent');
+    const convertDropZonePreview = document.getElementById('convertDropZonePreview');
+    const convertPreviewVideo = document.getElementById('convertPreviewVideo');
+    const convertPreviewInfo = document.getElementById('convertPreviewInfo');
+    const convertFileInput = document.getElementById('convertFileInput');
+    const btnRemoveConvertVideo = document.getElementById('btnRemoveConvertVideo');
+    const compressionSelect = document.getElementById('compressionSelect');
+    const btnConvert = document.getElementById('btnConvert');
+    const btnConvertContent = document.getElementById('btnConvertContent');
+    const btnConvertLoading = document.getElementById('btnConvertLoading');
+    const btnConvertLoadingText = document.getElementById('btnConvertLoadingText');
+    const convertProgressPanel = document.getElementById('convertProgressPanel');
+    const convertProgressBar = document.getElementById('convertProgressBar');
+    const convertStepC = document.getElementById('convertStepC');
+    const convertStepCStatus = document.getElementById('convertStepCStatus');
+    const convertOutputSection = document.getElementById('convertOutputSection');
+    const convertOutputVideo = document.getElementById('convertOutputVideo');
+    const btnConvertDownload = document.getElementById('btnConvertDownload');
+    const comparisonSavingPct = document.getElementById('comparisonSavingPct');
+    const comparisonOriginalSize = document.getElementById('comparisonOriginalSize');
+    const comparisonCompressedSize = document.getElementById('comparisonCompressedSize');
+
+    let selectedConvertVideoFile = null;
+    let isConverting = false;
+
+    function updateConvertBtn() {
+        const hasVideo = selectedConvertVideoFile !== null;
+        btnConvert.disabled = !hasVideo || isConverting;
+    }
+
+    async function handleConvertVideoFile(file) {
+        if (!file.type.startsWith('video/') && !file.name.toLowerCase().match(/\.(mp4|mkv|avi|mov|webm)$/)) {
+            showToast('❌ Hanya file video yang diterima!');
+            return;
+        }
+
+        if (file.size > MAX_FILE_SIZE) {
+            showToast(`❌ Ukuran file terlalu besar! Maksimal ${formatSize(MAX_FILE_SIZE)}`);
+            return;
+        }
+
+        try {
+            const duration = await getVideoDuration(file);
+            selectedConvertVideoFile = file;
+            showConvertVideoPreview(file, duration);
+            updateConvertBtn();
+        } catch (err) {
+            selectedConvertVideoFile = file;
+            showConvertVideoPreview(file, 0);
+            updateConvertBtn();
+        }
+    }
+
+    function showConvertVideoPreview(file, duration) {
+        const url = URL.createObjectURL(file);
+        convertPreviewVideo.src = url;
+        convertPreviewInfo.innerHTML = `
+            <span>📁 ${file.name}</span>
+            <span>💾 ${formatSize(file.size)}</span>
+            ${duration > 0 ? `<span>⏱️ ${formatDuration(duration)}</span>` : ''}
+        `;
+
+        convertDropZoneContent.style.display = 'none';
+        convertDropZonePreview.style.display = 'flex';
+        convertDropZone.classList.add('has-file');
+    }
+
+    function removeConvertVideo() {
+        selectedConvertVideoFile = null;
+        convertPreviewVideo.src = '';
+        convertDropZoneContent.style.display = 'flex';
+        convertDropZonePreview.style.display = 'none';
+        convertDropZone.classList.remove('has-file');
+        convertFileInput.value = '';
+        updateConvertBtn();
+    }
+
+    // Event Listeners for Conversion
+    if (convertDropZone) {
+        convertDropZone.addEventListener('click', (e) => {
+            if (e.target.closest('.btn-remove')) return;
+            convertFileInput.click();
+        });
+
+        convertFileInput.addEventListener('change', (e) => {
+            if (e.target.files.length > 0) {
+                handleConvertVideoFile(e.target.files[0]);
+            }
+        });
+
+        convertDropZone.addEventListener('dragover', (e) => {
+            e.preventDefault();
+            e.stopPropagation();
+            convertDropZone.classList.add('drag-over');
+        });
+
+        convertDropZone.addEventListener('dragleave', (e) => {
+            e.preventDefault();
+            e.stopPropagation();
+            convertDropZone.classList.remove('drag-over');
+        });
+
+        convertDropZone.addEventListener('drop', (e) => {
+            e.preventDefault();
+            e.stopPropagation();
+            convertDropZone.classList.remove('drag-over');
+            if (e.dataTransfer.files.length > 0) {
+                handleConvertVideoFile(e.dataTransfer.files[0]);
+            }
+        });
+    }
+
+    if (btnRemoveConvertVideo) {
+        btnRemoveConvertVideo.addEventListener('click', (e) => {
+            e.stopPropagation();
+            removeConvertVideo();
+        });
+    }
+
+    if (btnConvert) {
+        btnConvert.addEventListener('click', async () => {
+            if (!selectedConvertVideoFile || isConverting) return;
+
+            isConverting = true;
+            updateConvertBtn();
+
+            btnConvertContent.style.display = 'none';
+            btnConvertLoading.style.display = 'flex';
+            btnConvert.classList.add('processing');
+            btnConvertLoadingText.textContent = 'Memulai...';
+
+            convertProgressPanel.style.display = 'block';
+            convertOutputSection.style.display = 'none';
+            convertStepC.className = 'progress-step';
+            convertStepCStatus.textContent = 'Menunggu...';
+            convertProgressBar.style.width = '0%';
+
+            const formData = new FormData();
+            formData.append('video', selectedConvertVideoFile);
+            formData.append('crf_level', compressionSelect.value);
+
+            try {
+                setStepState(convertStepC, convertStepCStatus, 'active', 'Mengupload video ke server...');
+                convertProgressBar.style.width = '5%';
+                btnConvertLoadingText.textContent = 'Uploading...';
+
+                const token = localStorage.getItem('token');
+                const headers = {};
+                if (token) {
+                    headers['Authorization'] = `Bearer ${token}`;
+                }
+
+                const response = await fetch('/api/v1/convert', {
+                    method: 'POST',
+                    body: formData,
+                    headers: headers
+                });
+
+                if (!response.ok) {
+                    const errData = await response.json().catch(() => ({ detail: 'Server error' }));
+                    throw new Error(errData.detail || `HTTP ${response.status}`);
+                }
+
+                const reader = response.body.getReader();
+                const decoder = new TextDecoder();
+                let buffer = '';
+                let finalResult = null;
+
+                setStepState(convertStepC, convertStepCStatus, 'active', 'Memulai konversi di server...');
+                convertProgressBar.style.width = '15%';
+                btnConvertLoadingText.textContent = 'Processing...';
+
+                while (true) {
+                    const { done, value } = await reader.read();
+                    if (done) break;
+
+                    buffer += decoder.decode(value, { stream: true });
+                    const lines = buffer.split('\n');
+                    buffer = lines.pop();
+
+                    for (const line of lines) {
+                        if (line.startsWith('data: ')) {
+                            try {
+                                const data = JSON.parse(line.slice(6));
+                                handleConvertProgressUpdate(data);
+                                if (data.status === 'complete') {
+                                    finalResult = data;
+                                }
+                            } catch (e) { }
+                        }
+                    }
+                }
+
+                if (buffer.startsWith('data: ')) {
+                    try {
+                        const data = JSON.parse(buffer.slice(6));
+                        handleConvertProgressUpdate(data);
+                        if (data.status === 'complete') {
+                            finalResult = data;
+                        }
+                    } catch (e) { }
+                }
+
+                if (finalResult) {
+                    showConvertOutput(finalResult);
+                } else {
+                    throw new Error('Konversi selesai tanpa hasil');
+                }
+
+            } catch (err) {
+                console.error('Convert error:', err);
+                showToast('❌ ' + err.message);
+                setStepState(convertStepC, convertStepCStatus, 'error', 'Gagal: ' + err.message);
+            } finally {
+                isConverting = false;
+                btnConvertContent.style.display = 'flex';
+                btnConvertLoading.style.display = 'none';
+                btnConvert.classList.remove('processing');
+                updateConvertBtn();
+            }
+        });
+    }
+
+    function handleConvertProgressUpdate(data) {
+        switch (data.step) {
+            case 'C_start':
+                setStepState(convertStepC, convertStepCStatus, 'active', 'Mengkompresi video dengan FFmpeg...');
+                convertProgressBar.style.width = '20%';
+                btnConvertLoadingText.textContent = 'FFmpeg rendering...';
+                break;
+            case 'C_progress':
+                if (data.percent) {
+                    const pct = 20 + (data.percent * 0.8); // 20-100%
+                    convertProgressBar.style.width = pct + '%';
+                    setStepState(convertStepC, convertStepCStatus, 'active', `Mengkompresi... ${Math.round(data.percent)}%`);
+                }
+                break;
+            case 'C_done':
+                setStepState(convertStepC, convertStepCStatus, 'done', '✓ Video berhasil dikompresi');
+                convertProgressBar.style.width = '100%';
+                btnConvertLoadingText.textContent = 'Selesai!';
+                break;
+            case 'error':
+                showToast('❌ ' + (data.message || 'Terjadi kesalahan'));
+                break;
+        }
+    }
+
+    function showConvertOutput(result) {
+        convertOutputSection.style.display = 'block';
+        convertOutputVideo.src = result.video_url;
+        convertOutputVideo.load();
+
+        btnConvertDownload.href = result.video_url;
+        btnConvertDownload.download = result.filename || 'video_compressed.mp4';
+
+        comparisonSavingPct.textContent = `${result.saving_percent}%`;
+        comparisonOriginalSize.textContent = formatSize(result.original_size);
+        comparisonCompressedSize.textContent = formatSize(result.compressed_size);
+
+        setTimeout(() => {
+            convertOutputSection.scrollIntoView({ behavior: 'smooth', block: 'start' });
+        }, 300);
+
+        showToast('✅ Video berhasil dikompresi!', false);
     }
 
     // === Init ===
     initAuth();
     updateGenerateBtn();
+    updateConvertBtn();
 
 })();
+
