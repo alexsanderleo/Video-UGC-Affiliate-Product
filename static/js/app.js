@@ -840,7 +840,7 @@
         }
         const bulkSubSize = document.getElementById('bulkSubSize');
         if (bulkSubSize) {
-            bulkSubSize.value = 26; // reset to standard default
+            bulkSubSize.value = 70; // reset to standard default
             bulkSubSize.dispatchEvent(new Event('input'));
         }
         const bulkSubOpacity = document.getElementById('bulkSubOpacity');
@@ -1723,7 +1723,7 @@
 
         // Subtitle customization settings for bulk video generation
         const bulkSubFont = document.getElementById('bulkSubFont')?.value || 'Arial';
-        const bulkSubSize = document.getElementById('bulkSubSize')?.value || 26;
+        const bulkSubSize = document.getElementById('bulkSubSize')?.value || 70;
         const bulkSubColor = document.getElementById('bulkSubColor')?.value || '#FFFF00';
         const bulkSubSecColor = document.getElementById('bulkSubSecColor')?.value || '#FFFFFF';
         const bulkSubOpacity = document.getElementById('bulkSubOpacity')?.value || 1.0;
