@@ -335,7 +335,7 @@ def step_a_video_understanding(video_path: str, duration_seconds: int = 30) -> s
 # Step B: Edge-TTS — Text to Speech
 # ============================================================
 def step_b_tts(text: str, voice: str, output_path: str, srt_path: Optional[str] = None):
-    """Convert text to speech using Edge-TTS and optionally write SRT subtitles."""
+    """Convert text to speech using Edge-TTS and optionally write SRT/ASS subtitles."""
     import edge_tts
 
     print(f"[Step B] Generating TTS with voice: {voice}")
@@ -344,15 +344,20 @@ def step_b_tts(text: str, voice: str, output_path: str, srt_path: Optional[str] 
         if srt_path:
             communicate = edge_tts.Communicate(text, voice, boundary="WordBoundary")
             submaker = edge_tts.SubMaker()
+            word_events = []
             with open(output_path, "wb") as f:
                 async for chunk in communicate.stream():
                     if chunk["type"] == "audio":
                         f.write(chunk["data"])
                     elif chunk["type"] == "WordBoundary":
                         submaker.feed(chunk)
+                        word_events.append(chunk)
             
-            with open(srt_path, "w", encoding="utf-8") as f:
-                f.write(submaker.get_srt())
+            if srt_path.endswith('.ass'):
+                generate_ass(word_events, srt_path)
+            else:
+                with open(srt_path, "w", encoding="utf-8") as f:
+                    f.write(submaker.get_srt())
         else:
             communicate = edge_tts.Communicate(text, voice)
             await communicate.save(output_path)
@@ -491,6 +496,95 @@ def generate_srt(narration_text: str, audio_duration: float, output_srt_path: st
             print(f"       {line}")
     
     return output_srt_path
+
+
+def format_ass_time(seconds: float) -> str:
+    """Format seconds into ASS timestamp: H:MM:SS.cc"""
+    hours = int(seconds // 3600)
+    minutes = int((seconds % 3600) // 60)
+    secs = int(seconds % 60)
+    centiseconds = int(round((seconds % 1) * 100))
+    if centiseconds == 100:
+        centiseconds = 99
+    return f"{hours}:{minutes:02d}:{secs:02d}.{centiseconds:02d}"
+
+
+def generate_ass(word_events, ass_path):
+    """Generate ASS subtitle file with dynamic TikTok-style karaoke highlights."""
+    if not word_events:
+        return
+    
+    # 1. Group word events into lines (max 4 words per line or on long pauses / punctuation)
+    lines = []
+    current_line = []
+    
+    for i, event in enumerate(word_events):
+        text = event["text"]
+        start = event["offset"] / 10000000.0
+        duration = event["duration"] / 10000000.0
+        end = start + duration
+        
+        word_info = {
+            "text": text,
+            "start": start,
+            "end": end,
+            "duration": duration
+        }
+        
+        if not current_line:
+            current_line.append(word_info)
+        else:
+            prev_word = current_line[-1]
+            gap = start - prev_word["end"]
+            
+            is_punctuation = prev_word["text"][-1] in ('.', '!', '?', ',', ';') if prev_word["text"] else False
+            is_long_pause = gap > 0.4
+            is_max_words = len(current_line) >= 4
+            
+            if is_punctuation or is_long_pause or is_max_words:
+                lines.append(current_line)
+                current_line = [word_info]
+            else:
+                current_line.append(word_info)
+                
+    if current_line:
+        lines.append(current_line)
+        
+    ass_content = """[Script Info]
+ScriptType: v4.00+
+PlayResX: 720
+PlayResY: 1280
+
+[V4+ Styles]
+Format: Name, Fontname, Fontsize, PrimaryColour, SecondaryColour, OutlineColour, BackColour, Bold, Italic, Underline, StrikeOut, ScaleX, ScaleY, Spacing, Angle, BorderStyle, Outline, Shadow, Alignment, MarginL, MarginR, MarginV, Encoding
+Style: Default,Arial,26,&H0000FFFF,&H00FFFFFF,&H00000000,&H00000000,1,0,0,0,100,100,0,0,1,2,0,2,10,10,280,1
+
+[Events]
+Format: Layer, Start, End, Style, Name, MarginL, MarginR, MarginV, Effect, Text
+"""
+    
+    for line in lines:
+        line_start = line[0]["start"]
+        line_end = line[-1]["end"]
+        
+        dialogue_text = ""
+        for idx, w in enumerate(line):
+            if idx > 0:
+                gap = w["start"] - line[idx-1]["end"]
+                if gap > 0.01:
+                    gap_cs = int(round(gap * 100))
+                    dialogue_text += f"{{\\kf{gap_cs}}}"
+            
+            w_duration_cs = int(round(w["duration"] * 100))
+            dialogue_text += f"{{\\kf{w_duration_cs}}}{w['text']} "
+            
+        start_str = format_ass_time(line_start)
+        end_str = format_ass_time(line_end)
+        
+        ass_content += f"Dialogue: 0,{start_str},{end_str},Default,,0,0,0,,{dialogue_text.strip()}\n"
+        
+    with open(ass_path, "w", encoding="utf-8") as f:
+        f.write(ass_content)
 
 
 # ============================================================
@@ -759,7 +853,7 @@ def generate():
 
             tts_filename = f"{job_id}_narasi.mp3"
             tts_path = str(TEMP_DIR / tts_filename)
-            srt_filename = f"{job_id}_subtitles.srt"
+            srt_filename = f"{job_id}_subtitles.ass"
             srt_path = str(TEMP_DIR / srt_filename)
 
             try:

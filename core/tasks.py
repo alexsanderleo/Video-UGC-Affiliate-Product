@@ -168,7 +168,7 @@ async def async_render_video(
 
         tts_filename = f"{job_id}_narasi.mp3"
         tts_path = settings.TEMP_DIR / tts_filename
-        srt_filename = f"{job_id}_subtitles.srt"
+        srt_filename = f"{job_id}_subtitles.ass"
         srt_path = settings.TEMP_DIR / srt_filename
 
         # Call Edge-TTS asynchronously and generate subtitles simultaneously
