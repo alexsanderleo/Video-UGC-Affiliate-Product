@@ -339,36 +339,17 @@
                                         </div>
                                         <h2 class="card-title">Watermark</h2>
                                     </div>
-
-                                    <!-- Watermark Mode Toggle -->
-                                    <div class="watermark-toggle">
-                                        <button class="toggle-btn active" id="toggleText" data-mode="text">
-                                            <svg width="14" height="14" viewBox="0 0 24 24" fill="none"
-                                                stroke="currentColor" stroke-width="2">
-                                                <path d="M4 7V4h16v3" />
-                                                <path d="M9 20h6" />
-                                                <path d="M12 4v16" />
-                                            </svg>
-                                            Teks
-                                        </button>
-                                        <button class="toggle-btn" id="toggleLogo" data-mode="logo">
-                                            <svg width="14" height="14" viewBox="0 0 24 24" fill="none"
-                                                stroke="currentColor" stroke-width="2">
-                                                <rect x="3" y="3" width="18" height="18" rx="2" ry="2" />
-                                                <circle cx="8.5" cy="8.5" r="1.5" />
-                                                <polyline points="21 15 16 10 5 21" />
-                                            </svg>
-                                            Logo PNG
-                                        </button>
-                                    </div>
+                                    <p style="font-size: 0.75rem; color: var(--text-secondary); margin-bottom: 16px; margin-top: -4px;">
+                                        Kustomisasi video Anda dengan teks watermark, logo PNG transparan, atau keduanya sekaligus (fleksibel & opsional).
+                                    </p>
 
                                     <!-- Text Watermark Input -->
-                                    <div class="watermark-input" id="watermarkTextGroup">
+                                    <div class="watermark-input" id="watermarkTextGroup" style="margin-bottom: 16px;">
                                         <label for="watermarkText" class="input-label">Teks Watermark</label>
                                         <input type="text" id="watermarkText" class="text-input"
                                             placeholder="Contoh: @TokoSayaOfficial" maxlength="50">
                                         <label for="watermarkPosition" class="input-label"
-                                            style="margin-top:12px;">Posisi Watermark</label>
+                                            style="margin-top:12px;">Posisi Teks Watermark</label>
                                         <div class="select-wrapper">
                                             <select id="watermarkPosition" class="select-input">
                                                 <option value="top-right">↗ Pojok Kanan Atas</option>
@@ -389,9 +370,11 @@
                                         </div>
                                     </div>
 
-                                    <!-- Logo Upload Input (hidden by default) -->
-                                    <div class="watermark-input" id="watermarkLogoGroup" style="display:none;">
-                                        <label for="watermarkLogo" class="input-label">Upload Logo PNG</label>
+                                    <div style="border-top: 1px solid rgba(255,255,255,0.06); margin: 16px 0;"></div>
+
+                                    <!-- Logo Upload Input -->
+                                    <div class="watermark-input" id="watermarkLogoGroup" style="margin-bottom: 16px;">
+                                        <label for="watermarkLogo" class="input-label">Logo Watermark (PNG Transparan)</label>
                                         <div class="logo-upload-zone" id="logoUploadZone">
                                             <div class="logo-upload-content" id="logoUploadContent">
                                                 <svg width="24" height="24" viewBox="0 0 24 24" fill="none"
@@ -400,7 +383,7 @@
                                                     <circle cx="8.5" cy="8.5" r="1.5" />
                                                     <polyline points="21 15 16 10 5 21" />
                                                 </svg>
-                                                <span>Pilih file .png</span>
+                                                <span>Pilih file logo .png</span>
                                             </div>
                                             <div class="logo-preview" id="logoPreview" style="display:none;">
                                                 <img id="logoPreviewImg" alt="Logo preview">
@@ -411,7 +394,7 @@
                                     </div>
 
                                     <!-- Watermark Opacity -->
-                                    <div style="margin-top: 16px;">
+                                    <div style="margin-top: 16px; border-top: 1px solid rgba(255,255,255,0.06); padding-top: 12px;">
                                         <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 6px;">
                                             <label for="wmOpacity" class="input-label" style="margin: 0;">Opacity Watermark</label>
                                             <span id="wmOpacityVal" style="font-size: 0.85rem; font-weight: 600; color: var(--text-accent);">65%</span>

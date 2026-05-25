@@ -89,9 +89,9 @@ async def generate_video(
     with open(video_path, "wb") as buffer:
         shutil.copyfileobj(video.file, buffer)
         
-    # Save logo file if logo mode is chosen
+    # Save logo file if uploaded
     logo_path = None
-    if watermark_mode == "logo" and watermark_logo:
+    if watermark_logo:
         logo_filename = f"{job_id}_logo.png"
         logo_path = str(UPLOAD_DIR / logo_filename)
         with open(logo_path, "wb") as buffer:

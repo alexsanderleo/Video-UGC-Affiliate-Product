@@ -195,8 +195,12 @@ async def async_render_video(
         # --- Subtitles (Audio-Driven Sync) ---
         audio_duration = await asyncio.to_thread(get_audio_duration, str(tts_path))
 
-        # Generate subtitle SRT file (will skip because already created by step_b_tts)
-        await asyncio.to_thread(generate_srt, tts_text, audio_duration, str(srt_path))
+        # Generate subtitle SRT file (will skip because already created by step_b_tts, otherwise generates styled ASS fallback)
+        await asyncio.to_thread(
+            generate_srt, tts_text, audio_duration, str(srt_path),
+            sub_font=sub_font, sub_size=sub_size, sub_color=sub_color,
+            sub_sec_color=sub_sec_color, sub_opacity=sub_opacity
+        )
 
         # --- Step C: FFmpeg blend with anti-copyright ---
         publish_progress(job_id, {'step': 'C_start', 'status': 'processing'})

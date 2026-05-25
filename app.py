@@ -463,9 +463,18 @@ def split_text_to_sentences(text: str) -> list:
     return segments
 
 
-def generate_srt(narration_text: str, audio_duration: float, output_srt_path: str) -> str:
+def generate_srt(
+    narration_text: str,
+    audio_duration: float,
+    output_srt_path: str,
+    sub_font: str = "Arial",
+    sub_size: int = 26,
+    sub_color: str = "#FFFF00",
+    sub_sec_color: str = "#FFFFFF",
+    sub_opacity: float = 1.0,
+) -> str:
     """
-    Generate SRT subtitle file with timing synchronized to TTS audio duration.
+    Generate SRT or ASS subtitle file with timing synchronized to TTS audio duration.
     """
     import os
     if os.path.exists(output_srt_path):
@@ -478,38 +487,74 @@ def generate_srt(narration_text: str, audio_duration: float, output_srt_path: st
     if total_chars == 0:
         total_chars = 1  # prevent division by zero
     
-    print(f"[SRT] Generating {len(segments)} subtitle segments for {audio_duration:.2f}s audio")
-    
-    srt_content = ''
-    current_time = 0.0
-    
-    for i, segment in enumerate(segments):
-        # Calculate duration proportional to character count
-        char_ratio = len(segment) / total_chars
-        segment_duration = audio_duration * char_ratio
+    if output_srt_path.endswith('.ass'):
+        # Generate styled fallback ASS content (non-karaoke but styled ASS!)
+        ass_primary = convert_to_ass_color(sub_color, sub_opacity)
+        ass_secondary = convert_to_ass_color(sub_sec_color, sub_opacity)
         
-        # Minimum segment duration: 0.8 seconds
-        segment_duration = max(0.8, segment_duration)
+        ass_content = f"""[Script Info]
+ScriptType: v4.00+
+PlayResX: 720
+PlayResY: 1280
+
+[V4+ Styles]
+Format: Name, Fontname, Fontsize, PrimaryColour, SecondaryColour, OutlineColour, BackColour, Bold, Italic, Underline, StrikeOut, ScaleX, ScaleY, Spacing, Angle, BorderStyle, Outline, Shadow, Alignment, MarginL, MarginR, MarginV, Encoding
+Style: Default,{sub_font},{sub_size},{ass_primary},{ass_secondary},&H00000000,&H00000000,1,0,0,0,100,100,0,0,1,2,0,2,10,10,280,1
+
+[Events]
+Format: Layer, Start, End, Style, Name, MarginL, MarginR, MarginV, Effect, Text
+"""
+        current_time = 0.0
+        for i, segment in enumerate(segments):
+            char_ratio = len(segment) / total_chars
+            segment_duration = max(0.8, audio_duration * char_ratio)
+            
+            start_time = current_time
+            end_time = min(current_time + segment_duration, audio_duration)
+            
+            start_str = format_ass_time(start_time)
+            end_str = format_ass_time(end_time)
+            
+            ass_content += f"Dialogue: 0,{start_str},{end_str},Default,,0,0,0,,{segment}\n"
+            current_time = end_time
+            
+        with open(output_srt_path, 'w', encoding='utf-8') as f:
+            f.write(ass_content)
+            
+        print(f"[SRT] ASS Subtitle fallback file saved: {output_srt_path}")
+    else:
+        print(f"[SRT] Generating {len(segments)} subtitle segments for {audio_duration:.2f}s audio")
         
-        start_time = current_time
-        end_time = min(current_time + segment_duration, audio_duration)
+        srt_content = ''
+        current_time = 0.0
         
-        srt_content += f"{i + 1}\n"
-        srt_content += f"{seconds_to_srt_time(start_time)} --> {seconds_to_srt_time(end_time)}\n"
-        srt_content += f"{segment}\n\n"
+        for i, segment in enumerate(segments):
+            # Calculate duration proportional to character count
+            char_ratio = len(segment) / total_chars
+            segment_duration = audio_duration * char_ratio
+            
+            # Minimum segment duration: 0.8 seconds
+            segment_duration = max(0.8, segment_duration)
+            
+            start_time = current_time
+            end_time = min(current_time + segment_duration, audio_duration)
+            
+            srt_content += f"{i + 1}\n"
+            srt_content += f"{seconds_to_srt_time(start_time)} --> {seconds_to_srt_time(end_time)}\n"
+            srt_content += f"{segment}\n\n"
+            
+            current_time = end_time
         
-        current_time = end_time
-    
-    # Write SRT file
-    with open(output_srt_path, 'w', encoding='utf-8') as f:
-        f.write(srt_content)
-    
-    print(f"[SRT] Subtitle file saved: {output_srt_path}")
-    print(f"[SRT] Preview first 3 segments:")
-    for line in srt_content.split('\n')[:12]:
-        if line.strip():
-            print(f"       {line}")
-    
+        # Write SRT file
+        with open(output_srt_path, 'w', encoding='utf-8') as f:
+            f.write(srt_content)
+        
+        print(f"[SRT] Subtitle file saved: {output_srt_path}")
+        print(f"[SRT] Preview first 3 segments:")
+        for line in srt_content.split('\n')[:12]:
+            if line.strip():
+                print(f"       {line}")
+        
     return output_srt_path
 
 
@@ -700,65 +745,77 @@ def step_c_ffmpeg(
 
     print(f"[Step C] Watermark position: {watermark_position} -> {wm_x}, {wm_y}")
 
-    # Build filter_complex based on watermark mode
-    if watermark_mode == 'logo' and watermark_logo and Path(watermark_logo).exists():
-        # Logo overlay mode
-        filter_complex = (
-            f"[0:v]scale=720:1280,boxblur=20:5[bg];"
-            f"[0:v]scale=640:1136[main];"
-            f"[bg][main]overlay=(W-w)/2:(H-h)/2[vid_with_bg];"
+    # Build dynamic inputs and trace their indices
+    input_args = ['-i', input_video, '-i', tts_audio]
+    next_index = 2
+    
+    backsound_index = -1
+    if has_backsound:
+        input_args += ['-i', backsound]
+        backsound_index = next_index
+        next_index += 1
+        
+    logo_index = -1
+    has_logo = watermark_logo and Path(watermark_logo).exists()
+    if has_logo:
+        input_args += ['-i', watermark_logo]
+        logo_index = next_index
+        next_index += 1
+
+    # Base background and video blending filter
+    filter_complex = (
+        f"[0:v]scale=720:1280,boxblur=20:5[bg];"
+        f"[0:v]scale=640:1136[main];"
+        f"[bg][main]overlay=(W-w)/2:(H-h)/2[vid_with_bg]"
+    )
+    last_vid = "[vid_with_bg]"
+    
+    # 1. Overlay logo watermark if present
+    if logo_index != -1:
+        logo_out = "[vid_logo]" if watermark_text or (subtitle_path and Path(subtitle_path).exists()) else "[vid_final]"
+        filter_complex += (
+            f";[{logo_index}:v]scale=100:-1,format=rgba,colorchannelmixer=aa={wm_opacity}[logo];"
+            f"{last_vid}[logo]overlay=W-w-30:30{logo_out}"
         )
-        if has_backsound:
-            filter_complex += (
-                f"[3:v]scale=100:-1,format=rgba,colorchannelmixer=aa={wm_opacity}[logo];"
-                f"[vid_with_bg][logo]overlay=W-w-30:30[vid_final]"
-            )
-            input_args = ['-i', input_video, '-i', tts_audio, '-i', backsound, '-i', watermark_logo]
-        else:
-            filter_complex += (
-                f"[2:v]scale=100:-1,format=rgba,colorchannelmixer=aa={wm_opacity}[logo];"
-                f"[vid_with_bg][logo]overlay=W-w-30:30[vid_final]"
-            )
-            input_args = ['-i', input_video, '-i', tts_audio, '-i', watermark_logo]
-    else:
-        # Text watermark mode (default)
-        filter_complex = (
-            f"[0:v]scale=720:1280,boxblur=20:5[bg];"
-            f"[0:v]scale=640:1136[main];"
-            f"[bg][main]overlay=(W-w)/2:(H-h)/2[vid_with_bg];"
-            f"[vid_with_bg]drawtext=text='{safe_text}':"
+        last_vid = logo_out
+        
+    # 2. Draw text watermark if present
+    if watermark_text:
+        text_out = "[vid_text]" if (subtitle_path and Path(subtitle_path).exists()) else "[vid_final]"
+        filter_complex += (
+            f";{last_vid}drawtext=text='{safe_text}':"
             f"fontfile={font_path}:"
             f"fontsize=24:fontcolor=white@{wm_opacity}:"
-            f"{wm_x}:{wm_y}[vid_wm]"
+            f"{wm_x}:{wm_y}{text_out}"
         )
-        if subtitle_path and Path(subtitle_path).exists():
-            # Escape path for FFmpeg subtitles filter (Windows needs forward slashes + escaping)
-            srt_escaped = subtitle_path.replace('\\', '/').replace(':', '\\:')
-            if subtitle_path.endswith('.ass'):
-                filter_complex += (
-                    f";[vid_wm]subtitles='{srt_escaped}'[vid_final]"
-                )
-            else:
-                # Fallback for standard SRT files
-                ass_primary = convert_to_ass_color(sub_color, sub_opacity)
-                ass_secondary = convert_to_ass_color(sub_sec_color, sub_opacity)
-                filter_complex += (
-                    f";[vid_wm]subtitles='{srt_escaped}':"
-                    f"force_style='FontName={sub_font},FontSize={sub_size},"
-                    f"PrimaryColour={ass_primary},SecondaryColour={ass_secondary},"
-                    f"OutlineColour=&H00000000,Outline=2,Shadow=0,Alignment=2,"
-                    f"MarginV=280'[vid_final]"
-                )
+        last_vid = text_out
+        
+    # 3. Add subtitles if present
+    if subtitle_path and Path(subtitle_path).exists():
+        srt_escaped = subtitle_path.replace('\\', '/').replace(':', '\\:')
+        if subtitle_path.endswith('.ass'):
+            filter_complex += (
+                f";{last_vid}subtitles='{srt_escaped}'[vid_final]"
+            )
         else:
-            filter_complex = filter_complex.replace('[vid_wm]', '[vid_final]')
-        input_args = ['-i', input_video, '-i', tts_audio]
-        if has_backsound:
-            input_args += ['-i', backsound]
+            ass_primary = convert_to_ass_color(sub_color, sub_opacity)
+            ass_secondary = convert_to_ass_color(sub_sec_color, sub_opacity)
+            filter_complex += (
+                f";{last_vid}subtitles='{srt_escaped}':"
+                f"force_style='FontName={sub_font},FontSize={sub_size},"
+                f"PrimaryColour={ass_primary},SecondaryColour={ass_secondary},"
+                f"OutlineColour=&H00000000,Outline=2,Shadow=0,Alignment=2,"
+                f"MarginV=280'[vid_final]"
+            )
+            
+    # If neither logo, text watermark, nor subtitles are present, route the blended bg directly
+    if last_vid == "[vid_with_bg]":
+        filter_complex = filter_complex.replace("[vid_with_bg]", "[vid_final]")
 
-    # Add audio mixing if backsound exists
-    if has_backsound:
+    # Audio mixing mapping using the tracked backsound index
+    if backsound_index != -1:
         filter_complex += (
-            f";[2:a]volume=0.12[bg_audio];"
+            f";[{backsound_index}:a]volume=0.12[bg_audio];"
             f"[1:a][bg_audio]amix=inputs=2:duration=first[aud_final]"
         )
         audio_map = '[aud_final]'
@@ -872,14 +929,13 @@ def generate():
             print(f"[Pipeline] Watermark: {wm_mode} = '{wm_text}'")
             print(f"{'='*60}")
 
-            # Save logo if provided
+            # Save logo if uploaded
             logo_path = None
-            if wm_mode == 'logo':
-                logo_file = request.files.get('watermark_logo')
-                if logo_file:
-                    logo_filename = f"{job_id}_logo.png"
-                    logo_path = str(UPLOAD_DIR / logo_filename)
-                    logo_file.save(logo_path)
+            logo_file = request.files.get('watermark_logo')
+            if logo_file:
+                logo_filename = f"{job_id}_logo.png"
+                logo_path = str(UPLOAD_DIR / logo_filename)
+                logo_file.save(logo_path)
 
             # --- Get video duration via ffprobe ---
             video_duration = get_video_duration(video_path)
@@ -944,7 +1000,11 @@ def generate():
             # --- Generate SRT Subtitles (audio-driven timing) ---
             tts_audio_duration = get_audio_duration(tts_path)
             try:
-                generate_srt(tts_text, tts_audio_duration, srt_path)
+                generate_srt(
+                    tts_text, tts_audio_duration, srt_path,
+                    sub_font=sub_font, sub_size=sub_size, sub_color=sub_color,
+                    sub_sec_color=sub_sec_color, sub_opacity=sub_opacity
+                )
             except Exception as e:
                 print(f"[SRT] Error generating subtitles: {e}")
                 srt_path = None  # Continue without subtitles

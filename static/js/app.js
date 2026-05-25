@@ -130,10 +130,7 @@
             return;
         }
         const hasVideo = selectedVideoFile !== null;
-        const hasWatermark = watermarkMode === 'text'
-            ? watermarkText.value.trim().length > 0
-            : selectedLogoFile !== null;
-        btnGenerate.disabled = !hasVideo || !hasWatermark || isProcessing;
+        btnGenerate.disabled = !hasVideo || isProcessing;
     }
 
     // === File Validation & Selection ===
@@ -343,15 +340,6 @@
             return;
         }
 
-        const hasWatermark = watermarkMode === 'text'
-            ? watermarkText.value.trim().length > 0
-            : selectedLogoFile !== null;
-
-        if (!hasWatermark) {
-            showToast(watermarkMode === 'text' ? '⚠️ Silakan isi teks watermark!' : '⚠️ Silakan upload logo watermark PNG!');
-            return;
-        }
-
         isProcessing = true;
         updateGenerateBtn();
 
@@ -371,15 +359,19 @@
         const formData = new FormData();
         formData.append('video', selectedVideoFile);
         formData.append('voice', voiceSelect.value);
-        formData.append('watermark_mode', watermarkMode);
-
-        if (watermarkMode === 'text') {
-            formData.append('watermark_text', watermarkText.value.trim());
+        
+        // Dynamic watermarks overlay (both can exist concurrently!)
+        const wmText = watermarkText.value.trim();
+        if (wmText) {
+            formData.append('watermark_text', wmText);
             const posSelect = document.getElementById('watermarkPosition');
             formData.append('watermark_position', posSelect ? posSelect.value : 'top-right');
-        } else if (selectedLogoFile) {
+        }
+        if (selectedLogoFile) {
             formData.append('watermark_logo', selectedLogoFile);
         }
+        // Send a backward-compatible mode parameter
+        formData.append('watermark_mode', selectedLogoFile ? 'logo' : 'text');
 
         // Subtitle customization and watermark opacity parameters
         const subFont = document.getElementById('subFont')?.value || 'Arial';
