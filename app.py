@@ -1058,10 +1058,18 @@ def generate():
 
         except Exception as e:
             print(f"\n[Pipeline] Job {job_id} FAILED: {e}")
+            error_msg = str(e)
+            err_lower = error_msg.lower()
+            if "moov atom" in err_lower or "invalid data found" in err_lower or "low score of 1" in err_lower:
+                error_msg = (
+                    "Gagal memproses video Anda karena file terputus saat diunggah (corrupt atau tidak utuh). "
+                    "Silakan periksa koneksi internet Anda, pastikan video dapat diputar dengan lancar di HP/PC, "
+                    "lalu coba lakukan upload ulang."
+                )
             yield sse_event({
                 'step': 'error',
                 'status': 'error',
-                'message': str(e)
+                'message': error_msg
             })
 
         finally:

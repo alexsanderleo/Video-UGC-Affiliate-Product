@@ -252,14 +252,22 @@ async def async_render_video(
         )
 
     except Exception as e:
+        error_msg = str(e)
+        err_lower = error_msg.lower()
+        if "moov atom" in err_lower or "invalid data found" in err_lower or "low score of 1" in err_lower:
+            error_msg = (
+                "Gagal memproses video Anda karena file terputus saat diunggah (corrupt atau tidak utuh). "
+                "Silakan periksa koneksi internet Anda, pastikan video dapat diputar dengan normal di HP/PC, "
+                "lalu coba lakukan upload ulang."
+            )
         publish_progress(job_id, {
             'step': 'error',
             'status': 'error',
-            'message': str(e)
+            'message': error_msg
         })
         await update_log(
             status_str="failed",
-            error=str(e)
+            error=error_msg
         )
     finally:
         # Dispose the local engine to clean up connection resources bound to this event loop
