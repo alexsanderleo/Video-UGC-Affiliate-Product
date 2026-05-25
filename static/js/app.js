@@ -748,6 +748,13 @@
     const convertVideoPage = document.getElementById('convertVideoPage');
 
     function switchTab(activeBtn, activePage) {
+        // Prevent tab switching if a single-job generation, single-job conversion, or bulk generation is active
+        const isBulkActive = typeof bulkQueue !== 'undefined' && bulkQueue.some(j => j.status === 'processing');
+        if (isProcessing || isConverting || isBulkActive) {
+            showToast('⚠️ Mohon tunggu hingga proses pembuatan atau konversi video selesai!');
+            return;
+        }
+
         [menuBtnGenerator, menuBtnBulkGenerator, menuBtnConverter].forEach(btn => {
             if (btn) btn.classList.remove('active');
         });
@@ -773,7 +780,6 @@
     }
     if (menuBtnConverter) {
         menuBtnConverter.addEventListener('click', () => switchTab(menuBtnConverter, convertVideoPage));
-    }
     }
 
     // === Convert Video Size Logic ===
