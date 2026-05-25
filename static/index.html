@@ -1,13 +1,17 @@
 <!DOCTYPE html>
 <html lang="id">
+
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <meta name="description" content="Video Affiliate AI Generator - Buat video affiliate otomatis dengan AI narasi dan anti-copyright processing">
-    <title>Video Affiliate AI Generator</title>
+    <meta name="description"
+        content="Video Affiliate AI Generator - Buat video affiliate otomatis dengan AI narasi dan anti-copyright processing">
+    <title>Video Affiliate BOT Generator</title>
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800;900&family=Outfit:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+    <link
+        href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800;900&family=Outfit:wght@400;500;600;700;800&display=swap"
+        rel="stylesheet">
     <link rel="stylesheet" href="/static/css/style.css?v=1.0.1">
     <style>
         .auth-overlay {
@@ -21,38 +25,81 @@
             backdrop-filter: blur(20px);
             padding: 20px;
         }
+
         .auth-card {
             width: 100%;
             max-width: 420px;
             animation: authFadeIn 0.4s cubic-bezier(0.16, 1, 0.3, 1);
+            position: relative;
         }
+
+        .auth-close-btn {
+            position: absolute;
+            top: 20px;
+            right: 20px;
+            width: 32px;
+            height: 32px;
+            border-radius: 50%;
+            background: rgba(255, 255, 255, 0.05);
+            border: 1px solid rgba(255, 255, 255, 0.1);
+            color: var(--text-secondary);
+            font-size: 20px;
+            cursor: pointer;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            transition: all 0.2s ease;
+            z-index: 10;
+            line-height: 1;
+            padding-bottom: 2px;
+        }
+
+        .auth-close-btn:hover {
+            background: rgba(255, 255, 255, 0.15);
+            color: var(--text-primary);
+            transform: rotate(90deg) scale(1.1);
+            border-color: rgba(255, 255, 255, 0.2);
+        }
+
         @keyframes authFadeIn {
-            from { opacity: 0; transform: scale(0.95) translateY(10px); }
-            to { opacity: 1; transform: scale(1) translateY(0); }
+            from {
+                opacity: 0;
+                transform: scale(0.95) translateY(10px);
+            }
+
+            to {
+                opacity: 1;
+                transform: scale(1) translateY(0);
+            }
         }
+
         .auth-switch {
             text-align: center;
             margin-top: 16px;
             font-size: 0.85rem;
             color: var(--text-secondary);
         }
+
         .auth-switch a {
             color: var(--text-accent);
             text-decoration: none;
             font-weight: 600;
         }
+
         .auth-switch a:hover {
             text-decoration: underline;
         }
+
         .user-profile-header {
             display: flex;
             align-items: center;
             gap: 12px;
         }
+
         .user-email-badge {
             font-size: 0.8rem;
             color: var(--text-secondary);
-            background: rgba(255,255,255,0.05);
+            background: rgba(255, 255, 255, 0.05);
             padding: 6px 12px;
             border-radius: 20px;
             border: 1px solid var(--border-subtle);
@@ -60,6 +107,7 @@
         }
     </style>
 </head>
+
 <body>
     <!-- Animated Background Particles -->
     <div class="bg-particles" id="bgParticles"></div>
@@ -67,11 +115,12 @@
     <!-- Login/Register Overlay -->
     <div id="authOverlay" class="auth-overlay" style="display: none;">
         <div class="card glass-card auth-card">
+            <button id="btnCloseAuth" class="auth-close-btn" title="Tutup">&times;</button>
             <div class="card-header">
                 <div class="card-icon upload-icon">🔑</div>
-                <h2 class="card-title" id="authTitle">Login Akun SaaS</h2>
+                <h2 class="card-title" id="authTitle">Login Akun</h2>
             </div>
-            
+
             <!-- Login Form -->
             <form id="loginForm" class="auth-form">
                 <div style="margin-bottom: 16px;">
@@ -100,12 +149,14 @@
                 </div>
                 <div style="margin-bottom: 16px;">
                     <label class="input-label">Password</label>
-                    <input type="password" id="registerPassword" class="text-input" placeholder="Minimal 8 karakter" minlength="8" required>
+                    <input type="password" id="registerPassword" class="text-input" placeholder="Minimal 8 karakter"
+                        minlength="8" required>
                 </div>
                 <div style="margin-bottom: 16px;">
                     <label class="input-label">Pilih Paket Harga</label>
                     <div class="select-wrapper">
-                        <select id="registerPricePlan" class="select-input" required style="width: 100%; padding: 10px; background: rgba(255,255,255,0.05); border: 1px solid var(--border-subtle); border-radius: var(--radius-md); color: var(--text-primary); outline: none;">
+                        <select id="registerPricePlan" class="select-input" required
+                            style="width: 100%; padding: 10px; background: rgba(255,255,255,0.05); border: 1px solid var(--border-subtle); border-radius: var(--radius-md); color: var(--text-primary); outline: none;">
                             <option value="monthly" style="background:#111827">Bulanan — Rp 298.000 / bln</option>
                             <option value="6months" style="background:#111827">6 Bulan — Rp 1.295.000</option>
                             <option value="1year" style="background:#111827">1 Tahun — Rp 1.998.000</option>
@@ -123,44 +174,63 @@
     <!-- App Layout -->
     <div class="app-layout">
         <!-- Sidebar -->
-        <aside class="app-sidebar" id="appSidebar" style="display: none;">
+        <aside class="app-sidebar" id="appSidebar">
             <div class="sidebar-header">
                 <div class="sidebar-logo">
                     <div class="logo-icon-sm">
                         <svg width="24" height="24" viewBox="0 0 32 32" fill="none">
-                            <rect width="32" height="32" rx="8" fill="url(#logoGrad)"/>
-                            <path d="M12 10L22 16L12 22V10Z" fill="white"/>
+                            <rect width="32" height="32" rx="8" fill="url(#logoGrad)" />
+                            <path d="M12 10L22 16L12 22V10Z" fill="white" />
                         </svg>
                     </div>
                     <span class="sidebar-brand">Aulex <span class="title-accent">AI</span></span>
                 </div>
-                
+
                 <!-- Floating User Profile Pill inside Sidebar -->
                 <div id="userProfile" class="user-profile-sidebar" style="display: none;">
                     <div class="user-avatar">👨‍💻</div>
                     <div class="user-details">
                         <span id="userEmail" class="user-email-badge">User</span>
-                        <span class="user-role">SaaS Member</span>
+                        <span class="user-role">Member</span>
                     </div>
                     <button id="btnLogout" class="btn-logout" title="Keluar">
-                        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+                            stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
                             <path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"></path>
                             <polyline points="16 17 21 12 16 7"></polyline>
                             <line x1="21" y1="12" x2="9" y2="12"></line>
                         </svg>
                     </button>
                 </div>
+
+                <!-- Guest Profile Pill inside Sidebar -->
+                <div id="guestProfile" class="user-profile-sidebar" style="display: flex;">
+                    <div class="user-avatar">👤</div>
+                    <div class="user-details">
+                        <span class="user-email-badge">Guest Mode</span>
+                        <span class="user-role">Belum Login</span>
+                    </div>
+                    <button id="btnSidebarLogin" class="btn-logout" title="Masuk / Daftar" style="color: var(--accent-secondary);">
+                        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+                            stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                            <path d="M15 3h4a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2h-4"></path>
+                            <polyline points="10 17 15 12 10 7"></polyline>
+                            <line x1="15" y1="12" x2="3" y2="12"></line>
+                        </svg>
+                    </button>
+                </div>
             </div>
-            
+
+
             <nav class="sidebar-menu">
                 <div class="menu-section-label">MODEL TOOL</div>
                 <button class="menu-item active" id="menuBtnGenerator">
                     <span class="menu-icon">🎬</span>
-                    <span class="menu-text">Beranda (AI Generator)</span>
+                    <span class="menu-text">Buat Narasi Video</span>
                 </button>
                 <button class="menu-item" id="menuBtnConverter">
                     <span class="menu-icon">🗜️</span>
-                    <span class="menu-text">Convert Video Size</span>
+                    <span class="menu-text">Kompres Video Kualitas Terbaik</span>
                 </button>
             </nav>
         </aside>
@@ -179,17 +249,19 @@
                                     <svg width="32" height="32" viewBox="0 0 32 32" fill="none">
                                         <defs>
                                             <linearGradient id="logoGrad" x1="0" y1="0" x2="32" y2="32">
-                                                <stop offset="0%" stop-color="#8B5CF6"/>
-                                                <stop offset="100%" stop-color="#06B6D4"/>
+                                                <stop offset="0%" stop-color="#8B5CF6" />
+                                                <stop offset="100%" stop-color="#06B6D4" />
                                             </linearGradient>
                                         </defs>
-                                        <rect width="32" height="32" rx="8" fill="url(#logoGrad)"/>
-                                        <path d="M12 10L22 16L12 22V10Z" fill="white"/>
+                                        <rect width="32" height="32" rx="8" fill="url(#logoGrad)" />
+                                        <path d="M12 10L22 16L12 22V10Z" fill="white" />
                                     </svg>
                                 </div>
-                                <h1 class="app-title">Video Affiliate <span class="title-accent">AI</span> Generator</h1>
+                                <h1 class="app-title">Video Affiliate <span class="title-accent">AI</span> Generator
+                                </h1>
                             </div>
-                            <p class="app-subtitle">Transformasi video produk menjadi konten affiliate siap posting — powered by AI</p>
+                            <p class="app-subtitle">Transformasi video produk menjadi konten affiliate siap posting —
+                                powered by Aulex</p>
                         </div>
                     </header>
 
@@ -201,10 +273,12 @@
                             <div class="card glass-card">
                                 <div class="card-header">
                                     <div class="card-icon upload-icon">
-                                        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-                                            <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/>
-                                            <polyline points="17 8 12 3 7 8"/>
-                                            <line x1="12" y1="3" x2="12" y2="15"/>
+                                        <svg width="20" height="20" viewBox="0 0 24 24" fill="none"
+                                            stroke="currentColor" stroke-width="2" stroke-linecap="round"
+                                            stroke-linejoin="round">
+                                            <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4" />
+                                            <polyline points="17 8 12 3 7 8" />
+                                            <line x1="12" y1="3" x2="12" y2="15" />
                                         </svg>
                                     </div>
                                     <h2 class="card-title">Upload Video Produk</h2>
@@ -212,10 +286,12 @@
                                 <div class="drop-zone" id="dropZone">
                                     <div class="drop-zone-content" id="dropZoneContent">
                                         <div class="drop-icon">
-                                            <svg width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round">
-                                                <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/>
-                                                <polyline points="17 8 12 3 7 8"/>
-                                                <line x1="12" y1="3" x2="12" y2="15"/>
+                                            <svg width="48" height="48" viewBox="0 0 24 24" fill="none"
+                                                stroke="currentColor" stroke-width="1.5" stroke-linecap="round"
+                                                stroke-linejoin="round">
+                                                <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4" />
+                                                <polyline points="17 8 12 3 7 8" />
+                                                <line x1="12" y1="3" x2="12" y2="15" />
                                             </svg>
                                         </div>
                                         <p class="drop-text">Drag & drop video di sini</p>
@@ -230,8 +306,11 @@
                                         <video id="previewVideo" muted></video>
                                         <div class="preview-info" id="previewInfo"></div>
                                         <button class="btn-remove" id="btnRemoveVideo" title="Hapus video">
-                                            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-                                                <line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/>
+                                            <svg width="16" height="16" viewBox="0 0 24 24" fill="none"
+                                                stroke="currentColor" stroke-width="2" stroke-linecap="round"
+                                                stroke-linejoin="round">
+                                                <line x1="18" y1="6" x2="6" y2="18" />
+                                                <line x1="6" y1="6" x2="18" y2="18" />
                                             </svg>
                                         </button>
                                     </div>
@@ -245,8 +324,11 @@
                                 <div class="card glass-card settings-card">
                                     <div class="card-header">
                                         <div class="card-icon watermark-icon">
-                                            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-                                                <path d="M12 20h9"/><path d="M16.5 3.5a2.121 2.121 0 0 1 3 3L7 19l-4 1 1-4L16.5 3.5z"/>
+                                            <svg width="20" height="20" viewBox="0 0 24 24" fill="none"
+                                                stroke="currentColor" stroke-width="2" stroke-linecap="round"
+                                                stroke-linejoin="round">
+                                                <path d="M12 20h9" />
+                                                <path d="M16.5 3.5a2.121 2.121 0 0 1 3 3L7 19l-4 1 1-4L16.5 3.5z" />
                                             </svg>
                                         </div>
                                         <h2 class="card-title">Watermark</h2>
@@ -255,11 +337,21 @@
                                     <!-- Watermark Mode Toggle -->
                                     <div class="watermark-toggle">
                                         <button class="toggle-btn active" id="toggleText" data-mode="text">
-                                            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M4 7V4h16v3"/><path d="M9 20h6"/><path d="M12 4v16"/></svg>
+                                            <svg width="14" height="14" viewBox="0 0 24 24" fill="none"
+                                                stroke="currentColor" stroke-width="2">
+                                                <path d="M4 7V4h16v3" />
+                                                <path d="M9 20h6" />
+                                                <path d="M12 4v16" />
+                                            </svg>
                                             Teks
                                         </button>
                                         <button class="toggle-btn" id="toggleLogo" data-mode="logo">
-                                            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="3" width="18" height="18" rx="2" ry="2"/><circle cx="8.5" cy="8.5" r="1.5"/><polyline points="21 15 16 10 5 21"/></svg>
+                                            <svg width="14" height="14" viewBox="0 0 24 24" fill="none"
+                                                stroke="currentColor" stroke-width="2">
+                                                <rect x="3" y="3" width="18" height="18" rx="2" ry="2" />
+                                                <circle cx="8.5" cy="8.5" r="1.5" />
+                                                <polyline points="21 15 16 10 5 21" />
+                                            </svg>
                                             Logo PNG
                                         </button>
                                     </div>
@@ -267,8 +359,10 @@
                                     <!-- Text Watermark Input -->
                                     <div class="watermark-input" id="watermarkTextGroup">
                                         <label for="watermarkText" class="input-label">Teks Watermark</label>
-                                        <input type="text" id="watermarkText" class="text-input" placeholder="Contoh: @TokoSayaOfficial" maxlength="50">
-                                        <label for="watermarkPosition" class="input-label" style="margin-top:12px;">Posisi Watermark</label>
+                                        <input type="text" id="watermarkText" class="text-input"
+                                            placeholder="Contoh: @TokoSayaOfficial" maxlength="50">
+                                        <label for="watermarkPosition" class="input-label"
+                                            style="margin-top:12px;">Posisi Watermark</label>
                                         <div class="select-wrapper">
                                             <select id="watermarkPosition" class="select-input">
                                                 <option value="top-right">↗ Pojok Kanan Atas</option>
@@ -281,7 +375,10 @@
                                                 <option value="random">🎲 Random (Pindah per 5 detik)</option>
                                             </select>
                                             <div class="select-arrow">
-                                                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="6 9 12 15 18 9"/></svg>
+                                                <svg width="14" height="14" viewBox="0 0 24 24" fill="none"
+                                                    stroke="currentColor" stroke-width="2">
+                                                    <polyline points="6 9 12 15 18 9" />
+                                                </svg>
                                             </div>
                                         </div>
                                     </div>
@@ -291,7 +388,12 @@
                                         <label for="watermarkLogo" class="input-label">Upload Logo PNG</label>
                                         <div class="logo-upload-zone" id="logoUploadZone">
                                             <div class="logo-upload-content" id="logoUploadContent">
-                                                <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><rect x="3" y="3" width="18" height="18" rx="2" ry="2"/><circle cx="8.5" cy="8.5" r="1.5"/><polyline points="21 15 16 10 5 21"/></svg>
+                                                <svg width="24" height="24" viewBox="0 0 24 24" fill="none"
+                                                    stroke="currentColor" stroke-width="1.5">
+                                                    <rect x="3" y="3" width="18" height="18" rx="2" ry="2" />
+                                                    <circle cx="8.5" cy="8.5" r="1.5" />
+                                                    <polyline points="21 15 16 10 5 21" />
+                                                </svg>
                                                 <span>Pilih file .png</span>
                                             </div>
                                             <div class="logo-preview" id="logoPreview" style="display:none;">
@@ -307,9 +409,13 @@
                                 <div class="card glass-card settings-card">
                                     <div class="card-header">
                                         <div class="card-icon voice-icon">
-                                            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-                                                <path d="M12 1a3 3 0 0 0-3 3v8a3 3 0 0 0 6 0V4a3 3 0 0 0-3-3z"/>
-                                                <path d="M19 10v2a7 7 0 0 1-14 0v-2"/><line x1="12" y1="19" x2="12" y2="23"/><line x1="8" y1="23" x2="16" y2="23"/>
+                                            <svg width="20" height="20" viewBox="0 0 24 24" fill="none"
+                                                stroke="currentColor" stroke-width="2" stroke-linecap="round"
+                                                stroke-linejoin="round">
+                                                <path d="M12 1a3 3 0 0 0-3 3v8a3 3 0 0 0 6 0V4a3 3 0 0 0-3-3z" />
+                                                <path d="M19 10v2a7 7 0 0 1-14 0v-2" />
+                                                <line x1="12" y1="19" x2="12" y2="23" />
+                                                <line x1="8" y1="23" x2="16" y2="23" />
                                             </svg>
                                         </div>
                                         <h2 class="card-title">Pengisi Suara AI</h2>
@@ -317,11 +423,16 @@
                                     <label for="voiceSelect" class="input-label">Pilih Suara Narasi</label>
                                     <div class="select-wrapper">
                                         <select id="voiceSelect" class="select-input">
-                                            <option value="id-ID-GadisNeural">👩 Gadis — Suara Wanita (Halus & Persuasif)</option>
-                                            <option value="id-ID-ArdiNeural">👨 Ardi — Suara Pria (Formal & Berwibawa)</option>
+                                            <option value="id-ID-GadisNeural">👩 Gadis — Suara Wanita (Halus &
+                                                Persuasif)</option>
+                                            <option value="id-ID-ArdiNeural">👨 Ardi — Suara Pria (Formal & Berwibawa)
+                                            </option>
                                         </select>
                                         <div class="select-arrow">
-                                            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="6 9 12 15 18 9"/></svg>
+                                            <svg width="14" height="14" viewBox="0 0 24 24" fill="none"
+                                                stroke="currentColor" stroke-width="2">
+                                                <polyline points="6 9 12 15 18 9" />
+                                            </svg>
                                         </div>
                                     </div>
                                     <div class="voice-preview-cards">
@@ -349,10 +460,12 @@
                             <div class="generate-section">
                                 <button class="btn-generate" id="btnGenerate" disabled>
                                     <span class="btn-content" id="btnContent">
-                                        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-                                            <polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2"/>
+                                        <svg width="20" height="20" viewBox="0 0 24 24" fill="none"
+                                            stroke="currentColor" stroke-width="2" stroke-linecap="round"
+                                            stroke-linejoin="round">
+                                            <polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2" />
                                         </svg>
-                                        Generate Video Affiliate AI
+                                        Generate Video Affiliate UGC
                                     </span>
                                     <span class="btn-loading" id="btnLoading" style="display:none;">
                                         <div class="spinner"></div>
@@ -364,7 +477,7 @@
                             <!-- Progress Panel -->
                             <div class="progress-panel" id="progressPanel" style="display:none;">
                                 <div class="progress-header">
-                                    <h3>Pipeline AI sedang berjalan...</h3>
+                                    <h3>Analisis AI sedang berjalan...</h3>
                                 </div>
                                 <div class="progress-steps">
                                     <div class="progress-step" id="stepA">
@@ -373,7 +486,7 @@
                                             <div class="step-line"></div>
                                         </div>
                                         <div class="step-content">
-                                            <span class="step-label">Langkah A — AI Video Understanding</span>
+                                            <span class="step-label">Langkah A — Memahami Video Anda</span>
                                             <span class="step-status" id="stepAStatus">Menunggu...</span>
                                         </div>
                                     </div>
@@ -392,7 +505,7 @@
                                             <div class="step-dot"></div>
                                         </div>
                                         <div class="step-content">
-                                            <span class="step-label">Langkah C — FFmpeg Render Video</span>
+                                            <span class="step-label">Langkah C — Server Render Video</span>
                                             <span class="step-status" id="stepCStatus">Menunggu...</span>
                                         </div>
                                     </div>
@@ -416,8 +529,11 @@
                                 <div class="card glass-card output-card">
                                     <div class="card-header">
                                         <div class="card-icon video-icon">
-                                            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-                                                <polygon points="23 7 16 12 23 17 23 7"/><rect x="1" y="5" width="15" height="14" rx="2" ry="2"/>
+                                            <svg width="20" height="20" viewBox="0 0 24 24" fill="none"
+                                                stroke="currentColor" stroke-width="2" stroke-linecap="round"
+                                                stroke-linejoin="round">
+                                                <polygon points="23 7 16 12 23 17 23 7" />
+                                                <rect x="1" y="5" width="15" height="14" rx="2" ry="2" />
                                             </svg>
                                         </div>
                                         <h2 class="card-title">Video Final</h2>
@@ -426,8 +542,12 @@
                                         <video id="outputVideo" controls class="output-video"></video>
                                     </div>
                                     <a class="btn-download" id="btnDownload" download>
-                                        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-                                            <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/>
+                                        <svg width="18" height="18" viewBox="0 0 24 24" fill="none"
+                                            stroke="currentColor" stroke-width="2" stroke-linecap="round"
+                                            stroke-linejoin="round">
+                                            <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4" />
+                                            <polyline points="7 10 12 15 17 10" />
+                                            <line x1="12" y1="15" x2="12" y2="3" />
                                         </svg>
                                         Download Video
                                     </a>
@@ -437,16 +557,25 @@
                                 <div class="card glass-card output-card">
                                     <div class="card-header">
                                         <div class="card-icon caption-icon">
-                                            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-                                                <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="16" y1="13" x2="8" y2="13"/><line x1="16" y1="17" x2="8" y2="17"/><polyline points="10 9 9 9 8 9"/>
+                                            <svg width="20" height="20" viewBox="0 0 24 24" fill="none"
+                                                stroke="currentColor" stroke-width="2" stroke-linecap="round"
+                                                stroke-linejoin="round">
+                                                <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z" />
+                                                <polyline points="14 2 14 8 20 8" />
+                                                <line x1="16" y1="13" x2="8" y2="13" />
+                                                <line x1="16" y1="17" x2="8" y2="17" />
+                                                <polyline points="10 9 9 9 8 9" />
                                             </svg>
                                         </div>
                                         <h2 class="card-title">Skrip Caption</h2>
                                     </div>
                                     <textarea id="outputCaption" class="caption-textarea" readonly></textarea>
                                     <button class="btn-copy" id="btnCopy">
-                                        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-                                            <rect x="9" y="9" width="13" height="13" rx="2" ry="2"/><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/>
+                                        <svg width="18" height="18" viewBox="0 0 24 24" fill="none"
+                                            stroke="currentColor" stroke-width="2" stroke-linecap="round"
+                                            stroke-linejoin="round">
+                                            <rect x="9" y="9" width="13" height="13" rx="2" ry="2" />
+                                            <path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1" />
                                         </svg>
                                         <span id="copyBtnText">Copy Caption</span>
                                     </button>
@@ -457,7 +586,9 @@
 
                     <!-- Footer -->
                     <footer class="app-footer">
-                        <p>Powered by <strong>Qwen VL Plus</strong> · <strong>Edge-TTS</strong> · <strong>FFmpeg</strong></p>
+                        <p>Powered by <strong>Aulex</strong> · <strong>Edge-TTS</strong> ·
+                            <strong>Editing Videos</strong>
+                        </p>
                     </footer>
                 </div>
             </div>
@@ -472,13 +603,14 @@
                             <div class="logo-section">
                                 <div class="logo-icon">
                                     <svg width="32" height="32" viewBox="0 0 32 32" fill="none">
-                                        <rect width="32" height="32" rx="8" fill="url(#logoGrad)"/>
-                                        <path d="M12 10L22 16L12 22V10Z" fill="white"/>
+                                        <rect width="32" height="32" rx="8" fill="url(#logoGrad)" />
+                                        <path d="M12 10L22 16L12 22V10Z" fill="white" />
                                     </svg>
                                 </div>
                                 <h1 class="app-title">Convert Video <span class="title-accent">Size</span></h1>
                             </div>
-                            <p class="app-subtitle">Kompres dan konversi format video apa saja ke MP4 berkualitas tinggi dengan ukuran terkecil</p>
+                            <p class="app-subtitle">Kompres dan konversi format video apa saja ke MP4 berkualitas tinggi
+                                dengan ukuran terkecil</p>
                         </div>
                     </header>
 
@@ -488,11 +620,14 @@
                             <!-- Upload Zone -->
                             <div class="card glass-card">
                                 <div class="card-header">
-                                    <div class="card-icon upload-icon" style="background: linear-gradient(135deg, #06B6D4, #0891B2);">
-                                        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-                                            <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/>
-                                            <polyline points="17 8 12 3 7 8"/>
-                                            <line x1="12" y1="3" x2="12" y2="15"/>
+                                    <div class="card-icon upload-icon"
+                                        style="background: linear-gradient(135deg, #06B6D4, #0891B2);">
+                                        <svg width="20" height="20" viewBox="0 0 24 24" fill="none"
+                                            stroke="currentColor" stroke-width="2" stroke-linecap="round"
+                                            stroke-linejoin="round">
+                                            <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4" />
+                                            <polyline points="17 8 12 3 7 8" />
+                                            <line x1="12" y1="3" x2="12" y2="15" />
                                         </svg>
                                     </div>
                                     <h2 class="card-title">Upload Video Asli</h2>
@@ -500,10 +635,12 @@
                                 <div class="drop-zone" id="convertDropZone">
                                     <div class="drop-zone-content" id="convertDropZoneContent">
                                         <div class="drop-icon">
-                                            <svg width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round">
-                                                <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/>
-                                                <polyline points="17 8 12 3 7 8"/>
-                                                <line x1="12" y1="3" x2="12" y2="15"/>
+                                            <svg width="48" height="48" viewBox="0 0 24 24" fill="none"
+                                                stroke="currentColor" stroke-width="1.5" stroke-linecap="round"
+                                                stroke-linejoin="round">
+                                                <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4" />
+                                                <polyline points="17 8 12 3 7 8" />
+                                                <line x1="12" y1="3" x2="12" y2="15" />
                                             </svg>
                                         </div>
                                         <p class="drop-text">Drag & drop video di sini</p>
@@ -513,8 +650,11 @@
                                         <video id="convertPreviewVideo" muted></video>
                                         <div class="preview-info" id="convertPreviewInfo"></div>
                                         <button class="btn-remove" id="btnRemoveConvertVideo" title="Hapus video">
-                                            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-                                                <line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/>
+                                            <svg width="16" height="16" viewBox="0 0 24 24" fill="none"
+                                                stroke="currentColor" stroke-width="2" stroke-linecap="round"
+                                                stroke-linejoin="round">
+                                                <line x1="18" y1="6" x2="6" y2="18" />
+                                                <line x1="6" y1="6" x2="18" y2="18" />
                                             </svg>
                                         </button>
                                     </div>
@@ -525,10 +665,13 @@
                             <!-- Compression Settings -->
                             <div class="card glass-card" style="margin-top: 16px;">
                                 <div class="card-header">
-                                    <div class="card-icon voice-icon" style="background: linear-gradient(135deg, #EC4899, #DB2777);">
-                                        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-                                            <rect x="4" y="4" width="16" height="16" rx="2" ry="2"/>
-                                            <rect x="9" y="9" width="6" height="6"/>
+                                    <div class="card-icon voice-icon"
+                                        style="background: linear-gradient(135deg, #EC4899, #DB2777);">
+                                        <svg width="20" height="20" viewBox="0 0 24 24" fill="none"
+                                            stroke="currentColor" stroke-width="2" stroke-linecap="round"
+                                            stroke-linejoin="round">
+                                            <rect x="4" y="4" width="16" height="16" rx="2" ry="2" />
+                                            <rect x="9" y="9" width="6" height="6" />
                                         </svg>
                                     </div>
                                     <h2 class="card-title">Profil Kompresi</h2>
@@ -536,12 +679,18 @@
                                 <label class="input-label">Pilih Profil Kompresi</label>
                                 <div class="select-wrapper">
                                     <select id="compressionSelect" class="select-input">
-                                        <option value="22">💎 Kualitas Tinggi — Ukuran sedikit mengecil, kualitas prima (CRF 22)</option>
-                                        <option value="26" selected>⚖️ Seimbang — Kompresi ideal untuk platform video vertikal (CRF 26)</option>
-                                        <option value="30">📉 Ukuran Terkecil — Hemat ruang maksimal, kualitas cukup (CRF 30)</option>
+                                        <option value="22">💎 Kualitas Tinggi — Ukuran sedikit mengecil, kualitas prima
+                                            (CRF 22)</option>
+                                        <option value="26" selected>⚖️ Seimbang — Kompresi ideal untuk platform video
+                                            vertikal (CRF 26)</option>
+                                        <option value="30">📉 Ukuran Terkecil — Hemat ruang maksimal, kualitas cukup
+                                            (CRF 30)</option>
                                     </select>
                                     <div class="select-arrow">
-                                        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="6 9 12 15 18 9"/></svg>
+                                        <svg width="14" height="14" viewBox="0 0 24 24" fill="none"
+                                            stroke="currentColor" stroke-width="2">
+                                            <polyline points="6 9 12 15 18 9" />
+                                        </svg>
                                     </div>
                                 </div>
                             </div>
@@ -550,8 +699,10 @@
                             <div class="generate-section">
                                 <button class="btn-generate" id="btnConvert" disabled>
                                     <span class="btn-content" id="btnConvertContent">
-                                        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-                                            <polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2"/>
+                                        <svg width="20" height="20" viewBox="0 0 24 24" fill="none"
+                                            stroke="currentColor" stroke-width="2" stroke-linecap="round"
+                                            stroke-linejoin="round">
+                                            <polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2" />
                                         </svg>
                                         Convert & Compress Video
                                     </span>
@@ -597,8 +748,11 @@
                                 <div class="card glass-card output-card">
                                     <div class="card-header">
                                         <div class="card-icon video-icon">
-                                            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-                                                <polygon points="23 7 16 12 23 17 23 7"/><rect x="1" y="5" width="15" height="14" rx="2" ry="2"/>
+                                            <svg width="20" height="20" viewBox="0 0 24 24" fill="none"
+                                                stroke="currentColor" stroke-width="2" stroke-linecap="round"
+                                                stroke-linejoin="round">
+                                                <polygon points="23 7 16 12 23 17 23 7" />
+                                                <rect x="1" y="5" width="15" height="14" rx="2" ry="2" />
                                             </svg>
                                         </div>
                                         <h2 class="card-title">Video Hasil Kompresi</h2>
@@ -607,15 +761,20 @@
                                         <video id="convertOutputVideo" controls class="output-video"></video>
                                     </div>
                                     <a class="btn-download" id="btnConvertDownload" download>
-                                        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-                                            <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/>
+                                        <svg width="18" height="18" viewBox="0 0 24 24" fill="none"
+                                            stroke="currentColor" stroke-width="2" stroke-linecap="round"
+                                            stroke-linejoin="round">
+                                            <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4" />
+                                            <polyline points="7 10 12 15 17 10" />
+                                            <line x1="12" y1="15" x2="12" y2="3" />
                                         </svg>
                                         Download Video MP4
                                     </a>
                                 </div>
 
                                 <!-- Stats Comparison Output -->
-                                <div class="card glass-card output-card" style="justify-content: center; align-items: center; text-align: center; padding: 40px 20px;">
+                                <div class="card glass-card output-card"
+                                    style="justify-content: center; align-items: center; text-align: center; padding: 40px 20px;">
                                     <div class="comparison-circle">
                                         <span class="comparison-save-pct" id="comparisonSavingPct">0%</span>
                                         <span class="comparison-save-label">LEBIH RINGAN</span>
@@ -627,10 +786,14 @@
                                         </div>
                                         <div class="stat-row">
                                             <span class="stat-label">Ukuran Final:</span>
-                                            <span class="stat-value" id="comparisonCompressedSize" style="color: #10B981; font-weight: 700;">0 MB</span>
+                                            <span class="stat-value" id="comparisonCompressedSize"
+                                                style="color: #10B981; font-weight: 700;">0 MB</span>
                                         </div>
                                     </div>
-                                    <p style="margin-top: 24px; font-size: 0.82rem; color: var(--text-secondary); line-height: 1.6;">Video berhasil dikompresi dan dikonversi ke format MP4 (H.264 / AAC) yang kompatibel penuh dengan browser, iOS, Android, dan PC.</p>
+                                    <p
+                                        style="margin-top: 24px; font-size: 0.82rem; color: var(--text-secondary); line-height: 1.6;">
+                                        Video berhasil dikompresi dan dikonversi ke format MP4 (H.264 / AAC) yang
+                                        kompatibel penuh dengan browser, iOS, Android, dan PC.</p>
                                 </div>
                             </div>
                         </section>
@@ -647,4 +810,5 @@
 
     <script src="/static/js/app.js"></script>
 </body>
+
 </html>

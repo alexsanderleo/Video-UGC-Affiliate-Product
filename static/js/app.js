@@ -122,6 +122,11 @@
 
     // === Update Generate Button State ===
     function updateGenerateBtn() {
+        const token = localStorage.getItem('token');
+        if (!token) {
+            btnGenerate.disabled = false;
+            return;
+        }
         const hasVideo = selectedVideoFile !== null;
         const hasWatermark = watermarkMode === 'text'
             ? watermarkText.value.trim().length > 0
@@ -318,10 +323,36 @@
 
     // === Generate Pipeline ===
     btnGenerate.addEventListener('click', async () => {
-        if (!selectedVideoFile || isProcessing) return;
+        // Force Login Check FIRST
+        const token = localStorage.getItem('token');
+        if (!token) {
+            authOverlay.style.display = 'flex';
+            loginForm.style.display = 'block';
+            registerForm.style.display = 'none';
+            authTitle.textContent = 'Login dahulu';
+            showToast('⚠️ Silakan login terlebih dahulu untuk melakukan generate!');
+            return;
+        }
+
+        if (isProcessing) return;
+
+        if (!selectedVideoFile) {
+            showToast('⚠️ Silakan upload video produk terlebih dahulu!');
+            return;
+        }
+
+        const hasWatermark = watermarkMode === 'text'
+            ? watermarkText.value.trim().length > 0
+            : selectedLogoFile !== null;
+
+        if (!hasWatermark) {
+            showToast(watermarkMode === 'text' ? '⚠️ Silakan isi teks watermark!' : '⚠️ Silakan upload logo watermark PNG!');
+            return;
+        }
 
         isProcessing = true;
         updateGenerateBtn();
+
 
         // Show loading state
         btnContent.style.display = 'none';
@@ -545,7 +576,7 @@
     const switchToRegister = document.getElementById('switchToRegister');
     const switchToLogin = document.getElementById('switchToLogin');
     const authTitle = document.getElementById('authTitle');
-    
+
     const userProfile = document.getElementById('userProfile');
     const userEmailBadge = document.getElementById('userEmail');
     const btnLogout = document.getElementById('btnLogout');
@@ -562,7 +593,7 @@
         e.preventDefault();
         registerForm.style.display = 'none';
         loginForm.style.display = 'block';
-        authTitle.textContent = 'Login Akun SaaS';
+        authTitle.textContent = 'Login dahulu';
     });
 
     // Handle Login
@@ -617,7 +648,7 @@
             // Switch back to login
             registerForm.style.display = 'none';
             loginForm.style.display = 'block';
-            authTitle.textContent = 'Login Akun SaaS';
+            authTitle.textContent = 'Login Akun dahulu';
             loginEmail.value = email;
             loginPassword.value = '';
         } catch (err) {
@@ -636,10 +667,17 @@
     // Initialize Auth state
     async function initAuth() {
         const token = localStorage.getItem('token');
+        const guestProfile = document.getElementById('guestProfile');
+        const appSidebar = document.getElementById('appSidebar');
+
+        if (appSidebar) appSidebar.style.display = 'flex';
 
         if (!token) {
-            authOverlay.style.display = 'flex';
+            authOverlay.style.display = 'none'; // Keep hidden on load
             userProfile.style.display = 'none';
+            if (guestProfile) guestProfile.style.display = 'flex';
+            updateGenerateBtn();
+            updateConvertBtn();
             return;
         }
 
@@ -654,24 +692,52 @@
             }
 
             const userData = await res.json();
-            
+
             // Success: hide auth and show profile
             authOverlay.style.display = 'none';
             userProfile.style.display = 'flex';
             userEmailBadge.textContent = userData.email;
-            
-            const appSidebar = document.getElementById('appSidebar');
-            if (appSidebar) appSidebar.style.display = 'flex';
+            if (guestProfile) guestProfile.style.display = 'none';
         } catch (err) {
             localStorage.removeItem('token');
             localStorage.removeItem('email');
-            authOverlay.style.display = 'flex';
+            authOverlay.style.display = 'none'; // Keep hidden
             userProfile.style.display = 'none';
-            
-            const appSidebar = document.getElementById('appSidebar');
-            if (appSidebar) appSidebar.style.display = 'none';
+            if (guestProfile) guestProfile.style.display = 'flex';
+        } finally {
+            updateGenerateBtn();
+            updateConvertBtn();
         }
     }
+
+    // Sidebar Guest Login Button
+    const btnSidebarLogin = document.getElementById('btnSidebarLogin');
+    if (btnSidebarLogin) {
+        btnSidebarLogin.addEventListener('click', () => {
+            authOverlay.style.display = 'flex';
+            loginForm.style.display = 'block';
+            registerForm.style.display = 'none';
+            authTitle.textContent = 'Login dahulu';
+        });
+    }
+
+    // Close Auth Modal via Close Button
+    const btnCloseAuth = document.getElementById('btnCloseAuth');
+    if (btnCloseAuth) {
+        btnCloseAuth.addEventListener('click', () => {
+            authOverlay.style.display = 'none';
+        });
+    }
+
+    // Close Auth Modal via clicking outside the card
+    if (authOverlay) {
+        authOverlay.addEventListener('click', (e) => {
+            if (e.target === authOverlay) {
+                authOverlay.style.display = 'none';
+            }
+        });
+    }
+
 
     // === Multi-Page / Tab Navigation ===
     const menuBtnGenerator = document.getElementById('menuBtnGenerator');
@@ -727,6 +793,11 @@
     let isConverting = false;
 
     function updateConvertBtn() {
+        const token = localStorage.getItem('token');
+        if (!token) {
+            btnConvert.disabled = false;
+            return;
+        }
         const hasVideo = selectedConvertVideoFile !== null;
         btnConvert.disabled = !hasVideo || isConverting;
     }
@@ -822,10 +893,27 @@
 
     if (btnConvert) {
         btnConvert.addEventListener('click', async () => {
-            if (!selectedConvertVideoFile || isConverting) return;
+            // Force Login Check FIRST
+            const token = localStorage.getItem('token');
+            if (!token) {
+                authOverlay.style.display = 'flex';
+                loginForm.style.display = 'block';
+                registerForm.style.display = 'none';
+                authTitle.textContent = 'Login dahulu';
+                showToast('⚠️ Silakan login terlebih dahulu untuk melakukan konversi!');
+                return;
+            }
+
+            if (isConverting) return;
+
+            if (!selectedConvertVideoFile) {
+                showToast('⚠️ Silakan upload video terlebih dahulu!');
+                return;
+            }
 
             isConverting = true;
             updateConvertBtn();
+
 
             btnConvertContent.style.display = 'none';
             btnConvertLoading.style.display = 'flex';
