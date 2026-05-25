@@ -76,6 +76,21 @@ D. ValueError: Invalid isoformat string: 'monthly'
      $ source venv/bin/activate
      $ python3 db_clean.py
 
+E. FFmpeg Timeout (300 seconds limit exceeded) / Endless Keep-Alive
+   * GEJALA: Proses video terhenti pada tahap render FFmpeg (Step C) dengan status `: keepalive`
+     secara terus-menerus hingga akhirnya gagal setelah 300 detik dengan pesan timeout.
+   * PENYEBAB: Penggunaan opsi `-stream_loop -1` (loop video tanpa batas) yang digabungkan dengan
+     flag `-shortest` dan filter audio `amix` memicu bug pada beberapa versi FFmpeg. FFmpeg
+     gagal mendeteksi akhir (EOF) dari stream audio narasi, menyebabkan proses rendering looping
+     terus-menerus tanpa henti hingga melampaui batas timeout 300 detik.
+   * SOLUSI: Mengubah perulangan video menjadi terbatas (finite loop) secara dinamis di `core/pipeline.py`.
+     Sistem sekarang menghitung perkiraan perulangan video yang dibutuhkan berdasarkan durasi audio narasi:
+     `loop_count = max(1, math.ceil(audio_dur / video_dur) + 2)`
+     Dan memasukkan `-stream_loop <loop_count>` alih-alih `-stream_loop -1`. Dengan membatasi jumlah
+     perulangan video secara dinamis, FFmpeg dapat mengenali titik akhir semua stream dengan benar,
+     sehingga flag `-shortest` memotong hasil render secara instan tepat setelah narasi audio selesai,
+     bebas dari kendala hang/timeout.
+
 -----------------------------------------------------------------------------
 3. MIGRASI DATABASE KE MYSQL AAPANEL (100% SUKSES)
 -----------------------------------------------------------------------------

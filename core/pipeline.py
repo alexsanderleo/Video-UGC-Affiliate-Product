@@ -374,6 +374,16 @@ def step_c_ffmpeg(
     job_id: Optional[str] = None
 ):
     """Process video using FFmpeg with anti-copyright and watermark overlay."""
+    # Calculate loops needed to cover the TTS audio duration to avoid infinite loop with -shortest bug
+    video_dur = get_video_duration(input_video)
+    audio_dur = get_audio_duration(tts_audio)
+    import math
+    if video_dur > 0 and audio_dur > 0:
+        # We loop enough times to exceed audio duration, plus a buffer of 2 loops
+        loop_count = max(1, math.ceil(audio_dur / video_dur) + 2)
+    else:
+        loop_count = 10
+
     # Dynamic font path for Windows vs Linux (aaPanel)
     if os.name == 'nt':
         font_path = "C\\\\:/Windows/Fonts/arial.ttf"
@@ -428,13 +438,13 @@ def step_c_ffmpeg(
                 f"[3:v]scale=100:-1[logo];"
                 f"[vid_with_bg][logo]overlay=W-w-30:30[vid_final]"
             )
-            input_args = ['-stream_loop', '-1', '-i', input_video, '-i', tts_audio, '-i', backsound, '-i', watermark_logo]
+            input_args = ['-stream_loop', str(loop_count), '-i', input_video, '-i', tts_audio, '-i', backsound, '-i', watermark_logo]
         else:
             filter_complex += (
                 f"[2:v]scale=100:-1[logo];"
                 f"[vid_with_bg][logo]overlay=W-w-30:30[vid_final]"
             )
-            input_args = ['-stream_loop', '-1', '-i', input_video, '-i', tts_audio, '-i', watermark_logo]
+            input_args = ['-stream_loop', str(loop_count), '-i', input_video, '-i', tts_audio, '-i', watermark_logo]
     else:
         filter_complex = (
             f"[0:v]scale=720:1280,boxblur=20:5[bg];"
@@ -456,7 +466,7 @@ def step_c_ffmpeg(
         else:
             filter_complex = filter_complex.replace('[vid_wm]', '[vid_final]')
             
-        input_args = ['-stream_loop', '-1', '-i', input_video, '-i', tts_audio]
+        input_args = ['-stream_loop', str(loop_count), '-i', input_video, '-i', tts_audio]
         if has_backsound:
             input_args += ['-i', backsound]
 
