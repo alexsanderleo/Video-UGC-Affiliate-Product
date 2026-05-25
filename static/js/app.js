@@ -833,6 +833,34 @@
             bulkVoiceSelect.value = 'id-ID-ArdiNeural';
         }
 
+        // Resets for bulk subtitle settings
+        const bulkSubFont = document.getElementById('bulkSubFont');
+        if (bulkSubFont) {
+            bulkSubFont.value = 'Arial';
+        }
+        const bulkSubSize = document.getElementById('bulkSubSize');
+        if (bulkSubSize) {
+            bulkSubSize.value = 26; // reset to standard default
+            bulkSubSize.dispatchEvent(new Event('input'));
+        }
+        const bulkSubOpacity = document.getElementById('bulkSubOpacity');
+        if (bulkSubOpacity) {
+            bulkSubOpacity.value = 1.0;
+            bulkSubOpacity.dispatchEvent(new Event('input'));
+        }
+        const bulkSubColor = document.getElementById('bulkSubColor');
+        const bulkSubColorHex = document.getElementById('bulkSubColorHex');
+        if (bulkSubColor) {
+            bulkSubColor.value = '#FFFF00';
+            if (bulkSubColorHex) bulkSubColorHex.textContent = '#FFFF00';
+        }
+        const bulkSubSecColor = document.getElementById('bulkSubSecColor');
+        const bulkSubSecColorHex = document.getElementById('bulkSubSecColorHex');
+        if (bulkSubSecColor) {
+            bulkSubSecColor.value = '#FFFFFF';
+            if (bulkSubSecColorHex) bulkSubSecColorHex.textContent = '#FFFFFF';
+        }
+
         // 2. Subtitle Font -> Arial Bold
         const subFont = document.getElementById('subFont');
         if (subFont) {
@@ -1568,6 +1596,21 @@
             formData.append('watermark_logo', selectedBulkLogoFile);
         }
 
+        // Subtitle customization settings for bulk video generation
+        const bulkSubFont = document.getElementById('bulkSubFont')?.value || 'Arial';
+        const bulkSubSize = document.getElementById('bulkSubSize')?.value || 26;
+        const bulkSubColor = document.getElementById('bulkSubColor')?.value || '#FFFF00';
+        const bulkSubSecColor = document.getElementById('bulkSubSecColor')?.value || '#FFFFFF';
+        const bulkSubOpacity = document.getElementById('bulkSubOpacity')?.value || 1.0;
+        const wmOpacity = document.getElementById('wmOpacity')?.value || 0.65; // fallback to single or default
+
+        formData.append('sub_font', bulkSubFont);
+        formData.append('sub_size', bulkSubSize);
+        formData.append('sub_color', bulkSubColor);
+        formData.append('sub_sec_color', bulkSubSecColor);
+        formData.append('sub_opacity', bulkSubOpacity);
+        formData.append('wm_opacity', wmOpacity);
+
         try {
             // Register a task ID
             const taskId = Date.now().toString() + '_' + Math.random().toString(36).substr(2, 5);
@@ -1900,6 +1943,39 @@
     if (subSecColor && subSecColorHex) {
         subSecColor.addEventListener('input', () => {
             subSecColorHex.textContent = subSecColor.value.toUpperCase();
+        });
+    }
+
+    // === Real-time UI updates for bulk customizable subtitles ===
+    const bulkSubSize = document.getElementById('bulkSubSize');
+    const bulkSubSizeVal = document.getElementById('bulkSubSizeVal');
+    if (bulkSubSize && bulkSubSizeVal) {
+        bulkSubSize.addEventListener('input', () => {
+            bulkSubSizeVal.textContent = bulkSubSize.value + 'px';
+        });
+    }
+
+    const bulkSubOpacity = document.getElementById('bulkSubOpacity');
+    const bulkSubOpacityVal = document.getElementById('bulkSubOpacityVal');
+    if (bulkSubOpacity && bulkSubOpacityVal) {
+        bulkSubOpacity.addEventListener('input', () => {
+            bulkSubOpacityVal.textContent = Math.round(bulkSubOpacity.value * 100) + '%';
+        });
+    }
+
+    const bulkSubColor = document.getElementById('bulkSubColor');
+    const bulkSubColorHex = document.getElementById('bulkSubColorHex');
+    if (bulkSubColor && bulkSubColorHex) {
+        bulkSubColor.addEventListener('input', () => {
+            bulkSubColorHex.textContent = bulkSubColor.value.toUpperCase();
+        });
+    }
+
+    const bulkSubSecColor = document.getElementById('bulkSubSecColor');
+    const bulkSubSecColorHex = document.getElementById('bulkSubSecColorHex');
+    if (bulkSubSecColor && bulkSubSecColorHex) {
+        bulkSubSecColor.addEventListener('input', () => {
+            bulkSubSecColorHex.textContent = bulkSubSecColor.value.toUpperCase();
         });
     }
 

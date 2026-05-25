@@ -873,6 +873,77 @@
                                     </div>
                                     <input type="file" id="bulkLogoInput" accept=".png,image/png" hidden>
                                 </div>
+
+                                <div style="border-top: 1px solid rgba(255,255,255,0.06); margin: 16px 0;"></div>
+
+                                <!-- Bulk Subtitle Settings Row -->
+                                <h3 style="font-size: 0.85rem; font-weight: 600; color: var(--text-accent); margin-bottom: 12px; display: flex; align-items: center; gap: 6px;">
+                                    <span>🔤</span> Setelan Subtitle Massal
+                                </h3>
+                                <div class="bulk-subtitle-grid" style="display: grid; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); gap: 16px;">
+                                    <!-- Bulk Subtitle Font Select -->
+                                    <div>
+                                        <label for="bulkSubFont" class="input-label">Font Subtitle</label>
+                                        <div class="select-wrapper">
+                                            <select id="bulkSubFont" class="select-input" style="width: 100%;">
+                                                <option value="Arial" selected>Arial Bold (Standar)</option>
+                                                <option value="Impact">Impact (TikTok Classic)</option>
+                                                <option value="Poppins">Poppins Bold (Rounded Populer)</option>
+                                                <option value="Poppins ExtraBold">Poppins ExtraBold (Sangat Tebal)</option>
+                                                <option value="Anton">Anton (Tinggi & Padat - Sangat Viral)</option>
+                                                <option value="Bebas Neue">Bebas Neue (Tall Condensed Bold)</option>
+                                                <option value="Verdana">Verdana Bold</option>
+                                                <option value="Trebuchet MS">Trebuchet MS Bold</option>
+                                            </select>
+                                            <div class="select-arrow">
+                                                <svg width="14" height="14" viewBox="0 0 24 24" fill="none"
+                                                    stroke="currentColor" stroke-width="2">
+                                                    <polyline points="6 9 12 15 18 9" />
+                                                </svg>
+                                            </div>
+                                        </div>
+                                    </div>
+
+                                    <!-- Bulk Font Size Slider -->
+                                    <div>
+                                        <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 6px;">
+                                            <label for="bulkSubSize" class="input-label" style="margin: 0;">Ukuran Font</label>
+                                            <span id="bulkSubSizeVal" style="font-size: 0.85rem; font-weight: 600; color: var(--text-accent);">26px</span>
+                                        </div>
+                                        <input type="range" id="bulkSubSize" class="range-input" min="16" max="80" step="1" value="26"
+                                            style="width: 100%; height: 6px; border-radius: 4px; background: rgba(255,255,255,0.1); outline: none; -webkit-appearance: none; cursor: pointer; accent-color: var(--text-accent);">
+                                    </div>
+
+                                    <!-- Bulk Subtitle Opacity Slider -->
+                                    <div>
+                                        <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 6px;">
+                                            <label for="bulkSubOpacity" class="input-label" style="margin: 0;">Opacity Subtitle</label>
+                                            <span id="bulkSubOpacityVal" style="font-size: 0.85rem; font-weight: 600; color: var(--text-accent);">100%</span>
+                                        </div>
+                                        <input type="range" id="bulkSubOpacity" class="range-input" min="0.5" max="1.0" step="0.05" value="1.0"
+                                            style="width: 100%; height: 6px; border-radius: 4px; background: rgba(255,255,255,0.1); outline: none; -webkit-appearance: none; cursor: pointer; accent-color: var(--text-accent);">
+                                    </div>
+
+                                    <!-- Bulk Colors Grid -->
+                                    <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 12px;">
+                                        <div>
+                                            <label for="bulkSubSecColor" class="input-label" style="margin-bottom: 6px; display: block; font-size: 0.75rem;">Warna Base</label>
+                                            <div style="display: flex; align-items: center; gap: 8px;">
+                                                <input type="color" id="bulkSubSecColor" value="#FFFFFF"
+                                                    style="border: none; width: 32px; height: 32px; border-radius: 50%; background: none; cursor: pointer; padding: 0;">
+                                                <span id="bulkSubSecColorHex" style="font-size: 0.75rem; font-family: monospace; color: var(--text-secondary);">#FFFFFF</span>
+                                            </div>
+                                        </div>
+                                        <div>
+                                            <label for="bulkSubColor" class="input-label" style="margin-bottom: 6px; display: block; font-size: 0.75rem;">Highlight</label>
+                                            <div style="display: flex; align-items: center; gap: 8px;">
+                                                <input type="color" id="bulkSubColor" value="#FFFF00"
+                                                    style="border: none; width: 32px; height: 32px; border-radius: 50%; background: none; cursor: pointer; padding: 0;">
+                                                <span id="bulkSubColorHex" style="font-size: 0.75rem; font-family: monospace; color: var(--text-secondary);">#FFFF00</span>
+                                            </div>
+                                        </div>
+                                    </div>
+                                </div>
                             </div>
 
                             <!-- Bulk Drag Drop Video Card -->
