@@ -36,6 +36,7 @@ class GenerationLog(TimestampMixin, Base):
     # Task metrics
     video_name = Column(String(255), nullable=True)
     duration = Column(Float, default=0.0, nullable=False)
+    ingress_bytes = Column(BigInteger, default=0, nullable=False)
     bandwidth_bytes = Column(BigInteger, default=0, nullable=False)
     error_message = Column(Text, nullable=True)
 

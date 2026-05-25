@@ -97,6 +97,11 @@ async def generate_video(
         with open(logo_path, "wb") as buffer:
             shutil.copyfileobj(watermark_logo.file, buffer)
 
+    # Calculate uploaded file sizes (ingress bandwidth)
+    ingress_bytes = Path(video_path).stat().st_size if Path(video_path).exists() else 0
+    if logo_path and Path(logo_path).exists():
+        ingress_bytes += Path(logo_path).stat().st_size
+
     # Register in DB with "pending"
     log = GenerationLog(
         job_id=job_id,
@@ -106,6 +111,7 @@ async def generate_video(
         watermark_mode=watermark_mode,
         watermark_text=watermark_text or "",
         video_name=video.filename,
+        ingress_bytes=ingress_bytes,
     )
     db.add(log)
 

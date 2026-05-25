@@ -67,18 +67,34 @@ async def get_stats_cards(
     )
     total_count = total_res.scalar() or 0
 
-    # 2. Total Bandwidth
-    bw_res = await db.execute(
+    # 2. Total Bandwidth (Masuk & Keluar)
+    # Bandwidth Masuk: sum of ingress_bytes in database (size of uploaded source videos & logos)
+    bw_in_res = await db.execute(
+        select(func.sum(GenerationLog.ingress_bytes))
+    )
+    total_bw_in_bytes = bw_in_res.scalar() or 0
+    formatted_bw_in = format_bytes(total_bw_in_bytes)
+
+    # Bandwidth Keluar: sum of bandwidth_bytes in database (size of the rendered output videos)
+    bw_out_res = await db.execute(
         select(func.sum(GenerationLog.bandwidth_bytes))
     )
-    total_bw_bytes = bw_res.scalar() or 0
-    formatted_bw = format_bytes(total_bw_bytes)
+    total_bw_out_bytes = bw_out_res.scalar() or 0
+    formatted_bw_out = format_bytes(total_bw_out_bytes)
 
-    # 3. Active Queue (pending + processing)
-    queue_res = await db.execute(
-        select(func.count(GenerationLog.id)).where(GenerationLog.status.in_(["pending", "processing"]))
-    )
-    active_queue = queue_res.scalar() or 0
+    # 3. Active Queue (retrieved directly from actual active process keys in Redis!)
+    active_queue = 0
+    try:
+        r = async_redis.from_url(settings.REDIS_URL)
+        keys = await r.keys("task_pid:*")
+        active_queue = len(keys)
+        await r.close()
+    except Exception:
+        # Fallback to SQL DB count if Redis is down
+        queue_res = await db.execute(
+            select(func.count(GenerationLog.id)).where(GenerationLog.status.in_(["pending", "processing"]))
+        )
+        active_queue = queue_res.scalar() or 0
 
     # 4. Online Users in Redis
     online_count = 0
@@ -90,7 +106,7 @@ async def get_stats_cards(
     except Exception:
         pass
 
-    # Return elegant HTMX cards
+    # Return elegant HTMX cards (5 columns)
     html = f"""
     <!-- Card 1: Online Users -->
     <div class="glass-card p-6 flex items-center justify-between transition duration-300 hover:scale-105 border border-indigo-500/20">
@@ -98,7 +114,7 @@ async def get_stats_cards(
             <p class="text-sm font-medium text-slate-400 uppercase tracking-wider">User Online (Redis)</p>
             <h3 class="text-3xl font-extrabold text-white mt-1">{online_count}</h3>
         </div>
-        <div class="p-3 bg-emerald-500/10 rounded-xl border border-emerald-500/20 text-emerald-400">
+        <div class="p-3 bg-indigo-500/10 rounded-xl border border-indigo-500/20 text-indigo-400">
             <svg class="w-8 h-8" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                 <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4.354a4 4 0 110 5.292M15 21H3v-1a6 6 0 0112 0v1zm0 0h6v-1a6 6 0 00-9-5.197M13 7a4 4 0 11-8 0 4 4 0 018 0z" />
             </svg>
@@ -118,20 +134,33 @@ async def get_stats_cards(
         </div>
     </div>
 
-    <!-- Card 3: Total Bandwidth -->
-    <div class="glass-card p-6 flex items-center justify-between transition duration-300 hover:scale-105 border border-blue-500/20">
+    <!-- Card 3: Bandwidth Masuk -->
+    <div class="glass-card p-6 flex items-center justify-between transition duration-300 hover:scale-105 border border-teal-500/20">
         <div>
-            <p class="text-sm font-medium text-slate-400 uppercase tracking-wider">Bandwidth Keluar</p>
-            <h3 class="text-3xl font-extrabold text-white mt-1">{formatted_bw}</h3>
+            <p class="text-sm font-medium text-slate-400 uppercase tracking-wider">Bandwidth Masuk (Upload)</p>
+            <h3 class="text-3xl font-extrabold text-white mt-1">{formatted_bw_in}</h3>
         </div>
-        <div class="p-3 bg-blue-500/10 rounded-xl border border-blue-500/20 text-blue-400">
+        <div class="p-3 bg-teal-500/10 rounded-xl border border-teal-500/20 text-teal-400">
             <svg class="w-8 h-8" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 7h12m0 0l-4-4m4 4l-4 4m0 6H4m0 0l4 4m-4-4l4-4" />
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-8l-4-4m0 0L8 8m4-4v12" />
             </svg>
         </div>
     </div>
 
-    <!-- Card 4: Queue Jobs -->
+    <!-- Card 4: Bandwidth Keluar -->
+    <div class="glass-card p-6 flex items-center justify-between transition duration-300 hover:scale-105 border border-blue-500/20">
+        <div>
+            <p class="text-sm font-medium text-slate-400 uppercase tracking-wider">Bandwidth Keluar (Render)</p>
+            <h3 class="text-3xl font-extrabold text-white mt-1">{formatted_bw_out}</h3>
+        </div>
+        <div class="p-3 bg-blue-500/10 rounded-xl border border-blue-500/20 text-blue-400">
+            <svg class="w-8 h-8" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4" />
+            </svg>
+        </div>
+    </div>
+
+    <!-- Card 5: Queue Jobs -->
     <div class="glass-card p-6 flex items-center justify-between transition duration-300 hover:scale-105 border border-amber-500/20">
         <div>
             <p class="text-sm font-medium text-slate-400 uppercase tracking-wider">Antrean Render</p>

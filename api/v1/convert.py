@@ -61,6 +61,9 @@ async def convert_video(
     with open(video_path, "wb") as buffer:
         shutil.copyfileobj(video.file, buffer)
 
+    # Calculate uploaded file size (ingress bandwidth)
+    ingress_bytes = Path(video_path).stat().st_size if Path(video_path).exists() else 0
+
     # Register in DB with "pending"
     # To keep DB schema consistent, we record this conversion task
     log = GenerationLog(
@@ -71,6 +74,7 @@ async def convert_video(
         watermark_mode="convert",
         watermark_text=f"crf={crf_level}",
         video_name=video.filename,
+        ingress_bytes=ingress_bytes,
     )
     db.add(log)
     await db.commit()

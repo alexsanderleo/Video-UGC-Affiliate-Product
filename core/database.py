@@ -105,6 +105,8 @@ async def init_db():
             gen_columns = [c["name"] for c in inspector.get_columns("generation_logs")]
             if "video_name" not in gen_columns:
                 connection.execute(text("ALTER TABLE generation_logs ADD COLUMN video_name VARCHAR(255) NULL;"))
+            if "ingress_bytes" not in gen_columns:
+                connection.execute(text("ALTER TABLE generation_logs ADD COLUMN ingress_bytes BIGINT DEFAULT 0;"))
             
         await conn.run_sync(check_and_add_columns)
 
