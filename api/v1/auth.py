@@ -5,14 +5,15 @@ All async for maximum concurrency on VPS.
 
 from datetime import datetime, timezone
 
-from fastapi import APIRouter, Depends, HTTPException, status
+from fastapi import APIRouter, Depends, HTTPException, status, Request
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from api.deps import get_current_user, get_db
 from core.config import get_settings
-from core.security import create_access_token, hash_password, verify_password
+from core.security import create_access_token, hash_password, verify_password, parse_user_agent
 from models.user import User
+from models.user_login import UserLogin
 from schemas.auth import (
     LoginRequest,
     MessageResponse,
@@ -92,7 +93,11 @@ async def register(body: RegisterRequest, db: AsyncSession = Depends(get_db)):
     response_model=TokenResponse,
     summary="Login dan dapatkan JWT token",
 )
-async def login(body: LoginRequest, db: AsyncSession = Depends(get_db)):
+async def login(
+    request: Request,
+    body: LoginRequest,
+    db: AsyncSession = Depends(get_db)
+):
     """
     Authenticate user and return JWT access token.
     - Validates email + password
@@ -131,6 +136,25 @@ async def login(body: LoginRequest, db: AsyncSession = Depends(get_db)):
         email=user.email,
         token_version=user.token_version,
     )
+
+    # Parse and save login log
+    try:
+        ip = request.headers.get("x-forwarded-for") or request.headers.get("x-real-ip") or request.client.host
+        ua = request.headers.get("user-agent", "")
+        brand, os = parse_user_agent(ua)
+
+        login_log = UserLogin(
+            user_id=user.id,
+            ip_address=ip,
+            user_agent=ua[:500],
+            device_brand=brand,
+            device_os=os
+        )
+        db.add(login_log)
+        await db.commit()
+    except Exception as e:
+        # Don't block login if logging fails
+        pass
 
     return TokenResponse(
         access_token=access_token,

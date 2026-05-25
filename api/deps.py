@@ -3,7 +3,7 @@ FastAPI dependencies — reusable injections for routes.
 Provides get_db (async session) and get_current_user (JWT auth).
 """
 
-from fastapi import Depends, HTTPException, status
+from fastapi import Depends, HTTPException, status, Request
 from fastapi.security import HTTPAuthorizationCredentials, HTTPBearer
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -17,6 +17,7 @@ bearer_scheme = HTTPBearer(auto_error=False)
 
 
 async def get_current_user(
+    request: Request,
     credentials: HTTPAuthorizationCredentials = Depends(bearer_scheme),
     db: AsyncSession = Depends(get_db),
 ) -> User:
@@ -84,8 +85,29 @@ async def get_current_user(
     try:
         from core.config import get_settings
         import redis.asyncio as async_redis
+        import json
+        from datetime import datetime, timezone
+        from core.security import parse_user_agent
+
         settings = get_settings()
+
+        # Get client IP and User-Agent
+        ip = request.headers.get("x-forwarded-for") or request.headers.get("x-real-ip") or request.client.host
+        ua = request.headers.get("user-agent", "")
+        brand, os = parse_user_agent(ua)
+
+        session_data = {
+            "email": user.email,
+            "ip": ip,
+            "brand": brand,
+            "os": os,
+            "last_active": datetime.now(timezone.utc).isoformat()
+        }
+
         r_client = async_redis.from_url(settings.REDIS_URL)
+        # Store detailed active session
+        await r_client.setex(f"user_active_details:{user.id}", 300, json.dumps(session_data))
+        # Keep old active key for backward compatibility of online count
         await r_client.setex(f"user_active:{user.id}", 300, "online")
         await r_client.close()
     except Exception as e:

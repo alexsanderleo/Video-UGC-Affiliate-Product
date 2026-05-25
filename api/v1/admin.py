@@ -16,6 +16,7 @@ from typing import Optional
 from api.deps import get_db, get_current_admin
 from models.user import User
 from models.generation_log import GenerationLog
+from models.user_login import UserLogin
 from core.config import get_settings
 from core.security import hash_password
 
@@ -966,3 +967,155 @@ async def admin_kill_task(
         </td>
     </tr>
     """)
+
+
+@router.get(
+    "/active-sessions",
+    response_class=HTMLResponse,
+    summary="Get HTML table rows for currently active user sessions",
+)
+async def get_active_sessions(
+    db: AsyncSession = Depends(get_db),
+    admin: User = Depends(get_current_admin),
+):
+    """Fetch active sessions from Redis details and return modern HTML table rows."""
+    import redis
+    import json
+    from datetime import datetime
+    
+    r = redis.from_url(settings.REDIS_URL)
+    
+    try:
+        keys = r.keys("user_active_details:*")
+    except Exception as e:
+        print(f"[ACTIVE SESSIONS ERROR] {e}")
+        keys = []
+        
+    sessions = []
+    for key in keys:
+        try:
+            val = r.get(key)
+            if val:
+                sessions.append(json.loads(val.decode("utf-8")))
+        except Exception as ex:
+            print(f"[ACTIVE SESSIONS ERROR] Parse key failed: {ex}")
+            
+    r.close()
+    
+    if not sessions:
+        return HTMLResponse("""
+        <tr>
+            <td colspan="5" class="px-6 py-6 text-center text-slate-500 text-sm font-medium">
+                Tidak ada pengguna yang sedang online saat ini.
+            </td>
+        </tr>
+        """)
+        
+    # Sort by last active timestamp desc
+    sessions.sort(key=lambda s: s.get("last_active", ""), reverse=True)
+    
+    html = ""
+    for session in sessions:
+        email = session.get("email", "Unknown Email")
+        ip = session.get("ip", "-")
+        brand = session.get("brand", "Unknown Device")
+        os_name = session.get("os", "Unknown OS")
+        
+        last_active_str = "-"
+        last_active_raw = session.get("last_active")
+        if last_active_raw:
+            try:
+                # ISO format timestamp
+                dt = datetime.fromisoformat(last_active_raw)
+                last_active_str = dt.strftime("%H:%M:%S (%d %b)")
+            except Exception:
+                last_active_str = last_active_raw
+                
+        # Elegant icons for OS
+        os_icons = {
+            "Windows": "💻",
+            "macOS": "🖥️",
+            "iOS": "📱 iPhone",
+            "Android": "🤖 Android",
+            "Linux": "🐧 Linux",
+        }
+        os_icon = os_icons.get(os_name, "💻")
+        
+        html += f"""
+        <tr class="border-b border-slate-800/50 hover:bg-slate-900/30 transition">
+            <td class="px-6 py-4 whitespace-nowrap text-sm font-semibold text-slate-300">{email}</td>
+            <td class="px-6 py-4 whitespace-nowrap text-sm text-indigo-400 font-mono font-semibold">{ip}</td>
+            <td class="px-6 py-4 whitespace-nowrap text-sm text-slate-300 font-medium">{brand}</td>
+            <td class="px-6 py-4 whitespace-nowrap text-sm text-slate-400">
+                <span class="inline-flex items-center gap-1.5 font-semibold text-xs text-slate-300">
+                    {os_icon} {os_name}
+                </span>
+            </td>
+            <td class="px-6 py-4 whitespace-nowrap text-sm text-slate-400 font-semibold">{last_active_str}</td>
+        </tr>
+        """
+        
+    return HTMLResponse(html)
+
+
+@router.get(
+    "/login-history",
+    response_class=HTMLResponse,
+    summary="Get HTML table rows for recent user login log",
+)
+async def get_login_history(
+    db: AsyncSession = Depends(get_db),
+    admin: User = Depends(get_current_admin),
+):
+    """Fetch the latest 15 login attempts from SQLite/MySQL and return HTML table rows."""
+    query = (
+        select(UserLogin, User.email)
+        .join(User, UserLogin.user_id == User.id)
+        .order_by(UserLogin.created_at.desc())
+        .limit(15)
+    )
+    
+    result = await db.execute(query)
+    logins_data = result.all()
+    
+    if not logins_data:
+        return HTMLResponse("""
+        <tr>
+            <td colspan="5" class="px-6 py-6 text-center text-slate-500 text-sm font-medium">
+                Belum ada data riwayat login yang terekam.
+            </td>
+        </tr>
+        """)
+        
+    html = ""
+    for log, email in logins_data:
+        ip = log.ip_address or "-"
+        brand = log.device_brand or "Unknown Device"
+        os_name = log.device_os or "Unknown OS"
+        login_time_str = log.created_at.strftime("%Y-%m-%d %H:%M:%S")
+        
+        # OS icons
+        os_icons = {
+            "Windows": "💻",
+            "macOS": "🖥️",
+            "iOS": "📱 iPhone",
+            "Android": "🤖 Android",
+            "Linux": "🐧 Linux",
+        }
+        os_icon = os_icons.get(os_name, "💻")
+        
+        html += f"""
+        <tr class="border-b border-slate-800/50 hover:bg-slate-900/30 transition">
+            <td class="px-6 py-4 whitespace-nowrap text-sm font-semibold text-slate-300">{email}</td>
+            <td class="px-6 py-4 whitespace-nowrap text-sm text-indigo-400 font-mono font-semibold">{ip}</td>
+            <td class="px-6 py-4 whitespace-nowrap text-sm text-slate-300 font-medium">{brand}</td>
+            <td class="px-6 py-4 whitespace-nowrap text-sm text-slate-400">
+                <span class="inline-flex items-center gap-1.5 font-semibold text-xs text-slate-300">
+                    {os_icon} {os_name}
+                </span>
+            </td>
+            <td class="px-6 py-4 whitespace-nowrap text-sm text-slate-400 font-semibold">{login_time_str}</td>
+        </tr>
+        """
+        
+    return HTMLResponse(html)

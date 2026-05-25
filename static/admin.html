@@ -453,6 +453,79 @@
             </div>
         </section>
 
+        <!-- Dynamic Tracking Sections (Active Sessions & Login History side-by-side) -->
+        <div class="grid grid-cols-1 lg:grid-cols-2 gap-8">
+            <!-- Section: Active User Sessions -->
+            <section class="space-y-4">
+                <div class="flex items-center justify-between border-b border-slate-800/40 pb-2">
+                    <h2 class="text-lg font-bold font-outfit text-white flex items-center gap-2">
+                        🟢 <span class="bg-gradient-to-r from-slate-100 to-slate-400 bg-clip-text text-transparent">Sesi Aktif Pengguna (Live)</span>
+                    </h2>
+                    <span class="text-[10px] text-emerald-400 border border-emerald-500/20 bg-emerald-500/5 px-2 py-0.5 rounded-full font-semibold pulse">Auto 5s</span>
+                </div>
+                
+                <div class="glass-card overflow-hidden">
+                    <div class="overflow-x-auto">
+                        <table class="w-full text-left border-collapse">
+                            <thead>
+                                <tr class="bg-slate-900/50 border-b border-slate-800/80 text-xs font-bold text-slate-400 uppercase tracking-wider">
+                                    <th class="px-6 py-4">User Email</th>
+                                    <th class="px-6 py-4">IP Address</th>
+                                    <th class="px-6 py-4">Device</th>
+                                    <th class="px-6 py-4">OS Perangkat</th>
+                                    <th class="px-6 py-4">Aktivitas Terakhir</th>
+                                </tr>
+                            </thead>
+                            <tbody id="active-sessions-rows" 
+                                   hx-get="/api/v1/admin/active-sessions" 
+                                   hx-trigger="load, every 5s">
+                                <tr>
+                                    <td colspan="5" class="px-6 py-8 text-center text-slate-500 animate-pulse">
+                                        Memantau sesi aktif pengguna...
+                                    </td>
+                                </tr>
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+            </section>
+
+            <!-- Section: Recent Login History -->
+            <section class="space-y-4">
+                <div class="flex items-center justify-between border-b border-slate-800/40 pb-2">
+                    <h2 class="text-lg font-bold font-outfit text-white flex items-center gap-2">
+                        📜 <span class="bg-gradient-to-r from-slate-100 to-slate-400 bg-clip-text text-transparent">Riwayat Login Pengguna</span>
+                    </h2>
+                    <span class="text-[10px] text-indigo-400 border border-indigo-500/20 bg-indigo-500/5 px-2 py-0.5 rounded-full font-semibold">Auto 10s</span>
+                </div>
+                
+                <div class="glass-card overflow-hidden">
+                    <div class="overflow-x-auto">
+                        <table class="w-full text-left border-collapse">
+                            <thead>
+                                <tr class="bg-slate-900/50 border-b border-slate-800/80 text-xs font-bold text-slate-400 uppercase tracking-wider">
+                                    <th class="px-6 py-4">User Email</th>
+                                    <th class="px-6 py-4">IP Address</th>
+                                    <th class="px-6 py-4">Device</th>
+                                    <th class="px-6 py-4">OS Perangkat</th>
+                                    <th class="px-6 py-4">Waktu Login</th>
+                                </tr>
+                            </thead>
+                            <tbody id="login-history-rows" 
+                                   hx-get="/api/v1/admin/login-history" 
+                                   hx-trigger="load, every 10s">
+                                <tr>
+                                    <td colspan="5" class="px-6 py-8 text-center text-slate-500 animate-pulse">
+                                        Memuat riwayat login...
+                                    </td>
+                                </tr>
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+            </section>
+        </div>
+
     </main>
 
     <!-- Footer Banner -->
