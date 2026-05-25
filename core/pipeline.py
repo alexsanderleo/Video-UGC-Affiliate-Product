@@ -374,8 +374,12 @@ def step_c_ffmpeg(
     job_id: Optional[str] = None
 ):
     """Process video using FFmpeg with anti-copyright and watermark overlay."""
-    # Get original input video duration to restrict output video duration exactly to it
+    # Get original input video duration
     video_dur = get_video_duration(input_video)
+    
+    # Calculate a safe duration target slightly shorter than the input video (by 50ms)
+    # to prevent any possibility of frame exhaustion hangs
+    t_arg = f"{max(1.0, video_dur - 0.05):.3f}"
 
     # Dynamic font path for Windows vs Linux (aaPanel)
     if os.name == 'nt':
@@ -431,13 +435,13 @@ def step_c_ffmpeg(
                 f"[3:v]scale=100:-1[logo];"
                 f"[vid_with_bg][logo]overlay=W-w-30:30[vid_final]"
             )
-            input_args = ['-i', input_video, '-i', tts_audio, '-i', backsound, '-i', watermark_logo]
+            input_args = ['-i', input_video, '-t', t_arg, '-i', tts_audio, '-t', t_arg, '-i', backsound, '-i', watermark_logo]
         else:
             filter_complex += (
                 f"[2:v]scale=100:-1[logo];"
                 f"[vid_with_bg][logo]overlay=W-w-30:30[vid_final]"
             )
-            input_args = ['-i', input_video, '-i', tts_audio, '-i', watermark_logo]
+            input_args = ['-i', input_video, '-t', t_arg, '-i', tts_audio, '-i', watermark_logo]
     else:
         filter_complex = (
             f"[0:v]scale=720:1280,boxblur=20:5[bg];"
@@ -459,9 +463,9 @@ def step_c_ffmpeg(
         else:
             filter_complex = filter_complex.replace('[vid_wm]', '[vid_final]')
             
-        input_args = ['-i', input_video, '-i', tts_audio]
+        input_args = ['-i', input_video, '-t', t_arg, '-i', tts_audio]
         if has_backsound:
-            input_args += ['-i', backsound]
+            input_args += ['-t', t_arg, '-i', backsound]
 
     if has_backsound:
         filter_complex += (
@@ -483,7 +487,7 @@ def step_c_ffmpeg(
         '-crf', '23',
         '-c:a', 'aac',
         '-b:a', '128k',
-        '-shortest',
+        '-t', t_arg,
         '-movflags', '+faststart',
         output_path
     ]
