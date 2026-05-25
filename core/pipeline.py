@@ -431,13 +431,13 @@ def step_c_ffmpeg(
                 f"[3:v]scale=100:-1[logo];"
                 f"[vid_with_bg][logo]overlay=W-w-30:30[vid_final]"
             )
-            input_args = ['-stream_loop', '-1', '-i', input_video, '-i', tts_audio, '-i', backsound, '-i', watermark_logo]
+            input_args = ['-i', input_video, '-i', tts_audio, '-i', backsound, '-i', watermark_logo]
         else:
             filter_complex += (
                 f"[2:v]scale=100:-1[logo];"
                 f"[vid_with_bg][logo]overlay=W-w-30:30[vid_final]"
             )
-            input_args = ['-stream_loop', '-1', '-i', input_video, '-i', tts_audio, '-i', watermark_logo]
+            input_args = ['-i', input_video, '-i', tts_audio, '-i', watermark_logo]
     else:
         filter_complex = (
             f"[0:v]scale=720:1280,boxblur=20:5[bg];"
@@ -459,7 +459,7 @@ def step_c_ffmpeg(
         else:
             filter_complex = filter_complex.replace('[vid_wm]', '[vid_final]')
             
-        input_args = ['-stream_loop', '-1', '-i', input_video, '-i', tts_audio]
+        input_args = ['-i', input_video, '-i', tts_audio]
         if has_backsound:
             input_args += ['-i', backsound]
 
@@ -483,7 +483,7 @@ def step_c_ffmpeg(
         '-crf', '23',
         '-c:a', 'aac',
         '-b:a', '128k',
-        '-t', f"{video_dur:.3f}",
+        '-shortest',
         '-movflags', '+faststart',
         output_path
     ]

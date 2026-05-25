@@ -80,16 +80,13 @@ E. FFmpeg Timeout (300 seconds limit exceeded) / Endless Keep-Alive
    * GEJALA: Proses video terhenti pada tahap render FFmpeg (Step C) dengan status `: keepalive`
      secara terus-menerus hingga akhirnya gagal setelah 300 detik dengan pesan timeout.
    * PENYEBAB: Penggunaan opsi `-stream_loop -1` (loop video tanpa batas) yang digabungkan dengan
-     flag `-shortest` dan filter audio `amix` memicu bug pada beberapa versi FFmpeg. FFmpeg
-     gagal mendeteksi akhir (EOF) dari stream audio narasi, menyebabkan proses rendering looping
-     terus-menerus tanpa henti hingga melampaui batas timeout 300 detik. Namun, jika `-stream_loop`
-     dihapus sepenuhnya, FFmpeg akan hang/crash ketika input video kehabisan frame sebelum mencapai
-     durasi output target `-t` (misal karena perbedaan presisi durasi audio/video).
-   * SOLUSI: Menggunakan kombinasi `-stream_loop -1` pada input video agar frame video selalu tersedia
-     tanpa batas (menghindari stall/hang akibat kehabisan frame), dan menerapkan opsi durasi keras
-     `-t <video_duration>` pada output akhir di `core/pipeline.py`. Dengan demikian, FFmpeg dijamin
-     selesai tepat waktu mengikuti panjang video input asli secara presisi (tidak melebihi durasi video
-     dan tidak mengikuti durasi narasi), serta 100% bebas dari kendala hang/timeout/stalling.
+     flag `-shortest` dan filter audio `amix` memicu bug pada beberapa versi FFmpeg, di mana EOF
+     pada stream audio tidak pernah terdeteksi sehingga FFmpeg melakukan perulangan tanpa batas.
+   * SOLUSI: Menyederhanakan seluruh parameter FFmpeg secara total di `core/pipeline.py` dengan
+     menghapus semua logika perulangan `-stream_loop` (video input hanya diputar tepat 1 kali)
+     dan menggunakan opsi standard `-shortest` pada output. Karena kedua input (video dan audio)
+     sekarang bersifat terbatas (finite), FFmpeg dapat mendeteksi akhir stream dengan sangat mudah
+     dan menyelesaikan render secara instan tanpa pernah menggantung atau mengalami timeout/crash.
 
 -----------------------------------------------------------------------------
 3. MIGRASI DATABASE KE MYSQL AAPANEL (100% SUKSES)
