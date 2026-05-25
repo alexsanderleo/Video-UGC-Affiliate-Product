@@ -79,6 +79,8 @@ async def init_db():
         def check_and_add_columns(connection):
             from sqlalchemy import inspect, text
             inspector = inspect(connection)
+            
+            # Check users table
             columns = [c["name"] for c in inspector.get_columns("users")]
             
             # Detect dialect
@@ -98,6 +100,11 @@ async def init_db():
                     connection.execute(text("ALTER TABLE users ADD COLUMN is_admin TINYINT(1) DEFAULT 0 NOT NULL;"))
                 else:
                     connection.execute(text("ALTER TABLE users ADD COLUMN is_admin BOOLEAN DEFAULT 0 NOT NULL;"))
+            
+            # Check generation_logs table
+            gen_columns = [c["name"] for c in inspector.get_columns("generation_logs")]
+            if "video_name" not in gen_columns:
+                connection.execute(text("ALTER TABLE generation_logs ADD COLUMN video_name VARCHAR(255) NULL;"))
             
         await conn.run_sync(check_and_add_columns)
 
