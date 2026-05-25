@@ -183,4 +183,27 @@ B. CARA GIT PULL KE VPS AAPANEL (UPDATE KODE DI SERVER)
       *atau matikan paksa port 8000 dan muat ulang Supervisor:*
       $ fuser -k 8000/tcp
       $ supervisorctl reload
+
+-----------------------------------------------------------------------------
+7. CARA MELIHAT PROSES FFMPEG BERJALAN DI VPS / AAPANEL
+-----------------------------------------------------------------------------
+Untuk memantau apakah ada proses FFmpeg yang sedang aktif berjalan, memakan CPU tinggi, atau menggantung (hang), Anda dapat menggunakan metode berikut:
+
+A. MENGGUNAKAN TERMINAL SSH (SANGAT DIREKOMENDASIKAN)
+   1. Melihat daftar lengkap proses FFmpeg yang sedang berjalan beserta parameternya:
+      $ ps aux | grep ffmpeg
+   2. Melihat daftar FFmpeg aktif secara ringkas (hanya menampilkan PID dan Command):
+      $ pgrep -fl ffmpeg
+   3. Memantau aktivitas FFmpeg secara real-time tiap 1 detik (akan me-refresh layar secara otomatis):
+      $ watch -n 1 "pgrep -fl ffmpeg"
+   4. Memantau secara visual menggunakan htop (menampilkan grafik CPU/RAM proses):
+      $ htop
+      *(Catatan: Jika htop belum terinstal, Anda dapat menginstalnya dengan perintah: `apt install htop` atau `yum install htop`. Di dalam htop, Anda dapat menekan tombol 'F4' lalu ketik 'ffmpeg' untuk memfilter).*
+
+B. MENGGUNAKAN DASHBOARD GUI AAPANEL (TANPA KETIK PERINTAH)
+   1. Melalui Menu Monitor:
+      Buka dashboard aaPanel > Klik menu "Monitor" di sidebar kiri. Anda dapat memantau jika ada lonjakan grafis CPU. Proses rendering FFmpeg biasanya akan menaikkan penggunaan CPU secara signifikan dalam jangka pendek.
+   2. Melalui Process Manager aaPanel:
+      Masuk ke aaPanel > pilih App Store > cari dan instal ekstensi gratis bernama "System Task Manager" atau "Process Manager".
+      Setelah terpasang, buka aplikasi tersebut. Anda akan melihat daftar proses yang sedang berjalan. Anda bisa mengetik "ffmpeg" di kolom pencarian untuk melihat status berjalan, penggunaan RAM, atau menghentikannya (End Process) secara visual langsung dari browser.
 =============================================================================
