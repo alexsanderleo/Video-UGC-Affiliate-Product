@@ -799,6 +799,16 @@
             subOpacity.value = 1.0;
             subOpacity.dispatchEvent(new Event('input'));
         }
+
+        // 5. Watermark Position -> center
+        const watermarkPosition = document.getElementById('watermarkPosition');
+        if (watermarkPosition) {
+            watermarkPosition.value = 'center';
+        }
+        const bulkWatermarkPosition = document.getElementById('bulkWatermarkPosition');
+        if (bulkWatermarkPosition) {
+            bulkWatermarkPosition.value = 'center';
+        }
     }
 
     function switchTab(activeBtn, activePage) {
