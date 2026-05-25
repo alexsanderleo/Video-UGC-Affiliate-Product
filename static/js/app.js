@@ -768,6 +768,39 @@
     const bulkGeneratorPage = document.getElementById('bulkGeneratorPage');
     const convertVideoPage = document.getElementById('convertVideoPage');
 
+    function resetToDefaultSettings() {
+        // 1. AI Voice -> Ardi Neural
+        const voiceSelect = document.getElementById('voiceSelect');
+        if (voiceSelect) {
+            voiceSelect.value = 'id-ID-ArdiNeural';
+            voiceSelect.dispatchEvent(new Event('change'));
+        }
+        const bulkVoiceSelect = document.getElementById('bulkVoiceSelect');
+        if (bulkVoiceSelect) {
+            bulkVoiceSelect.value = 'id-ID-ArdiNeural';
+        }
+
+        // 2. Subtitle Font -> Arial Bold
+        const subFont = document.getElementById('subFont');
+        if (subFont) {
+            subFont.value = 'Arial';
+        }
+
+        // 3. Ukuran Font -> 71px
+        const subSize = document.getElementById('subSize');
+        if (subSize) {
+            subSize.value = 71;
+            subSize.dispatchEvent(new Event('input'));
+        }
+
+        // 4. Opacity Subtitle -> 100%
+        const subOpacity = document.getElementById('subOpacity');
+        if (subOpacity) {
+            subOpacity.value = 1.0;
+            subOpacity.dispatchEvent(new Event('input'));
+        }
+    }
+
     function switchTab(activeBtn, activePage) {
         // Prevent tab switching if a single-job generation, single-job conversion, or bulk generation is active
         const isBulkActive = typeof bulkQueue !== 'undefined' && bulkQueue.some(j => j.status === 'processing');
@@ -790,6 +823,11 @@
         if (activePage) {
             activePage.classList.add('active');
             activePage.style.display = 'block';
+
+            // Set defaults when switching to Video to Video or Video to Video Massal
+            if (activeBtn === menuBtnGenerator || activeBtn === menuBtnBulkGenerator) {
+                resetToDefaultSettings();
+            }
         }
     }
 
@@ -1768,6 +1806,7 @@
 
     // === Init ===
     initAuth();
+    resetToDefaultSettings();
     updateGenerateBtn();
     updateConvertBtn();
 
