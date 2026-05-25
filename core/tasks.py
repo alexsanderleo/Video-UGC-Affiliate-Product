@@ -67,12 +67,19 @@ def render_video_task(
     watermark_position: str,
     logo_path: Optional[str],
     user_id: int,
+    sub_font: str = "Arial",
+    sub_size: int = 26,
+    sub_color: str = "#FFFF00",
+    sub_sec_color: str = "#FFFFFF",
+    sub_opacity: float = 1.0,
+    wm_opacity: float = 0.65,
 ):
     """Celery task to run the video generation pipeline in a background worker."""
     return asyncio.run(
         async_render_video(
             job_id, video_path, voice, watermark_mode,
-            watermark_text, watermark_position, logo_path, user_id
+            watermark_text, watermark_position, logo_path, user_id,
+            sub_font, sub_size, sub_color, sub_sec_color, sub_opacity, wm_opacity
         )
     )
 
@@ -86,6 +93,12 @@ async def async_render_video(
     watermark_position: str,
     logo_path: Optional[str],
     user_id: int,
+    sub_font: str = "Arial",
+    sub_size: int = 26,
+    sub_color: str = "#FFFF00",
+    sub_sec_color: str = "#FFFFFF",
+    sub_opacity: float = 1.0,
+    wm_opacity: float = 0.65,
 ):
     """Async pipeline implementation called inside the Celery worker."""
     # Construct a local engine bound to the current task's event loop to prevent "attached to a different loop" errors
@@ -172,7 +185,11 @@ async def async_render_video(
         srt_path = settings.TEMP_DIR / srt_filename
 
         # Call Edge-TTS asynchronously and generate subtitles simultaneously
-        await step_b_tts(tts_text, voice, str(tts_path), srt_path=str(srt_path))
+        await step_b_tts(
+            tts_text, voice, str(tts_path), srt_path=str(srt_path),
+            sub_font=sub_font, sub_size=sub_size, sub_color=sub_color,
+            sub_sec_color=sub_sec_color, sub_opacity=sub_opacity
+        )
         publish_progress(job_id, {'step': 'B_done', 'status': 'done'})
 
         # --- Subtitles (Audio-Driven Sync) ---
@@ -200,7 +217,13 @@ async def async_render_video(
             output_path=str(output_path),
             watermark_position=watermark_position,
             subtitle_path=str(srt_path),
-            job_id=job_id
+            job_id=job_id,
+            sub_font=sub_font,
+            sub_size=sub_size,
+            sub_color=sub_color,
+            sub_sec_color=sub_sec_color,
+            sub_opacity=sub_opacity,
+            wm_opacity=wm_opacity,
         )
 
         publish_progress(job_id, {'step': 'C_done', 'status': 'done'})

@@ -271,8 +271,18 @@ def step_a_video_understanding(video_path: str, duration_seconds: int = 30) -> s
 
     return response.choices[0].message.content
 
-async def step_b_tts(text: str, voice: str, output_path: str, srt_path: Optional[str] = None):
-    """Convert text to speech using Edge-TTS asynchronously and optionally write SRT/ASS subtitles."""
+async def step_b_tts(
+    text: str,
+    voice: str,
+    output_path: str,
+    srt_path: Optional[str] = None,
+    sub_font: str = "Arial",
+    sub_size: int = 26,
+    sub_color: str = "#FFFF00",
+    sub_sec_color: str = "#FFFFFF",
+    sub_opacity: float = 1.0,
+):
+    """Convert text to speech using Edge-TTS asynchronously and optionally write SRT/ASS subtitles with dynamic custom styling."""
     import edge_tts
     
     if srt_path:
@@ -288,7 +298,12 @@ async def step_b_tts(text: str, voice: str, output_path: str, srt_path: Optional
                     word_events.append(chunk)
         
         if srt_path.endswith('.ass'):
-            generate_ass(word_events, srt_path)
+            generate_ass(
+                word_events, srt_path,
+                sub_font=sub_font, sub_size=sub_size,
+                sub_color=sub_color, sub_sec_color=sub_sec_color,
+                sub_opacity=sub_opacity
+            )
         else:
             with open(srt_path, "w", encoding="utf-8") as f:
                 f.write(submaker.get_srt())
@@ -394,8 +409,38 @@ def format_ass_time(seconds: float) -> str:
         centiseconds = 99
     return f"{hours}:{minutes:02d}:{secs:02d}.{centiseconds:02d}"
 
-def generate_ass(word_events, ass_path):
-    """Generate ASS subtitle file with dynamic TikTok-style karaoke highlights."""
+def convert_to_ass_color(hex_color: str, opacity: float) -> str:
+    """
+    Convert a standard hex color string (#RRGGBB or #RGB) and opacity (0.0 to 1.0)
+    into ASS hexadecimal format: &HAABBGGRR.
+    Note that ASS transparency is inverted (00 is fully opaque, FF is fully transparent).
+    """
+    hex_color = hex_color.lstrip('#')
+    if len(hex_color) == 3:
+        hex_color = ''.join(c*2 for c in hex_color)
+    if len(hex_color) != 6:
+        hex_color = 'FFFFFF' # Fallback white
+    
+    r = hex_color[0:2]
+    g = hex_color[2:4]
+    b = hex_color[4:6]
+    
+    alpha_val = int(round((1.0 - opacity) * 255))
+    alpha_val = max(0, min(255, alpha_val))
+    a = f"{alpha_val:02X}"
+    
+    return f"&H{a}{b}{g}{r}"
+
+def generate_ass(
+    word_events,
+    ass_path,
+    sub_font: str = "Arial",
+    sub_size: int = 26,
+    sub_color: str = "#FFFF00",
+    sub_sec_color: str = "#FFFFFF",
+    sub_opacity: float = 1.0,
+):
+    """Generate ASS subtitle file with dynamic TikTok-style karaoke highlights and custom fonts/colors."""
     if not word_events:
         return
     
@@ -435,14 +480,17 @@ def generate_ass(word_events, ass_path):
     if current_line:
         lines.append(current_line)
         
-    ass_content = """[Script Info]
+    ass_primary = convert_to_ass_color(sub_color, sub_opacity)
+    ass_secondary = convert_to_ass_color(sub_sec_color, sub_opacity)
+    
+    ass_content = f"""[Script Info]
 ScriptType: v4.00+
 PlayResX: 720
 PlayResY: 1280
 
 [V4+ Styles]
 Format: Name, Fontname, Fontsize, PrimaryColour, SecondaryColour, OutlineColour, BackColour, Bold, Italic, Underline, StrikeOut, ScaleX, ScaleY, Spacing, Angle, BorderStyle, Outline, Shadow, Alignment, MarginL, MarginR, MarginV, Encoding
-Style: Default,Arial,26,&H0000FFFF,&H00FFFFFF,&H00000000,&H00000000,1,0,0,0,100,100,0,0,1,2,0,2,10,10,280,1
+Style: Default,{sub_font},{sub_size},{ass_primary},{ass_secondary},&H00000000,&H00000000,1,0,0,0,100,100,0,0,1,2,0,2,10,10,280,1
 
 [Events]
 Format: Layer, Start, End, Style, Name, MarginL, MarginR, MarginV, Effect, Text
@@ -481,9 +529,15 @@ def step_c_ffmpeg(
     output_path: str,
     watermark_position: str = 'top-right',
     subtitle_path: Optional[str] = None,
-    job_id: Optional[str] = None
+    job_id: Optional[str] = None,
+    sub_font: str = "Arial",
+    sub_size: int = 26,
+    sub_color: str = "#FFFF00",
+    sub_sec_color: str = "#FFFFFF",
+    sub_opacity: float = 1.0,
+    wm_opacity: float = 0.65,
 ):
-    """Process video using FFmpeg with anti-copyright and watermark overlay."""
+    """Process video using FFmpeg with anti-copyright, customized subtitles, and adjustable watermark opacity."""
     # Get original input video duration
     video_dur = get_video_duration(input_video)
     
@@ -542,13 +596,13 @@ def step_c_ffmpeg(
         )
         if has_backsound:
             filter_complex += (
-                f"[3:v]scale=100:-1[logo];"
+                f"[3:v]scale=100:-1,format=rgba,colorchannelmixer=aa={wm_opacity}[logo];"
                 f"[vid_with_bg][logo]overlay=W-w-30:30[vid_final]"
             )
             input_args = ['-i', input_video, '-t', t_arg, '-i', tts_audio, '-t', t_arg, '-i', backsound, '-i', watermark_logo]
         else:
             filter_complex += (
-                f"[2:v]scale=100:-1[logo];"
+                f"[2:v]scale=100:-1,format=rgba,colorchannelmixer=aa={wm_opacity}[logo];"
                 f"[vid_with_bg][logo]overlay=W-w-30:30[vid_final]"
             )
             input_args = ['-i', input_video, '-t', t_arg, '-i', tts_audio, '-i', watermark_logo]
@@ -559,17 +613,26 @@ def step_c_ffmpeg(
             f"[bg][main]overlay=(W-w)/2:(H-h)/2[vid_with_bg];"
             f"[vid_with_bg]drawtext=text='{safe_text}':"
             f"fontfile={font_path}:"
-            f"fontsize=24:fontcolor=white@0.65:"
+            f"fontsize=24:fontcolor=white@{wm_opacity}:"
             f"{wm_x}:{wm_y}[vid_wm]"
         )
         if subtitle_path and Path(subtitle_path).exists():
             srt_escaped = subtitle_path.replace('\\', '/').replace(':', '\\:')
-            filter_complex += (
-                f";[vid_wm]subtitles='{srt_escaped}':"
-                f"force_style='FontName=Arial,Bold=1,FontSize=26,PrimaryColour=&H0000FFFF,"
-                f"OutlineColour=&H00000000,Outline=2,Shadow=0,Alignment=2,"
-                f"MarginV=280'[vid_final]"
-            )
+            if subtitle_path.endswith('.ass'):
+                filter_complex += (
+                    f";[vid_wm]subtitles='{srt_escaped}'[vid_final]"
+                )
+            else:
+                # Fallback for standard SRT files
+                ass_primary = convert_to_ass_color(sub_color, sub_opacity)
+                ass_secondary = convert_to_ass_color(sub_sec_color, sub_opacity)
+                filter_complex += (
+                    f";[vid_wm]subtitles='{srt_escaped}':"
+                    f"force_style='FontName={sub_font},FontSize={sub_size},"
+                    f"PrimaryColour={ass_primary},SecondaryColour={ass_secondary},"
+                    f"OutlineColour=&H00000000,Outline=2,Shadow=0,Alignment=2,"
+                    f"MarginV=280'[vid_final]"
+                )
         else:
             filter_complex = filter_complex.replace('[vid_wm]', '[vid_final]')
             

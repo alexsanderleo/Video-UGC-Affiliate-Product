@@ -381,6 +381,21 @@
             formData.append('watermark_logo', selectedLogoFile);
         }
 
+        // Subtitle customization and watermark opacity parameters
+        const subFont = document.getElementById('subFont')?.value || 'Arial';
+        const subSize = document.getElementById('subSize')?.value || 26;
+        const subColor = document.getElementById('subColor')?.value || '#FFFF00';
+        const subSecColor = document.getElementById('subSecColor')?.value || '#FFFFFF';
+        const subOpacity = document.getElementById('subOpacity')?.value || 1.0;
+        const wmOpacity = document.getElementById('wmOpacity')?.value || 0.65;
+
+        formData.append('sub_font', subFont);
+        formData.append('sub_size', subSize);
+        formData.append('sub_color', subColor);
+        formData.append('sub_sec_color', subSecColor);
+        formData.append('sub_opacity', subOpacity);
+        formData.append('wm_opacity', wmOpacity);
+
         try {
             // Start SSE-based progress tracking
             const taskId = Date.now().toString();
@@ -1711,6 +1726,47 @@
             } else {
                 showToast('⚠️ Tidak ada proses yang sedang berjalan.');
             }
+        });
+    }
+
+    // === Real-time UI updates for customizable subtitles & watermark opacity ===
+    const wmOpacity = document.getElementById('wmOpacity');
+    const wmOpacityVal = document.getElementById('wmOpacityVal');
+    if (wmOpacity && wmOpacityVal) {
+        wmOpacity.addEventListener('input', () => {
+            wmOpacityVal.textContent = Math.round(wmOpacity.value * 100) + '%';
+        });
+    }
+
+    const subSize = document.getElementById('subSize');
+    const subSizeVal = document.getElementById('subSizeVal');
+    if (subSize && subSizeVal) {
+        subSize.addEventListener('input', () => {
+            subSizeVal.textContent = subSize.value + 'px';
+        });
+    }
+
+    const subOpacity = document.getElementById('subOpacity');
+    const subOpacityVal = document.getElementById('subOpacityVal');
+    if (subOpacity && subOpacityVal) {
+        subOpacity.addEventListener('input', () => {
+            subOpacityVal.textContent = Math.round(subOpacity.value * 100) + '%';
+        });
+    }
+
+    const subColor = document.getElementById('subColor');
+    const subColorHex = document.getElementById('subColorHex');
+    if (subColor && subColorHex) {
+        subColor.addEventListener('input', () => {
+            subColorHex.textContent = subColor.value.toUpperCase();
+        });
+    }
+
+    const subSecColor = document.getElementById('subSecColor');
+    const subSecColorHex = document.getElementById('subSecColorHex');
+    if (subSecColor && subSecColorHex) {
+        subSecColor.addEventListener('input', () => {
+            subSecColorHex.textContent = subSecColor.value.toUpperCase();
         });
     }
 

@@ -44,6 +44,12 @@ async def generate_video(
     watermark_position: str = Form("top-right"),
     watermark_logo: Optional[UploadFile] = File(None),
     task_id: Optional[str] = Form(None),
+    sub_font: str = Form("Arial"),
+    sub_size: int = Form(26),
+    sub_color: str = Form("#FFFF00"),
+    sub_sec_color: str = Form("#FFFFFF"),
+    sub_opacity: float = Form(1.0),
+    wm_opacity: float = Form(0.65),
     current_user: User = Depends(get_current_user),
     db: AsyncSession = Depends(get_db),
 ):
@@ -119,7 +125,13 @@ async def generate_video(
                 'watermark_text': watermark_text or "",
                 'watermark_position': watermark_position,
                 'logo_path': logo_path,
-                'user_id': current_user.id
+                'user_id': current_user.id,
+                'sub_font': sub_font,
+                'sub_size': sub_size,
+                'sub_color': sub_color,
+                'sub_sec_color': sub_sec_color,
+                'sub_opacity': sub_opacity,
+                'wm_opacity': wm_opacity,
             },
             task_id=job_id
         )
