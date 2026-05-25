@@ -43,6 +43,43 @@
                 event.detail.headers['Authorization'] = `Bearer ${token}`;
             }
         });
+
+        // Global HTMX error handler
+        document.addEventListener('htmx:responseError', (event) => {
+            const status = event.detail.xhr.status;
+            let message = `Kesalahan server (${status})`;
+            try {
+                const res = JSON.parse(event.detail.xhr.responseText);
+                if (res.detail) {
+                    message = res.detail;
+                }
+            } catch(e) {}
+            showToast(`❌ ${message}`);
+        });
+
+        // Toast utility function
+        function showToast(message, isError = true) {
+            const existing = document.querySelector('.error-toast');
+            if (existing) existing.remove();
+
+            const toast = document.createElement('div');
+            toast.className = 'error-toast';
+            if (!isError) {
+                toast.style.background = 'rgba(16, 185, 129, 0.95)';
+                toast.style.boxShadow = '0 8px 32px rgba(16, 185, 129, 0.3)';
+            }
+            toast.textContent = message;
+            document.body.appendChild(toast);
+
+            setTimeout(() => {
+                toast.classList.add('show');
+            }, 50);
+
+            setTimeout(() => {
+                toast.classList.remove('show');
+                setTimeout(() => toast.remove(), 300);
+            }, 3500);
+        }
     </script>
 
     <!-- Tailwind CSS CDN -->
@@ -118,6 +155,32 @@
         }
         ::-webkit-scrollbar-thumb:hover {
             background: rgba(255, 255, 255, 0.2);
+        }
+
+        /* --- Error Toast --- */
+        .error-toast {
+            position: fixed;
+            bottom: 24px;
+            left: 50%;
+            transform: translateX(-50%) translateY(100px);
+            background: rgba(239, 68, 68, 0.95);
+            color: white;
+            padding: 14px 24px;
+            border-radius: 0.5rem;
+            font-size: 0.88rem;
+            font-weight: 500;
+            box-shadow: 0 8px 32px rgba(239, 68, 68, 0.3);
+            z-index: 100000;
+            opacity: 0;
+            transition: all 0.3s ease-out;
+            max-width: 90%;
+            text-align: center;
+            backdrop-filter: blur(8px);
+        }
+
+        .error-toast.show {
+            opacity: 1;
+            transform: translateX(-50%) translateY(0);
         }
     </style>
 </head>
@@ -219,7 +282,7 @@
                     hx-post="/api/v1/admin/users/create" 
                     hx-target="#users-rows" 
                     hx-swap="beforeend" 
-                    onsubmit="this.reset(); document.getElementById('addUserFormContainer').classList.add('hidden')"
+                    hx-on::after-request="if(event.detail.successful) { this.reset(); document.getElementById('addUserFormContainer').classList.add('hidden'); showToast('✅ Pengguna berhasil terdaftar!', false); }"
                     class="grid grid-cols-1 sm:grid-cols-5 gap-4"
                 >
                     <div>
