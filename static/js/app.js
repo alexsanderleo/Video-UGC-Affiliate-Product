@@ -233,23 +233,27 @@
     });
 
     // === Watermark Toggle ===
-    toggleText.addEventListener('click', () => {
-        watermarkMode = 'text';
-        toggleText.classList.add('active');
-        toggleLogo.classList.remove('active');
-        watermarkTextGroup.style.display = 'block';
-        watermarkLogoGroup.style.display = 'none';
-        updateGenerateBtn();
-    });
+    if (toggleText) {
+        toggleText.addEventListener('click', () => {
+            watermarkMode = 'text';
+            toggleText.classList.add('active');
+            if (toggleLogo) toggleLogo.classList.remove('active');
+            watermarkTextGroup.style.display = 'block';
+            watermarkLogoGroup.style.display = 'none';
+            updateGenerateBtn();
+        });
+    }
 
-    toggleLogo.addEventListener('click', () => {
-        watermarkMode = 'logo';
-        toggleLogo.classList.add('active');
-        toggleText.classList.remove('active');
-        watermarkTextGroup.style.display = 'none';
-        watermarkLogoGroup.style.display = 'block';
-        updateGenerateBtn();
-    });
+    if (toggleLogo) {
+        toggleLogo.addEventListener('click', () => {
+            watermarkMode = 'logo';
+            toggleLogo.classList.add('active');
+            if (toggleText) toggleText.classList.remove('active');
+            watermarkTextGroup.style.display = 'none';
+            watermarkLogoGroup.style.display = 'block';
+            updateGenerateBtn();
+        });
+    }
 
     watermarkText.addEventListener('input', updateGenerateBtn);
 
