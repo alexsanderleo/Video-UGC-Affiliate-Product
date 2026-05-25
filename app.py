@@ -733,15 +733,18 @@ def step_c_ffmpeg(
         'bottom-center': ('x=(W-tw)/2', 'y=H-th-30'),
     }
 
-    # Random mode: cycle through 4 corners every 5 seconds using FFmpeg expressions
+    # Random mode: cycle through 6 center-friendly positions every 5 seconds (30s cycle)
     if watermark_position == 'random':
-        # Use mod(t,20) to cycle: 0-5s top-right, 5-10s top-left, 10-15s bottom-right, 15-20s bottom-left
-        wm_x = "x='if(lt(mod(t\\,20)\\,5)\\,W-tw-30\\,if(lt(mod(t\\,20)\\,10)\\,30\\,if(lt(mod(t\\,20)\\,15)\\,W-tw-30\\,30)))'"
-        wm_y = "y='if(lt(mod(t\\,20)\\,5)\\,30\\,if(lt(mod(t\\,20)\\,10)\\,30\\,if(lt(mod(t\\,20)\\,15)\\,H-th-30\\,H-th-30)))'"
+        # 1. Center, 2. Lower-Middle, 3. Upper-Middle, 4. Middle-Right, 5. Middle-Left, 6. Center
+        wm_x = "x='if(lt(mod(t\\,30)\\,5)\\,(W-tw)/2\\,if(lt(mod(t\\,30)\\,10)\\,(W-tw)/2\\,if(lt(mod(t\\,30)\\,15)\\,(W-tw)/2\\,if(lt(mod(t\\,30)\\,20)\\,W-tw-100\\,if(lt(mod(t\\,30)\\,25)\\,100\\,(W-tw)/2)))))'"
+        wm_y = "y='if(lt(mod(t\\,30)\\,5)\\,(H-th)/2\\,if(lt(mod(t\\,30)\\,10)\\,H-th-200\\,if(lt(mod(t\\,30)\\,15)\\,200\\,if(lt(mod(t\\,30)\\,20)\\,(H-th)/2\\,if(lt(mod(t\\,30)\\,25)\\,(H-th)/2\\,(H-th)/2)))))'"
+        logo_x = "x='if(lt(mod(t\\,30)\\,5)\\,(W-w)/2\\,if(lt(mod(t\\,30)\\,10)\\,(W-w)/2\\,if(lt(mod(t\\,30)\\,15)\\,(W-w)/2\\,if(lt(mod(t\\,30)\\,20)\\,W-w-100\\,if(lt(mod(t\\,30)\\,25)\\,100\\,(W-w)/2)))))'"
+        logo_y = "y='if(lt(mod(t\\,30)\\,5)\\,(H-h)/2\\,if(lt(mod(t\\,30)\\,10)\\,H-h-200\\,if(lt(mod(t\\,30)\\,15)\\,200\\,if(lt(mod(t\\,30)\\,20)\\,(H-h)/2\\,if(lt(mod(t\\,30)\\,25)\\,(H-h)/2\\,(H-h)/2)))))'"
     else:
         pos = position_map.get(watermark_position, position_map['top-right'])
         wm_x = pos[0]
         wm_y = pos[1]
+        logo_x, logo_y = "x=W-w-30", "y=30"
 
     print(f"[Step C] Watermark position: {watermark_position} -> {wm_x}, {wm_y}")
 
@@ -775,7 +778,7 @@ def step_c_ffmpeg(
         logo_out = "[vid_logo]" if watermark_text or (subtitle_path and Path(subtitle_path).exists()) else "[vid_final]"
         filter_complex += (
             f";[{logo_index}:v]scale=100:-1,format=rgba,colorchannelmixer=aa={wm_opacity}[logo];"
-            f"{last_vid}[logo]overlay=W-w-30:30{logo_out}"
+            f"{last_vid}[logo]overlay={logo_x}:{logo_y}{logo_out}"
         )
         last_vid = logo_out
         
