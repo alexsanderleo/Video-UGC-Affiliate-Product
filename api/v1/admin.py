@@ -11,6 +11,7 @@ from fastapi import APIRouter, Depends, HTTPException, status, Form
 from fastapi.responses import HTMLResponse, FileResponse
 from sqlalchemy import select, func
 from sqlalchemy.ext.asyncio import AsyncSession
+from typing import Optional
 
 from api.deps import get_db, get_current_admin
 from models.user import User
@@ -152,23 +153,37 @@ async def get_stats_cards(
     summary="Get HTML table rows for generation logs",
 )
 async def get_logs_rows(
+    search: Optional[str] = None,
+    status: Optional[str] = None,
     db: AsyncSession = Depends(get_db),
     admin: User = Depends(get_current_admin),
 ):
-    """Fetch latest 15 logs and return modern styled HTML table body."""
-    result = await db.execute(
+    """Fetch latest logs with search and status filtering and return modern styled HTML table body."""
+    query = (
         select(GenerationLog, User.email)
         .join(User, GenerationLog.user_id == User.id)
-        .order_by(GenerationLog.created_at.desc())
-        .limit(15)
     )
+    
+    if search:
+        search_term = f"%{search}%"
+        query = query.where(
+            (GenerationLog.job_id.ilike(search_term)) | 
+            (User.email.ilike(search_term))
+        )
+        
+    if status and status != "all":
+        query = query.where(GenerationLog.status == status)
+        
+    query = query.order_by(GenerationLog.created_at.desc()).limit(30)
+    
+    result = await db.execute(query)
     logs_data = result.all()
 
     if not logs_data:
         return HTMLResponse("""
         <tr>
             <td colspan="7" class="px-6 py-10 text-center text-slate-500 text-sm">
-                Belum ada aktivitas rendering video.
+                Belum ada aktivitas rendering video atau pencarian tidak ditemukan.
             </td>
         </tr>
         """)
@@ -409,20 +424,27 @@ def render_user_edit_row(user: User) -> str:
     summary="Get HTML table rows for SaaS users management",
 )
 async def get_users_rows(
+    search: Optional[str] = None,
     db: AsyncSession = Depends(get_db),
     admin: User = Depends(get_current_admin),
 ):
     """Fetch all users and return modern HTML list with actions."""
-    result = await db.execute(
-        select(User).order_by(User.id.asc())
-    )
+    query = select(User)
+    if search:
+        search_term = f"%{search}%"
+        query = query.where(
+            (User.email.ilike(search_term)) | 
+            (User.full_name.ilike(search_term))
+        )
+    query = query.order_by(User.id.asc())
+    result = await db.execute(query)
     users = result.scalars().all()
 
     if not users:
         return HTMLResponse("""
         <tr>
             <td colspan="6" class="px-6 py-10 text-center text-slate-500 text-sm">
-                Belum ada user terdaftar.
+                Belum ada user terdaftar atau pencarian tidak ditemukan.
             </td>
         </tr>
         """)

@@ -271,11 +271,25 @@ def step_a_video_understanding(video_path: str, duration_seconds: int = 30) -> s
 
     return response.choices[0].message.content
 
-async def step_b_tts(text: str, voice: str, output_path: str):
-    """Convert text to speech using Edge-TTS asynchronously."""
+async def step_b_tts(text: str, voice: str, output_path: str, srt_path: Optional[str] = None):
+    """Convert text to speech using Edge-TTS asynchronously and optionally write SRT subtitles."""
     import edge_tts
-    communicate = edge_tts.Communicate(text, voice)
-    await communicate.save(output_path)
+    
+    if srt_path:
+        communicate = edge_tts.Communicate(text, voice, boundary="WordBoundary")
+        submaker = edge_tts.SubMaker()
+        with open(output_path, "wb") as f:
+            async for chunk in communicate.stream():
+                if chunk["type"] == "audio":
+                    f.write(chunk["data"])
+                elif chunk["type"] == "WordBoundary":
+                    submaker.feed(chunk)
+        
+        with open(srt_path, "w", encoding="utf-8") as f:
+            f.write(submaker.get_srt())
+    else:
+        communicate = edge_tts.Communicate(text, voice)
+        await communicate.save(output_path)
     
     if not Path(output_path).exists():
         raise RuntimeError("Edge-TTS failed to produce the audio file.")
@@ -335,6 +349,10 @@ def split_text_to_sentences(text: str) -> list:
 
 def generate_srt(narration_text: str, audio_duration: float, output_srt_path: str) -> str:
     """Generate SRT subtitle file synchronized to the audio duration."""
+    import os
+    if os.path.exists(output_srt_path):
+        return output_srt_path
+        
     segments = split_text_to_sentences(narration_text)
     total_chars = sum(len(s) for s in segments)
     if total_chars == 0:
@@ -456,9 +474,9 @@ def step_c_ffmpeg(
             srt_escaped = subtitle_path.replace('\\', '/').replace(':', '\\:')
             filter_complex += (
                 f";[vid_wm]subtitles='{srt_escaped}':"
-                f"force_style='FontName=Arial,FontSize=18,PrimaryColour=&H00FFFFFF,"
-                f"OutlineColour=&H00000000,Outline=2,Shadow=1,Alignment=2,"
-                f"MarginV=60'[vid_final]"
+                f"force_style='FontName=Arial,Bold=1,FontSize=26,PrimaryColour=&H0000FFFF,"
+                f"OutlineColour=&H00000000,Outline=2,Shadow=0,Alignment=2,"
+                f"MarginV=280'[vid_final]"
             )
         else:
             filter_complex = filter_complex.replace('[vid_wm]', '[vid_final]')

@@ -182,16 +182,28 @@
 
         <!-- Dynamic User Management Section -->
         <section class="space-y-4">
-            <div class="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
+            <div class="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 border-b border-slate-800/40 pb-2">
                 <h2 class="text-lg font-bold font-outfit text-white flex items-center gap-2">
                     👥 <span class="bg-gradient-to-r from-slate-100 to-slate-400 bg-clip-text text-transparent">Daftar Pengguna & Sesi</span>
                 </h2>
-                <button 
-                    onclick="document.getElementById('addUserFormContainer').classList.toggle('hidden')" 
-                    class="self-start sm:self-auto px-4 py-2 rounded-lg bg-indigo-600 hover:bg-indigo-700 text-white font-bold text-xs transition duration-300 flex items-center gap-1.5 shadow-lg shadow-indigo-600/20"
-                >
-                    ➕ Tambah Pengguna Baru
-                </button>
+                <div class="flex items-center gap-3 w-full sm:w-auto">
+                    <!-- Dynamic Search Filter -->
+                    <input 
+                        type="text" 
+                        name="search" 
+                        placeholder="Cari email / nama..." 
+                        hx-get="/api/v1/admin/users" 
+                        hx-trigger="keyup changed delay:300ms, search" 
+                        hx-target="#users-rows" 
+                        class="bg-slate-950/80 border border-slate-800 rounded-lg px-3 py-1.5 text-xs text-slate-200 focus:outline-none focus:border-indigo-500 transition w-full sm:w-48"
+                    >
+                    <button 
+                        onclick="document.getElementById('addUserFormContainer').classList.toggle('hidden')" 
+                        class="shrink-0 px-3.5 py-1.5 rounded-lg bg-indigo-600 hover:bg-indigo-700 text-white font-bold text-xs transition duration-300 flex items-center gap-1.5 shadow-lg shadow-indigo-600/20"
+                    >
+                        ➕ Tambah Baru
+                    </button>
+                </div>
             </div>
 
             <!-- Form Tambah Pengguna Baru (Hidden by default) -->
@@ -309,9 +321,41 @@
 
         <!-- Generation Logs Table Section -->
         <section class="space-y-4">
-            <h2 class="text-lg font-bold font-outfit text-white flex items-center gap-2">
-                🎬 <span class="bg-gradient-to-r from-slate-100 to-slate-400 bg-clip-text text-transparent">Log Aktivitas Rendering Video</span>
-            </h2>
+            <div class="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 border-b border-slate-800/40 pb-2">
+                <h2 class="text-lg font-bold font-outfit text-white flex items-center gap-2">
+                    🎬 <span class="bg-gradient-to-r from-slate-100 to-slate-400 bg-clip-text text-transparent">Log Aktivitas Rendering Video</span>
+                </h2>
+                <div class="flex items-center gap-3 w-full sm:w-auto flex-wrap">
+                    <!-- Search Input -->
+                    <input 
+                        type="text" 
+                        name="search" 
+                        id="log-search"
+                        placeholder="Cari Job ID / Email..." 
+                        hx-get="/api/v1/admin/logs" 
+                        hx-include="#log-status"
+                        hx-trigger="keyup changed delay:300ms, search" 
+                        hx-target="#logs-rows" 
+                        class="bg-slate-950/80 border border-slate-800 rounded-lg px-3 py-1.5 text-xs text-slate-200 focus:outline-none focus:border-indigo-500 transition w-full sm:w-48"
+                    >
+                    <!-- Status Filter -->
+                    <select 
+                        name="status" 
+                        id="log-status"
+                        hx-get="/api/v1/admin/logs" 
+                        hx-include="#log-search"
+                        hx-trigger="change" 
+                        hx-target="#logs-rows" 
+                        class="bg-slate-950/80 border border-slate-800 rounded-lg px-3 py-1.5 text-xs text-slate-200 focus:outline-none focus:border-indigo-500 transition w-full sm:w-auto"
+                    >
+                        <option value="all">Semua Status</option>
+                        <option value="success">SUCCESS</option>
+                        <option value="processing">PROCESSING</option>
+                        <option value="pending">PENDING</option>
+                        <option value="failed">FAILED</option>
+                    </select>
+                </div>
+            </div>
             
             <div class="glass-card overflow-hidden">
                 <div class="overflow-x-auto">
@@ -329,6 +373,7 @@
                         </thead>
                         <tbody id="logs-rows" 
                                hx-get="/api/v1/admin/logs" 
+                               hx-include="#log-search, #log-status"
                                hx-trigger="load, every 5s">
                             <tr>
                                 <td colspan="7" class="px-6 py-8 text-center text-slate-500 animate-pulse">

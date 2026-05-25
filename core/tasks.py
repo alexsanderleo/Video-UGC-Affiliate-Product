@@ -168,17 +168,17 @@ async def async_render_video(
 
         tts_filename = f"{job_id}_narasi.mp3"
         tts_path = settings.TEMP_DIR / tts_filename
+        srt_filename = f"{job_id}_subtitles.srt"
+        srt_path = settings.TEMP_DIR / srt_filename
 
-        # Call Edge-TTS asynchronously
-        await step_b_tts(tts_text, voice, str(tts_path))
+        # Call Edge-TTS asynchronously and generate subtitles simultaneously
+        await step_b_tts(tts_text, voice, str(tts_path), srt_path=str(srt_path))
         publish_progress(job_id, {'step': 'B_done', 'status': 'done'})
 
         # --- Subtitles (Audio-Driven Sync) ---
         audio_duration = await asyncio.to_thread(get_audio_duration, str(tts_path))
-        srt_filename = f"{job_id}_subtitles.srt"
-        srt_path = settings.TEMP_DIR / srt_filename
 
-        # Generate subtitle SRT file
+        # Generate subtitle SRT file (will skip because already created by step_b_tts)
         await asyncio.to_thread(generate_srt, tts_text, audio_duration, str(srt_path))
 
         # --- Step C: FFmpeg blend with anti-copyright ---
