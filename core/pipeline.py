@@ -626,11 +626,12 @@ def step_c_ffmpeg(
 
     if watermark_position == 'random':
         # Cycle through 6 center-friendly positions every 5 seconds (30s cycle)
-        # 1. Center, 2. Lower-Middle, 3. Upper-Middle, 4. Middle-Right, 5. Middle-Left, 6. Center
-        wm_x = "x='if(lt(mod(t\\,30)\\,5)\\,(W-tw)/2\\,if(lt(mod(t\\,30)\\,10)\\,(W-tw)/2\\,if(lt(mod(t\\,30)\\,15)\\,(W-tw)/2\\,if(lt(mod(t\\,30)\\,20)\\,W-tw-100\\,if(lt(mod(t\\,30)\\,25)\\,100\\,(W-tw)/2)))))'"
-        wm_y = "y='if(lt(mod(t\\,30)\\,5)\\,(H-th)/2\\,if(lt(mod(t\\,30)\\,10)\\,H-th-200\\,if(lt(mod(t\\,30)\\,15)\\,200\\,if(lt(mod(t\\,30)\\,20)\\,(H-th)/2\\,if(lt(mod(t\\,30)\\,25)\\,(H-th)/2\\,(H-th)/2)))))'"
-        logo_x = "x='if(lt(mod(t\\,30)\\,5)\\,(W-w)/2\\,if(lt(mod(t\\,30)\\,10)\\,(W-w)/2\\,if(lt(mod(t\\,30)\\,15)\\,(W-w)/2\\,if(lt(mod(t\\,30)\\,20)\\,W-w-100\\,if(lt(mod(t\\,30)\\,25)\\,100\\,(W-w)/2)))))'"
-        logo_y = "y='if(lt(mod(t\\,30)\\,5)\\,(H-h)/2\\,if(lt(mod(t\\,30)\\,10)\\,H-h-200\\,if(lt(mod(t\\,30)\\,15)\\,200\\,if(lt(mod(t\\,30)\\,20)\\,(H-h)/2\\,if(lt(mod(t\\,30)\\,25)\\,(H-h)/2\\,(H-h)/2)))))'"
+        # Starts exactly at the center, then shifts subtly (120px - 150px) around the center, staying relatively close to it
+        # 1. Center, 2. Center-Right-Up, 3. Center-Left-Down, 4. Center-Right-Down, 5. Center-Left-Up, 6. Center
+        wm_x = "x='if(lt(mod(t\\,30)\\,5)\\,(W-tw)/2\\,if(lt(mod(t\\,30)\\,10)\\,(W-tw)/2+150\\,if(lt(mod(t\\,30)\\,15)\\,(W-tw)/2-120\\,if(lt(mod(t\\,30)\\,20)\\,(W-tw)/2+120\\,if(lt(mod(t\\,30)\\,25)\\,(W-tw)/2-150\\,(W-tw)/2)))))'"
+        wm_y = "y='if(lt(mod(t\\,30)\\,5)\\,(H-th)/2\\,if(lt(mod(t\\,30)\\,10)\\,(H-th)/2-120\\,if(lt(mod(t\\,30)\\,15)\\,(H-th)/2+150\\,if(lt(mod(t\\,30)\\,20)\\,(H-th)/2+120\\,if(lt(mod(t\\,30)\\,25)\\,(H-th)/2-150\\,(H-th)/2)))))'"
+        logo_x = "x='if(lt(mod(t\\,30)\\,5)\\,(W-w)/2\\,if(lt(mod(t\\,30)\\,10)\\,(W-w)/2+150\\,if(lt(mod(t\\,30)\\,15)\\,(W-w)/2-120\\,if(lt(mod(t\\,30)\\,20)\\,(W-w)/2+120\\,if(lt(mod(t\\,30)\\,25)\\,(W-w)/2-150\\,(W-w)/2)))))'"
+        logo_y = "y='if(lt(mod(t\\,30)\\,5)\\,(H-h)/2\\,if(lt(mod(t\\,30)\\,10)\\,(H-h)/2-120\\,if(lt(mod(t\\,30)\\,15)\\,(H-h)/2+150\\,if(lt(mod(t\\,30)\\,20)\\,(H-h)/2+120\\,if(lt(mod(t\\,30)\\,25)\\,(H-h)/2-150\\,(H-h)/2)))))'"
     else:
         pos = position_map.get(watermark_position, position_map['top-right'])
         wm_x, wm_y = pos[0], pos[1]
