@@ -188,7 +188,21 @@ async def get_logs_rows(
         size_str = format_bytes(log.bandwidth_bytes) if log.status == "success" else "-"
         duration_str = f"{log.duration:.1f}s" if log.duration > 0 else "-"
         
-        err_col = f'<span class="text-xs text-rose-400 block max-w-xs truncate" title="{log.error_message}">{log.error_message}</span>' if log.error_message else "-"
+        if log.error_message:
+            import html as py_html
+            escaped_err = py_html.escape(log.error_message)
+            err_col = f"""
+            <div class="max-w-xs sm:max-w-md">
+                <textarea 
+                    readonly 
+                    class="w-full h-16 text-[10px] font-mono bg-slate-950/60 text-rose-300 border border-rose-500/20 rounded p-1.5 focus:outline-none focus:ring-1 focus:ring-rose-500/30 select-all resize-y scrollbar-thin"
+                    onclick="this.select();"
+                    title="Klik untuk menyalin semua log error"
+                >{escaped_err}</textarea>
+            </div>
+            """
+        else:
+            err_col = "-"
 
         html += f"""
         <tr class="border-b border-slate-800/50 hover:bg-slate-900/30 transition">
