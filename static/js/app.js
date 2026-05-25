@@ -52,6 +52,11 @@
     const btnCopy = document.getElementById('btnCopy');
     const copyBtnText = document.getElementById('copyBtnText');
 
+    const outputTitleInput = document.getElementById('outputTitleInput');
+    const outputLinkInput = document.getElementById('outputLinkInput');
+    const outputCtaSelect = document.getElementById('outputCtaSelect');
+    const outputHashtagsInput = document.getElementById('outputHashtagsInput');
+
     // === State ===
     let selectedVideoFile = null;
     let selectedLogoFile = null;
@@ -59,6 +64,7 @@
     let isProcessing = false;
     let activeGenerateJobId = null;
     let activeConvertJobId = null;
+    let currentNarration = '';
 
     // === Constants ===
     const MAX_FILE_SIZE = 100 * 1024 * 1024; // 100 MB
@@ -541,6 +547,41 @@
         }
     }
 
+    function updateCombinedCaption() {
+        if (!outputCaption) return;
+        const title = outputTitleInput ? outputTitleInput.value.trim() : '';
+        const link = outputLinkInput ? outputLinkInput.value.trim() : '';
+        const cta = outputCtaSelect ? outputCtaSelect.value.trim() : '';
+        const hashtags = outputHashtagsInput ? outputHashtagsInput.value.trim() : '';
+        
+        let combined = '';
+        if (title) {
+            combined += `${title}\n\n`;
+        }
+        
+        if (currentNarration) {
+            combined += `${currentNarration}\n\n`;
+        }
+        
+        if (link) {
+            combined += `👉 ${cta}: ${link}\n\n`;
+        }
+        
+        if (hashtags) {
+            combined += `${hashtags}`;
+        }
+        
+        outputCaption.value = combined.trim();
+    }
+
+    // Register event listeners for live updates
+    [outputTitleInput, outputLinkInput, outputCtaSelect, outputHashtagsInput].forEach(el => {
+        if (el) {
+            el.addEventListener('input', updateCombinedCaption);
+            el.addEventListener('change', updateCombinedCaption);
+        }
+    });
+
     function showOutput(result) {
         // Show output section
         outputSection.style.display = 'block';
@@ -551,10 +592,22 @@
 
         // Set download link
         btnDownload.href = result.video_url;
-        btnDownload.download = result.filename || 'video_affiliate_ai.mp4';
+        btnDownload.download = result.friendly_filename || result.filename || 'video_affiliate_ai.mp4';
 
-        // Set caption
-        outputCaption.value = result.caption || '';
+        // Set state & inputs
+        currentNarration = result.narration || result.caption || '';
+        if (outputTitleInput) {
+            outputTitleInput.value = result.title || 'Video Affiliate UGC';
+        }
+        if (outputHashtagsInput) {
+            outputHashtagsInput.value = result.hashtags || '#produkviral #racunshopee';
+        }
+        if (outputLinkInput) {
+            outputLinkInput.value = 's.shopee.co.id/xxxx'; // default placeholder
+        }
+
+        // Live preview combined
+        updateCombinedCaption();
 
         // Scroll to output
         setTimeout(() => {
@@ -571,7 +624,7 @@
             copyBtnText.textContent = '✓ Tersalin!';
             btnCopy.classList.add('copied');
             setTimeout(() => {
-                copyBtnText.textContent = 'Copy Caption';
+                copyBtnText.textContent = 'Salin Semua Caption';
                 btnCopy.classList.remove('copied');
             }, 2000);
         } catch (err) {
@@ -580,7 +633,7 @@
             document.execCommand('copy');
             copyBtnText.textContent = '✓ Tersalin!';
             setTimeout(() => {
-                copyBtnText.textContent = 'Copy Caption';
+                copyBtnText.textContent = 'Salin Semua Caption';
             }, 2000);
         }
     });

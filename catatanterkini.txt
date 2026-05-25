@@ -203,4 +203,159 @@ B. MENGGUNAKAN DASHBOARD GUI AAPANEL (TANPA KETIK PERINTAH)
    2. Melalui Process Manager aaPanel:
       Masuk ke aaPanel > pilih App Store > cari dan instal ekstensi gratis bernama "System Task Manager" atau "Process Manager".
       Setelah terpasang, buka aplikasi tersebut. Anda akan melihat daftar proses yang sedang berjalan. Anda bisa mengetik "ffmpeg" di kolom pencarian untuk melihat status berjalan, penggunaan RAM, atau menghentikannya (End Process) secara visual langsung dari browser.
+
+-----------------------------------------------------------------------------
+8. PANDUAN STEP-BY-STEP DEPLOY DENGAN DOMAIN video.agomart.com DI VPS BARU
+-----------------------------------------------------------------------------
+Berikut adalah panduan lengkap cara melakukan deployment proyek ini dari awal hingga
+online di server VPS baru menggunakan aaPanel dengan domain video.agomart.com.
+
+A. PERSIAPAN DOMAIN & DNS (CLOUDFLARE ATAU DOMAIN REGISTRAR)
+   1. Login ke akun Cloudflare atau penyedia domain tempat domain agomart.com terdaftar.
+   2. Masuk ke bagian DNS Management untuk agomart.com.
+   3. Tambahkan DNS Record baru dengan detail berikut:
+      * Type: A
+      * Name: video
+      * IPv4 address: [IP_VPS_BARU_ANDA] (Contoh: 154.x.x.x)
+      * Proxy Status: DNS Only (disarankan matikan proxy Cloudflare terlebih dahulu saat mengajukan SSL)
+   4. Klik Save. Tunggu beberapa menit agar propagasi DNS selesai.
+
+B. PERSIAPAN DI SERVER VPS & AAPANEL (VPS BARU)
+   1. Jika aaPanel belum terinstal di VPS baru, jalankan script instalasi aaPanel sesuai OS VPS Anda (jalankan sebagai root via SSH):
+      * Ubuntu/Debian:
+        $ wget -O install.sh http://www.aapanel.com/script/install-ubuntu_6.0_en.sh && sudo bash install.sh aapanel
+   2. Login ke dashboard aaPanel baru Anda, lalu buka menu App Store dan install aplikasi berikut:
+      * Nginx (Versi 1.22 atau 1.24)
+      * MySQL (Versi 5.7 atau 8.0)
+      * Redis (Versi terbaru, untuk antrean antarmuka Celery)
+      * Supervisor Manager (Untuk mengelola proses background Python & Celery)
+   3. Hubungkan SSH ke VPS baru menggunakan Putty / Terminal sebagai root, lalu jalankan perintah
+      untuk menginstal dependency sistem yang dibutuhkan (Python, Virtualenv, FFmpeg, Git):
+      * Ubuntu/Debian:
+        $ apt update
+        $ apt install -y python3-pip python3-venv ffmpeg git lsof psmisc
+      * CentOS/Rocky Linux:
+        $ yum update
+        $ yum install -y python3-pip ffmpeg git lsof psmisc
+   4. Pastikan FFmpeg terpasang dengan baik dan bisa diakses secara global:
+      $ ffmpeg -version
+
+C. PEMBUATAN WEBSITE & DATABASE DI AAPANEL
+   1. Buka dashboard aaPanel > Website > Add Site.
+      * Domain: video.agomart.com
+      * PHP Version: Pure HTML (pilih ini karena kita menggunakan FastAPI/Python)
+      * Database: Pilih MySQL, buat database baru:
+        - Nama DB: db_video_ago (misal)
+        - Username: user_video_ago (misal)
+        - Password: [buat_password_kuat] (Catat detail kredensial ini!)
+      * Klik Submit.
+   2. Masuk ke direktori web melalui SSH:
+      $ cd /www/wwwroot/video.agomart.com
+   3. Hapus file index default bawaan aaPanel agar bersih:
+      $ rm -rf *
+
+D. SINKRONISASI KODE PROYEK MENGGUNAKAN GIT
+   Di direktori server (/www/wwwroot/video.agomart.com), jalankan perintah berikut:
+   1. Daftarkan direktori sebagai safe directory (wajib di aaPanel karena perbedaan ownership root dan www):
+      $ git config --global --add safe.directory /www/wwwroot/video.agomart.com
+   2. Inisialisasi Git lokal di VPS:
+      $ git init
+   3. Ubah nama branch default menjadi main:
+      $ git branch -m main
+   4. Hubungkan repository GitHub Anda:
+      $ git remote add origin https://github.com/alexsanderleo/Video-UGC-Affiliate-Product.git
+   5. Tarik semua kode dari GitHub ke server:
+      $ git pull origin main
+      *(Jika diminta kredensial GitHub, masukkan Username dan Personal Access Token)*
+
+E. SETUP VIRTUAL ENVIRONMENT & INSTALL DEPENDENCIES
+   Masih di direktori /www/wwwroot/video.agomart.com, jalankan:
+   1. Buat Virtual Environment Python:
+      $ python3 -m venv venv
+   2. Aktifkan Virtual Environment:
+      $ source venv/bin/activate
+   3. Upgrade Pip dan install semua library pendukung:
+      $ pip install --upgrade pip
+      $ pip install -r requirements-saas.txt
+
+F. KONFIGURASI ENVIRONMENT VARIABLES (.env)
+   1. Buat file `.env` di folder proyek menggunakan nano atau aaPanel File Manager:
+      $ nano .env
+   2. Isi file `.env` dengan konfigurasi VPS baru Anda. Contoh isi file `.env`:
+      
+      DASHSCOPE_API_KEY=sk-b85429cdf027433581dad9c4ffd2aed5
+
+      # Gunakan detail database MySQL aaPanel yang Anda buat di Langkah C
+      DATABASE_URL="mysql+aiomysql://user_video_ago:password_anda@127.0.0.1:3306/db_video_ago"
+      
+      # Kunci JWT rahasia (ubah dengan string acak panjang di production)
+      JWT_SECRET=aulex-video-saas-secret-key-2026-video-agomart-baru
+      JWT_ALGORITHM=HS256
+      JWT_EXPIRE_MINUTES=30
+
+      # Koneksi ke Redis lokal
+      REDIS_URL="redis://127.0.0.1:6379/0"
+      CELERY_BROKER_URL="redis://127.0.0.1:6379/0"
+      CELERY_RESULT_BACKEND="redis://127.0.0.1:6379/0"
+
+   3. Simpan file `.env` (jika menggunakan nano: tekan Ctrl+O, Enter, lalu Ctrl+X).
+
+G. KONFIGURASI REVERSE PROXY NGINX & SSL DI AAPANEL
+   Agar FastAPI (port 8000) bisa diakses langsung melalui domain video.agomart.com (port 80 / 443 HTTPS):
+   
+   1. Pasang SSL Let's Encrypt:
+      * Buka aaPanel > Website > klik pengaturan website `video.agomart.com`.
+      * Pilih tab SSL > Centang domain `video.agomart.com` > Klik Apply / Request.
+      * Setelah SSL terpasang, aktifkan tombol "Force HTTPS" di kanan atas halaman SSL.
+   
+   2. Konfigurasi Reverse Proxy Nginx:
+      * Masih di pengaturan website `video.agomart.com` > klik tab Reverse Proxy.
+      * Klik Add Reverse Proxy.
+      * Konfigurasikan detail berikut:
+        - Proxy Name: video_backend
+        - Target URL: http://127.0.0.1:8000
+        - Sent Domain: $host
+      * Klik Submit.
+      * PENTING (Agar SSE / Video Rendering Keep-Alive tidak diblokir/diputus Nginx):
+        - Klik Edit Config pada reverse proxy "video_backend" yang baru dibuat.
+        - Tambahkan baris konfigurasi berikut di dalam blok `location /` (di atas/bawah baris proxy_pass):
+          
+          proxy_buffering off;
+          proxy_cache off;
+          proxy_read_timeout 600s;
+          
+        - Klik Save.
+
+H. SETUP DAEMON PROCESS DENGAN SUPERVISOR MANAGER
+   Agar backend FastAPI dan Celery worker berjalan 24 jam non-stop di background, buat daemons di aaPanel Supervisor Manager:
+   
+   1. Daemons FastAPI (Web Server):
+      * Buka aaPanel > App Store > Supervisor Manager > klik settings.
+      * Klik Add Daemon:
+        - Name: video_fastapi
+        - Run User: root
+        - Run Directory: /www/wwwroot/video.agomart.com
+        - Start Command: /www/wwwroot/video.agomart.com/venv/bin/uvicorn main:app --host 127.0.0.1 --port 8000 --workers 2
+        - Processes: 1
+      * Klik Submit.
+   
+   2. Daemons Celery Worker (Video & Audio Render Engine):
+      * Klik Add Daemon lagi untuk Celery:
+        - Name: video_celery
+        - Run User: root
+        - Run Directory: /www/wwwroot/video.agomart.com
+        - Start Command: /www/wwwroot/video.agomart.com/venv/bin/celery -A core.celery_app worker --loglevel=info
+        - Processes: 1
+      * Klik Submit.
+   
+   3. Pastikan kedua daemon berstatus "Running" (berwarna hijau) di tabel Supervisor Manager.
+
+I. LANGKAH UJI COBA & PENGECEKAN LAUNCH
+   1. Buka browser Anda, akses `https://video.agomart.com`. Anda harus melihat tampilan halaman depan utama Aulex.
+   2. Buka `https://video.agomart.com/mimin` atau `https://video.agomart.com/admin` untuk masuk ke halaman Admin.
+   3. Login menggunakan kredensial default admin:
+      * Email: admin@gmail.com
+      * Password: admin123456
+   5. Coba lakukan pendaftaran user baru, login, dan lakukan tes generate video affiliate untuk memastikan FFmpeg, Celery, Redis, dan MySQL terintegrasi 100% tanpa error!
+   6. Jika ada kendala, ikuti panduan di Section 5 untuk memantau log error langsung via SSH.
 =============================================================================

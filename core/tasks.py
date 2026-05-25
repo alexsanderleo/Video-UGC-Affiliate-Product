@@ -57,6 +57,45 @@ def publish_progress(job_id: str, data: dict):
     r_client.publish(channel, json.dumps(data, ensure_ascii=False))
 
 
+def parse_qwen_output(text: str):
+    """
+    Parses Qwen structured output into Title, Hashtags, and Narration.
+    Supports formats:
+    [JUDUL] ... [HASHTAG] ... [NARASI] ...
+    or fallback if tags are missing.
+    """
+    title = "Video Affiliate UGC"
+    hashtags = "#videoviral #affiliateproduct #racunshopee"
+    narration = text
+    
+    # Try parsing using [JUDUL], [HASHTAG], [NARASI]
+    title_match = re.search(r'\[(?:JUDUL|TITLE)\]\s*(.*?)(?=\n\s*\[|\r\n\s*\[|$)', text, re.IGNORECASE | re.DOTALL)
+    hashtags_match = re.search(r'\[(?:HASHTAG|TAGS)\]\s*(.*?)(?=\n\s*\[|\r\n\s*\[|$)', text, re.IGNORECASE | re.DOTALL)
+    narration_match = re.search(r'\[(?:NARASI|SCRIPT|CONTENT)\]\s*(.*?)(?=\n\s*\[|\r\n\s*\[|$)', text, re.IGNORECASE | re.DOTALL)
+    
+    if title_match:
+        title = title_match.group(1).strip()
+    if hashtags_match:
+        hashtags = hashtags_match.group(1).strip()
+    if narration_match:
+        narration = narration_match.group(1).strip()
+    else:
+        # Fallback if no tags are present (legacy behaviour)
+        # Clean tags from narration if some exist
+        cleaned = re.sub(r'\[(?:JUDUL|TITLE|HASHTAG|TAGS|NARASI|SCRIPT|CONTENT)\]', '', text, flags=re.IGNORECASE)
+        narration = cleaned.strip()
+        
+    return title, hashtags, narration
+
+
+def slugify_filename(title: str) -> str:
+    """Convert title to a safe lowercase filename slug."""
+    s = title.strip().lower()
+    s = re.sub(r'[^a-z0-9\s-]', '', s)
+    s = re.sub(r'[\s-]+', '_', s)
+    return s[:50].strip('_')
+
+
 @shared_task(name="core.tasks.render_video")
 def render_video_task(
     job_id: str,
@@ -155,25 +194,34 @@ async def async_render_video(
         except Exception as e:
             # Fallback narration script
             script = (
-                "Hai semuanya! Kamu harus lihat produk keren ini! "
+                "[JUDUL]\nProduk Keren Viral Terlaris\n\n"
+                "[HASHTAG]\n#produkviral #racunshopee #affiliate\n\n"
+                "[NARASI]\nHai semuanya! Kamu harus lihat produk keren ini! "
                 "Lihat betapa luar biasanya kualitas produk ini, benar-benar amazing! "
                 "Wow, coba perhatikan bagian ini — luar biasa kan?! "
                 "Tidak heran produk ini sudah viral di mana-mana! "
-                "Buruan grab sebelum kehabisan, link ada di bio ya! "
-                f"\n\n[⚠️ Catatan: Script fallback digunakan karena Qwen API error: {str(e)[:100]}]"
+                "Buruan grab sebelum kehabisan, link ada di bio ya!"
             )
+
+        # Parse Qwen output into Title, Hashtags, Narration
+        title, hashtags, narration = parse_qwen_output(script)
+        friendly_slug = slugify_filename(title)
+        friendly_filename = f"{friendly_slug}_output_final.mp4" if friendly_slug else f"{job_id}_output_final.mp4"
 
         publish_progress(job_id, {
             'step': 'A_done',
             'status': 'done',
-            'script_preview': script[:150] + '...' if len(script) > 150 else script
+            'script_preview': narration[:150] + '...' if len(narration) > 150 else narration,
+            'title': title,
+            'hashtags': hashtags,
+            'narration': narration
         })
 
         # --- Step B: Edge-TTS ---
         publish_progress(job_id, {'step': 'B_start', 'status': 'processing'})
 
         # Clean script
-        tts_text = clean_script_for_tts(script)
+        tts_text = clean_script_for_tts(narration)
         if '[' in tts_text and 'Catatan' in tts_text:
             tts_text = re.sub(r'\[.*?Catatan.*?\]', '', tts_text).strip()
         if not tts_text:
@@ -241,7 +289,11 @@ async def async_render_video(
             'status': 'complete',
             'video_url': f'/outputs/{output_filename}',
             'filename': output_filename,
-            'caption': script
+            'friendly_filename': friendly_filename,
+            'caption': script,
+            'title': title,
+            'hashtags': hashtags,
+            'narration': narration
         })
 
         await update_log(

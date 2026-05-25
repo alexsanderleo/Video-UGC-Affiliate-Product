@@ -111,15 +111,17 @@ def build_qwen_prompt(duration_seconds: int) -> str:
     return (
         f"Kamu adalah copywriter video affiliate profesional. "
         f"Tonton video produk bisu ini (durasi {duration_seconds} detik). "
-        f"Buatkan HANYA teks narasi jualan dalam Bahasa Indonesia yang pas untuk dibacakan selama {duration_seconds} detik. "
-        f"\n\nATURAN KETAT:\n"
+        f"Buat dan susun output dalam format persis seperti di bawah ini:\n\n"
+        f"[JUDUL]\nTulis 1 baris Judul Video yang sangat menarik perhatian (headline hook).\n\n"
+        f"[HASHTAG]\nTulis beberapa hashtag viral yang relevan dengan produk (misal: #produkviral #racunshopee).\n\n"
+        f"[NARASI]\nTeks narasi jualan penuh antusiasme dalam Bahasa Indonesia yang pas dibacakan selama {duration_seconds} detik.\n\n"
+        f"ATURAN KETAT UNTUK [NARASI]:\n"
         f"1. Output HANYA berisi kalimat narasi yang siap dibacakan. JANGAN tulis analisis, deskripsi adegan, atau keterangan waktu.\n"
-        f"2. DILARANG menggunakan tanda kurung siku [...], tanda kurung biasa (...), label 'Narator:', 'Detik ke-', atau format transkrip apapun.\n"
-        f"3. DILARANG menulis komentar, catatan, atau penjelasan tambahan di luar narasi.\n"
-        f"4. Narasi harus mengalir natural seperti orang bicara langsung ke kamera, penuh antusiasme dan kekaguman.\n"
-        f"5. Sisipkan ekspresi WOW/kagum yang meledak di bagian paling menarik dari produk.\n"
-        f"6. Akhiri dengan ajakan beli yang kuat (CTA).\n"
-        f"\nLangsung tulis narasinya saja, tanpa pembuka atau penutup apapun:"
+        f"2. DILARANG menggunakan tanda kurung siku [...], tanda kurung biasa (...), label 'Narator:', 'Detik ke-', atau format transkrip apapun di bagian [NARASI].\n"
+        f"3. Narasi harus mengalir natural seperti orang bicara langsung ke kamera.\n"
+        f"4. Sisipkan ekspresi WOW/kagum di bagian paling menarik dari produk.\n"
+        f"5. Akhiri narasi dengan ajakan beli yang kuat (CTA).\n"
+        f"\nIngat, langsung tulis dengan pembungkus tag [JUDUL], [HASHTAG], dan [NARASI]:"
     )
 
 def ensure_backsound() -> str:
