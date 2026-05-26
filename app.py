@@ -345,11 +345,45 @@ def step_b_tts(
     sub_sec_color: str = "#FFFFFF",
     sub_opacity: float = 1.0,
 ):
-    """Convert text to speech using Edge-TTS and optionally write SRT/ASS subtitles with custom styling."""
+    """Convert text to speech using Edge-TTS or local engines and optionally write subtitles."""
+    print(f"[Step B] Generating TTS with voice: {voice}")
+
+    # Check for local/alternative TTS engines
+    if voice == "gtts-id":
+        from core.tts_local import generate_gtts
+        async def _run_gtts():
+            await generate_gtts(text, output_path)
+        loop = asyncio.new_event_loop()
+        try:
+            loop.run_until_complete(_run_gtts())
+        finally:
+            loop.close()
+        return
+
+    if voice.startswith("piper"):
+        from core.tts_local import generate_piper
+        async def _run_piper():
+            await generate_piper(text, output_path, FFMPEG_PATH)
+        loop = asyncio.new_event_loop()
+        try:
+            loop.run_until_complete(_run_piper())
+        finally:
+            loop.close()
+        return
+
+    if voice.startswith("xtts"):
+        from core.tts_local import generate_xtts_v2
+        async def _run_xtts():
+            await generate_xtts_v2(text, output_path)
+        loop = asyncio.new_event_loop()
+        try:
+            loop.run_until_complete(_run_xtts())
+        finally:
+            loop.close()
+        return
+
     import edge_tts
 
-    print(f"[Step B] Generating TTS with voice: {voice}")
-    
     async def _generate():
         if srt_path:
             communicate = edge_tts.Communicate(text, voice, boundary="WordBoundary")

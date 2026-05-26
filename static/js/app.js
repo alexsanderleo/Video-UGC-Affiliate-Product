@@ -295,12 +295,15 @@
     // === Voice Selector ===
     voiceSelect.addEventListener('change', () => {
         const val = voiceSelect.value;
-        if (val === 'id-ID-GadisNeural') {
+        if (val === 'id-ID-GadisNeural' || val === 'piper-id-gadis' || val === 'xtts-clone-agomart' || val === 'gtts-id') {
             voiceCardFemale.classList.add('active');
             voiceCardMale.classList.remove('active');
-        } else {
+        } else if (val === 'id-ID-ArdiNeural' || val === 'piper-id-ardi') {
             voiceCardMale.classList.add('active');
             voiceCardFemale.classList.remove('active');
+        } else {
+            voiceCardFemale.classList.remove('active');
+            voiceCardMale.classList.remove('active');
         }
     });
 
