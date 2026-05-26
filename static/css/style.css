@@ -5,12 +5,59 @@
 
 /* --- CSS Custom Properties (Design Tokens) --- */
 :root {
-    /* Core Colors */
+    /* Core Colors (Light Mode Default) */
+    --bg-primary: #f8fafc;
+    --bg-secondary: #ffffff;
+    --bg-card: rgba(255, 255, 255, 0.85);
+    --bg-card-hover: rgba(255, 255, 255, 0.95);
+    --bg-input: #f1f5f9;
+    --bg-sidebar: rgba(255, 255, 255, 0.92);
+    --bg-bulk: rgba(255, 255, 255, 0.75);
+
+    /* Accent Gradients (Light-optimized) */
+    --accent-primary: #7C3AED;
+    --accent-secondary: #0891B2;
+    --accent-tertiary: #DB2777;
+    --gradient-primary: linear-gradient(135deg, #7C3AED 0%, #0891B2 100%);
+    --gradient-accent: linear-gradient(135deg, #DB2777 0%, #7C3AED 50%, #0891B2 100%);
+    --gradient-warm: linear-gradient(135deg, #D97706 0%, #DB2777 100%);
+    --gradient-success: linear-gradient(135deg, #059669 0%, #0891B2 100%);
+
+    /* Text Colors */
+    --text-primary: #0F172A;
+    --text-secondary: #475569;
+    --text-muted: #94A3B8;
+    --text-accent: #7C3AED;
+
+    /* Border & Surface */
+    --border-subtle: rgba(148, 163, 184, 0.12);
+    --border-active: rgba(124, 58, 237, 0.45);
+    --border-glass: rgba(148, 163, 184, 0.15);
+    --glow-primary: 0 8px 30px rgba(124, 58, 237, 0.08);
+    --glow-accent: 0 8px 40px rgba(8, 145, 178, 0.05);
+
+    /* Spacing */
+    --radius-sm: 8px;
+    --radius-md: 12px;
+    --radius-lg: 16px;
+    --radius-xl: 20px;
+
+    /* Transitions */
+    --transition-fast: 150ms cubic-bezier(0.4, 0, 0.2, 1);
+    --transition-base: 250ms cubic-bezier(0.4, 0, 0.2, 1);
+    --transition-slow: 400ms cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+/* --- Dark Mode Custom Properties Override --- */
+.dark-theme {
+    /* Core Colors (Original Dark Mode) */
     --bg-primary: #0a0a0f;
     --bg-secondary: #12121a;
     --bg-card: rgba(18, 18, 30, 0.7);
     --bg-card-hover: rgba(25, 25, 42, 0.8);
     --bg-input: rgba(15, 15, 25, 0.8);
+    --bg-sidebar: rgba(10, 10, 15, 0.92);
+    --bg-bulk: rgba(15, 15, 25, 0.65);
 
     /* Accent Gradients */
     --accent-primary: #8B5CF6;
@@ -30,19 +77,9 @@
     /* Border & Surface */
     --border-subtle: rgba(148, 163, 184, 0.08);
     --border-active: rgba(139, 92, 246, 0.4);
+    --border-glass: rgba(255, 255, 255, 0.08);
     --glow-primary: 0 0 30px rgba(139, 92, 246, 0.15);
     --glow-accent: 0 0 40px rgba(6, 182, 212, 0.12);
-
-    /* Spacing */
-    --radius-sm: 8px;
-    --radius-md: 12px;
-    --radius-lg: 16px;
-    --radius-xl: 20px;
-
-    /* Transitions */
-    --transition-fast: 150ms cubic-bezier(0.4, 0, 0.2, 1);
-    --transition-base: 250ms cubic-bezier(0.4, 0, 0.2, 1);
-    --transition-slow: 400ms cubic-bezier(0.4, 0, 0.2, 1);
 }
 
 /* --- Reset & Base --- */
@@ -66,6 +103,11 @@ body {
     min-height: 100vh;
     line-height: 1.6;
     overflow-x: hidden;
+}
+
+/* --- Global Theme Transitions for Premium Feel --- */
+body, .app-sidebar, .glass-card, .text-input, .select-input, .user-profile-sidebar, .menu-item, .bulk-dashboard, .queue-card, .theme-toggle-btn {
+    transition: background-color var(--transition-base), border-color var(--transition-base), color var(--transition-base), box-shadow var(--transition-base), background var(--transition-base), transform var(--transition-fast);
 }
 
 /* --- Background Particles --- */
@@ -1152,7 +1194,7 @@ body {
 
 .app-sidebar {
     width: 280px;
-    background: rgba(10, 10, 15, 0.92);
+    background: var(--bg-sidebar);
     border-right: 1px solid var(--border-subtle);
     padding: 32px 20px;
     display: flex;
@@ -1474,8 +1516,8 @@ body {
    ============================================================================= */
 
 .bulk-dashboard {
-    background: rgba(15, 15, 25, 0.65);
-    border: 1px solid rgba(255, 255, 255, 0.08);
+    background: var(--bg-bulk);
+    border: 1px solid var(--border-glass);
     backdrop-filter: blur(16px);
     border-radius: var(--radius-lg);
     padding: 16px 20px;
@@ -1516,19 +1558,19 @@ body {
     position: relative;
     display: flex;
     flex-direction: column;
-    background: rgba(20, 20, 30, 0.55);
-    border: 1px solid rgba(255, 255, 255, 0.06);
+    background: var(--bg-card);
+    border: 1px solid var(--border-subtle);
     border-radius: var(--radius-md);
     padding: 16px;
     transition: all 0.3s cubic-bezier(0.16, 1, 0.3, 1);
-    box-shadow: 0 4px 20px rgba(0, 0, 0, 0.2);
+    box-shadow: 0 4px 20px rgba(0, 0, 0, 0.1);
     overflow: hidden;
 }
 
 .queue-card:hover {
     transform: translateY(-2px);
-    background: rgba(25, 25, 40, 0.65);
-    border-color: rgba(255, 255, 255, 0.12);
+    background: var(--bg-card-hover);
+    border-color: var(--border-active);
 }
 
 /* Status colors and glow */
@@ -1792,5 +1834,45 @@ body {
         flex: 1;
         text-align: center;
     }
+}
+
+/* ========================================
+   Theme Toggle Button Styles
+   ======================================== */
+.theme-toggle-btn {
+    background: var(--bg-input);
+    border: 1px solid var(--border-subtle);
+    color: var(--text-primary);
+    width: 38px;
+    height: 38px;
+    border-radius: 50%;
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    transition: all var(--transition-fast);
+    font-size: 1.15rem;
+    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.04);
+    outline: none;
+    flex-shrink: 0;
+}
+
+.theme-toggle-btn:hover {
+    transform: scale(1.08) rotate(15deg);
+    border-color: var(--border-active);
+    background: var(--bg-card-hover);
+    box-shadow: var(--glow-primary);
+}
+
+.theme-toggle-btn:active {
+    transform: scale(0.95);
+}
+
+/* Toggle icon display states based on active theme classes */
+.dark-theme .theme-toggle-btn .theme-icon-dark {
+    display: none;
+}
+:not(.dark-theme) .theme-toggle-btn .theme-icon-light {
+    display: none;
 }
 

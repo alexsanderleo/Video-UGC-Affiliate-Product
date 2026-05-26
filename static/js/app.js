@@ -2154,7 +2154,25 @@
         });
     }
 
+    // === Theme Selector (Light/Dark Mode) ===
+    function initTheme() {
+        const themeToggleBtn = document.getElementById('themeToggleBtn');
+        if (!themeToggleBtn) return;
+
+        themeToggleBtn.addEventListener('click', function () {
+            const isDark = document.documentElement.classList.contains('dark-theme');
+            if (isDark) {
+                document.documentElement.classList.remove('dark-theme');
+                localStorage.setItem('theme', 'light');
+            } else {
+                document.documentElement.classList.add('dark-theme');
+                localStorage.setItem('theme', 'dark');
+            }
+        });
+    }
+
     // === Init ===
+    initTheme();
     initAuth();
     resetToDefaultSettings();
     updateGenerateBtn();
