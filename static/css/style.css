@@ -2132,3 +2132,55 @@ body, .app-sidebar, .glass-card, .text-input, .select-input, .user-profile-sideb
     }
 }
 
+/* =============================================================================
+   🖥️ DESKTOP THREE-COLUMN WORKSPACE LAYOUT (Gaya Veo3)
+   ============================================================================= */
+@media (min-width: 821px) {
+    .app-container {
+        max-width: 1400px !important;
+        padding: 24px 32px 48px !important;
+    }
+    
+    #videoGeneratorPage .main-content,
+    #convertVideoPage .main-content {
+        display: grid;
+        grid-template-columns: 1fr 1.15fr; /* 2 Kolom utama (Input di kiri, Hasil di kanan) */
+        gap: 32px;
+        align-items: start;
+    }
+    
+    #videoGeneratorPage .output-section,
+    #convertVideoPage .output-section {
+        margin-top: 0 !important;
+    }
+    
+    /* Di Desktop, elemen hasil ditumpuk secara vertikal agar video & copywriting tampil lebar & premium */
+    #videoGeneratorPage .output-grid,
+    #convertVideoPage .output-grid {
+        grid-template-columns: 1fr !important;
+        gap: 24px;
+    }
+    
+    /* Tata Letak Header Workspace Kiri Rata Bergaya Veo3 */
+    .app-header {
+        text-align: left !important;
+        padding: 20px 0 24px !important;
+        margin-bottom: 24px !important;
+        border-bottom: 1px solid var(--border-subtle);
+    }
+    
+    .header-glow {
+        left: 0 !important;
+        transform: none !important;
+    }
+    
+    .logo-section {
+        justify-content: flex-start !important;
+        margin-bottom: 8px !important;
+    }
+    
+    .app-subtitle {
+        margin: 0 !important;
+    }
+}
+
