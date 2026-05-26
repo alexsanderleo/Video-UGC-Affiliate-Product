@@ -269,7 +269,7 @@ def step_a_video_understanding(video_path: str, duration_seconds: int = 30) -> s
             }
         ],
         max_tokens=1024,
-        timeout=60.0
+        timeout=6.0
     )
 
     return response.choices[0].message.content
