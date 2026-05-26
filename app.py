@@ -920,6 +920,7 @@ def generate():
             sub_sec_color = request.form.get('sub_sec_color', '#FFFFFF')
             sub_opacity = float(request.form.get('sub_opacity', 1.0))
             wm_opacity = float(request.form.get('wm_opacity', 0.65))
+            use_subtitle = request.form.get('use_subtitle', 'true') == 'true'
             
             # Save uploaded video
             video_ext = Path(video_file.filename).suffix or '.mp4'
@@ -986,8 +987,10 @@ def generate():
 
             tts_filename = f"{job_id}_narasi.mp3"
             tts_path = str(TEMP_DIR / tts_filename)
-            srt_filename = f"{job_id}_subtitles.ass"
-            srt_path = str(TEMP_DIR / srt_filename)
+            srt_path = None
+            if use_subtitle:
+                srt_filename = f"{job_id}_subtitles.ass"
+                srt_path = str(TEMP_DIR / srt_filename)
 
             try:
                 step_b_tts(
@@ -1002,16 +1005,17 @@ def generate():
             yield sse_event({'step': 'B_done', 'status': 'done'})
 
             # --- Generate SRT Subtitles (audio-driven timing) ---
-            tts_audio_duration = get_audio_duration(tts_path)
-            try:
-                generate_srt(
-                    tts_text, tts_audio_duration, srt_path,
-                    sub_font=sub_font, sub_size=sub_size, sub_color=sub_color,
-                    sub_sec_color=sub_sec_color, sub_opacity=sub_opacity
-                )
-            except Exception as e:
-                print(f"[SRT] Error generating subtitles: {e}")
-                srt_path = None  # Continue without subtitles
+            if use_subtitle and srt_path:
+                tts_audio_duration = get_audio_duration(tts_path)
+                try:
+                    generate_srt(
+                        tts_text, tts_audio_duration, srt_path,
+                        sub_font=sub_font, sub_size=sub_size, sub_color=sub_color,
+                        sub_sec_color=sub_sec_color, sub_opacity=sub_opacity
+                    )
+                except Exception as e:
+                    print(f"[SRT] Error generating subtitles: {e}")
+                    srt_path = None  # Continue without subtitles
 
             # --- Step C: FFmpeg ---
             yield sse_event({'step': 'C_start', 'status': 'processing'})

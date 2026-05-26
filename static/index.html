@@ -428,9 +428,28 @@
                                         <h2 class="card-title">Setelan Subtitle</h2>
                                     </div>
 
-                                    <!-- Subtitle Font Select -->
-                                    <div style="margin-bottom: 12px;">
-                                        <label for="subFont" class="input-label">Font Subtitle</label>
+                                    <!-- Gunakan Subtitle Option -->
+                                    <div style="margin-bottom: 16px;">
+                                        <label for="subUse" class="input-label">Gunakan Subtitle?</label>
+                                        <div class="select-wrapper">
+                                            <select id="subUse" class="select-input">
+                                                <option value="true" selected>✅ Ya, Tampilkan Subtitle</option>
+                                                <option value="false">❌ Tidak, Tanpa Subtitle</option>
+                                            </select>
+                                            <div class="select-arrow">
+                                                <svg width="14" height="14" viewBox="0 0 24 24" fill="none"
+                                                    stroke="currentColor" stroke-width="2">
+                                                    <polyline points="6 9 12 15 18 9" />
+                                                </svg>
+                                            </div>
+                                        </div>
+                                    </div>
+
+                                    <!-- Wrapper untuk kontrol kustomisasi subtitle agar mudah meredup/disabled secara dinamis -->
+                                    <div id="subtitleCustomizationGroup" style="transition: all 0.3s ease;">
+                                        <!-- Subtitle Font Select -->
+                                        <div style="margin-bottom: 12px;">
+                                            <label for="subFont" class="input-label">Font Subtitle</label>
                                         <div class="select-wrapper">
                                             <select id="subFont" class="select-input">
                                                 <option value="Arial" selected>Arial Bold (Standar)</option>
@@ -500,9 +519,9 @@
                                                     style="border: none; width: 36px; height: 36px; border-radius: 50%; background: none; cursor: pointer; padding: 0;">
                                                 <span id="subColorHex"
                                                     style="font-size: 0.8rem; font-family: monospace; color: var(--text-secondary);">#FFFF00</span>
-                                            </div>
                                         </div>
                                     </div>
+                                    </div> <!-- Close subtitleCustomizationGroup -->
                                 </div>
 
                                 <!-- Voice Selector -->
@@ -880,7 +899,26 @@
                                 <h3 style="font-size: 0.85rem; font-weight: 600; color: var(--text-accent); margin-bottom: 12px; display: flex; align-items: center; gap: 6px;">
                                     <span>🔤</span> Setelan Subtitle Massal
                                 </h3>
-                                <div class="bulk-subtitle-grid" style="display: grid; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); gap: 16px;">
+
+                                <!-- Bulk Gunakan Subtitle Option -->
+                                <div style="margin-bottom: 16px; max-width: 320px;">
+                                    <label for="bulkSubUse" class="input-label">Gunakan Subtitle?</label>
+                                    <div class="select-wrapper">
+                                        <select id="bulkSubUse" class="select-input" style="width: 100%;">
+                                            <option value="true" selected>✅ Ya, Tampilkan Subtitle</option>
+                                            <option value="false">❌ Tidak, Tanpa Subtitle</option>
+                                        </select>
+                                        <div class="select-arrow">
+                                            <svg width="14" height="14" viewBox="0 0 24 24" fill="none"
+                                                stroke="currentColor" stroke-width="2">
+                                                <polyline points="6 9 12 15 18 9" />
+                                            </svg>
+                                        </div>
+                                    </div>
+                                </div>
+
+                                <div id="bulkSubtitleCustomizationGroup" style="transition: all 0.3s ease;">
+                                    <div class="bulk-subtitle-grid" style="display: grid; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); gap: 16px;">
                                     <!-- Bulk Subtitle Font Select -->
                                     <div>
                                         <label for="bulkSubFont" class="input-label">Font Subtitle</label>

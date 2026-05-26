@@ -112,13 +112,15 @@ def render_video_task(
     sub_sec_color: str = "#FFFFFF",
     sub_opacity: float = 1.0,
     wm_opacity: float = 0.65,
+    use_subtitle: str = "true",
 ):
     """Celery task to run the video generation pipeline in a background worker."""
     return asyncio.run(
         async_render_video(
             job_id, video_path, voice, watermark_mode,
             watermark_text, watermark_position, logo_path, user_id,
-            sub_font, sub_size, sub_color, sub_sec_color, sub_opacity, wm_opacity
+            sub_font, sub_size, sub_color, sub_sec_color, sub_opacity, wm_opacity,
+            use_subtitle
         )
     )
 
@@ -138,6 +140,7 @@ async def async_render_video(
     sub_sec_color: str = "#FFFFFF",
     sub_opacity: float = 1.0,
     wm_opacity: float = 0.65,
+    use_subtitle: str = "true",
 ):
     """Async pipeline implementation called inside the Celery worker."""
     # Construct a local engine bound to the current task's event loop to prevent "attached to a different loop" errors
@@ -227,14 +230,18 @@ async def async_render_video(
         if not tts_text:
             tts_text = "Hai semuanya! Produk ini luar biasa, buruan cek sekarang!"
 
+        is_sub = str(use_subtitle).lower() == 'true'
+
         tts_filename = f"{job_id}_narasi.mp3"
         tts_path = settings.TEMP_DIR / tts_filename
-        srt_filename = f"{job_id}_subtitles.ass"
-        srt_path = settings.TEMP_DIR / srt_filename
+        srt_path = None
+        if is_sub:
+            srt_filename = f"{job_id}_subtitles.ass"
+            srt_path = settings.TEMP_DIR / srt_filename
 
         # Call Edge-TTS asynchronously and generate subtitles simultaneously
         await step_b_tts(
-            tts_text, voice, str(tts_path), srt_path=str(srt_path),
+            tts_text, voice, str(tts_path), srt_path=str(srt_path) if srt_path else None,
             sub_font=sub_font, sub_size=sub_size, sub_color=sub_color,
             sub_sec_color=sub_sec_color, sub_opacity=sub_opacity
         )
@@ -244,11 +251,12 @@ async def async_render_video(
         audio_duration = await asyncio.to_thread(get_audio_duration, str(tts_path))
 
         # Generate subtitle SRT file (will skip because already created by step_b_tts, otherwise generates styled ASS fallback)
-        await asyncio.to_thread(
-            generate_srt, tts_text, audio_duration, str(srt_path),
-            sub_font=sub_font, sub_size=sub_size, sub_color=sub_color,
-            sub_sec_color=sub_sec_color, sub_opacity=sub_opacity
-        )
+        if is_sub and srt_path:
+            await asyncio.to_thread(
+                generate_srt, tts_text, audio_duration, str(srt_path),
+                sub_font=sub_font, sub_size=sub_size, sub_color=sub_color,
+                sub_sec_color=sub_sec_color, sub_opacity=sub_opacity
+            )
 
         # --- Step C: FFmpeg blend with anti-copyright ---
         publish_progress(job_id, {'step': 'C_start', 'status': 'processing'})
@@ -268,7 +276,7 @@ async def async_render_video(
             watermark_logo=logo_path,
             output_path=str(output_path),
             watermark_position=watermark_position,
-            subtitle_path=str(srt_path),
+            subtitle_path=str(srt_path) if srt_path else None,
             job_id=job_id,
             sub_font=sub_font,
             sub_size=sub_size,

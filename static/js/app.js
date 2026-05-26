@@ -398,6 +398,9 @@
         formData.append('sub_opacity', subOpacity);
         formData.append('wm_opacity', wmOpacity);
 
+        const singleUseSubtitle = document.getElementById('subUse')?.value || 'true';
+        formData.append('use_subtitle', singleUseSubtitle);
+
         try {
             // Start SSE-based progress tracking
             const taskId = Date.now().toString();
@@ -889,6 +892,18 @@
         const bulkWatermarkPosition = document.getElementById('bulkWatermarkPosition');
         if (bulkWatermarkPosition) {
             bulkWatermarkPosition.value = 'center';
+        }
+
+        // 6. Subtitle toggle defaults
+        const subUse = document.getElementById('subUse');
+        if (subUse) {
+            subUse.value = 'true';
+            subUse.dispatchEvent(new Event('change'));
+        }
+        const bulkSubUse = document.getElementById('bulkSubUse');
+        if (bulkSubUse) {
+            bulkSubUse.value = 'true';
+            bulkSubUse.dispatchEvent(new Event('change'));
         }
     }
 
@@ -1736,6 +1751,9 @@
         formData.append('sub_opacity', bulkSubOpacity);
         formData.append('wm_opacity', wmOpacity);
 
+        const bulkUseSubtitle = document.getElementById('bulkSubUse')?.value || 'true';
+        formData.append('use_subtitle', bulkUseSubtitle);
+
         try {
             // Register a task ID
             const taskId = Date.now().toString() + '_' + Math.random().toString(36).substr(2, 5);
@@ -2104,6 +2122,35 @@
     if (bulkSubSecColor && bulkSubSecColorHex) {
         bulkSubSecColor.addEventListener('input', () => {
             bulkSubSecColorHex.textContent = bulkSubSecColor.value.toUpperCase();
+        });
+    }
+
+    // === Subtitle Toggle View Reactivity ===
+    const subUse = document.getElementById('subUse');
+    const subtitleCustomizationGroup = document.getElementById('subtitleCustomizationGroup');
+    if (subUse && subtitleCustomizationGroup) {
+        subUse.addEventListener('change', () => {
+            if (subUse.value === 'false') {
+                subtitleCustomizationGroup.style.opacity = '0.4';
+                subtitleCustomizationGroup.style.pointerEvents = 'none';
+            } else {
+                subtitleCustomizationGroup.style.opacity = '1';
+                subtitleCustomizationGroup.style.pointerEvents = 'auto';
+            }
+        });
+    }
+
+    const bulkSubUse = document.getElementById('bulkSubUse');
+    const bulkSubtitleCustomizationGroup = document.getElementById('bulkSubtitleCustomizationGroup');
+    if (bulkSubUse && bulkSubtitleCustomizationGroup) {
+        bulkSubUse.addEventListener('change', () => {
+            if (bulkSubUse.value === 'false') {
+                bulkSubtitleCustomizationGroup.style.opacity = '0.4';
+                bulkSubtitleCustomizationGroup.style.pointerEvents = 'none';
+            } else {
+                bulkSubtitleCustomizationGroup.style.opacity = '1';
+                bulkSubtitleCustomizationGroup.style.pointerEvents = 'auto';
+            }
         });
     }
 

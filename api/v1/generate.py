@@ -50,6 +50,7 @@ async def generate_video(
     sub_sec_color: str = Form("#FFFFFF"),
     sub_opacity: float = Form(1.0),
     wm_opacity: float = Form(0.65),
+    use_subtitle: str = Form("true"),
     current_user: User = Depends(get_current_user),
     db: AsyncSession = Depends(get_db),
 ):
@@ -138,6 +139,7 @@ async def generate_video(
                 'sub_sec_color': sub_sec_color,
                 'sub_opacity': sub_opacity,
                 'wm_opacity': wm_opacity,
+                'use_subtitle': use_subtitle,
             },
             task_id=job_id
         )
