@@ -1201,6 +1201,54 @@ body, .app-sidebar, .glass-card, .text-input, .select-input, .user-profile-sideb
 
 
 /* ========================================
+   App Top Header (Veo3 Style)
+   ======================================== */
+.app-top-header {
+    position: fixed;
+    top: 0;
+    left: 0;
+    right: 0;
+    height: 60px;
+    background: var(--bg-sidebar);
+    border-bottom: 1px solid var(--border-subtle);
+    backdrop-filter: blur(20px);
+    -webkit-backdrop-filter: blur(20px);
+    z-index: 1010;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 0 24px;
+    box-shadow: 0 2px 12px rgba(0, 0, 0, 0.02);
+}
+
+.header-logo {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+}
+
+.header-actions {
+    display: flex;
+    align-items: center;
+    gap: 16px;
+}
+
+.header-actions .user-profile-sidebar {
+    padding: 6px 14px;
+    border-radius: 20px;
+    background: rgba(255, 255, 255, 0.03);
+    border: 1px solid var(--border-subtle);
+    height: 38px;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+}
+
+.dark-theme .header-actions .user-profile-sidebar {
+    background: rgba(255, 255, 255, 0.02);
+}
+
+/* ========================================
    Sidebar Layout & Multi-Page Support
    ======================================== */
 .app-layout {
@@ -1210,24 +1258,29 @@ body, .app-sidebar, .glass-card, .text-input, .select-input, .user-profile-sideb
 }
 
 .app-sidebar {
+    position: fixed;
+    top: 60px;
+    left: 0;
+    bottom: 0;
     width: 280px;
     background: var(--bg-sidebar);
     border-right: 1px solid var(--border-subtle);
-    padding: 32px 20px;
+    padding: 24px 16px;
     display: flex;
     flex-direction: column;
-    gap: 32px;
+    gap: 24px;
     backdrop-filter: blur(24px);
     -webkit-backdrop-filter: blur(24px);
     flex-shrink: 0;
+    z-index: 1000;
     transition: transform var(--transition-slow);
 }
 
 .app-workspace {
     flex: 1;
     min-width: 0;
-    height: 100vh;
-    overflow-y: auto;
+    margin-left: 280px;
+    padding-top: 60px;
     position: relative;
 }
 
@@ -1493,7 +1546,7 @@ body, .app-sidebar, .glass-card, .text-input, .select-input, .user-profile-sideb
     }
     
     /* Sticky Slim Header Bar at the top of the viewport */
-    .sidebar-header {
+    .app-top-header {
         position: fixed !important;
         top: 0;
         left: 0;
@@ -1512,7 +1565,7 @@ body, .app-sidebar, .glass-card, .text-input, .select-input, .user-profile-sideb
         padding: 0 16px !important;
     }
     
-    .sidebar-logo {
+    .header-logo {
         margin-bottom: 0 !important;
     }
     
@@ -1608,6 +1661,7 @@ body, .app-sidebar, .glass-card, .text-input, .select-input, .user-profile-sideb
         overflow-y: visible;
         padding-top: 76px !important;
         padding-bottom: 84px !important;
+        margin-left: 0 !important;
     }
 }
 
