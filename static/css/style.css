@@ -1476,70 +1476,79 @@ body, .app-sidebar, .glass-card, .text-input, .select-input, .user-profile-sideb
         flex-direction: column;
     }
     
-    /* Sticky Slim Header Bar */
+    /* Parent sidebar is reset on mobile so it doesn't trap fixed children */
     .app-sidebar {
-        width: 100%;
-        height: 60px !important;
-        padding: 0 16px !important;
-        flex-direction: row !important;
-        align-items: center !important;
-        justify-content: space-between !important;
-        border-right: none;
-        border-bottom: 1px solid var(--border-subtle);
+        width: 100% !important;
+        height: auto !important;
+        padding: 0 !important;
+        background: transparent !important;
+        border: none !important;
+        backdrop-filter: none !important;
+        -webkit-backdrop-filter: none !important;
+        transform: none !important;
+        transition: none !important;
+        position: static !important;
+        box-shadow: none !important;
+        display: block !important;
+    }
+    
+    /* Sticky Slim Header Bar at the top of the viewport */
+    .sidebar-header {
         position: fixed !important;
         top: 0;
         left: 0;
         right: 0;
-        z-index: 1000;
-        background: var(--bg-sidebar);
-        backdrop-filter: blur(20px);
-        -webkit-backdrop-filter: blur(20px);
-        box-shadow: 0 2px 12px rgba(0, 0, 0, 0.04);
-        gap: 0 !important;
-    }
-    
-    .sidebar-header {
-        display: flex;
-        justify-content: space-between;
-        align-items: center;
-        width: 100%;
-        height: 100%;
+        height: 60px !important;
+        background: var(--bg-sidebar) !important;
+        border-bottom: 1px solid var(--border-subtle) !important;
+        backdrop-filter: blur(20px) !important;
+        -webkit-backdrop-filter: blur(20px) !important;
+        z-index: 1000 !important;
+        box-shadow: 0 2px 12px rgba(0, 0, 0, 0.04) !important;
+        display: flex !important;
+        flex-direction: row !important;
+        align-items: center !important;
+        justify-content: space-between !important;
+        padding: 0 16px !important;
     }
     
     .sidebar-logo {
-        margin-bottom: 0;
+        margin-bottom: 0 !important;
     }
     
     /* Clean Avatar and Button only, no labels */
     .user-profile-sidebar {
-        margin-bottom: 0;
+        margin-bottom: 0 !important;
         padding: 4px 6px !important;
         gap: 6px !important;
         background: transparent !important;
         border: none !important;
+        display: flex !important;
+        align-items: center !important;
     }
 
     .user-profile-sidebar .user-details {
         display: none !important;
     }
     
-    /* Sticky Bottom Nav Bar (BRImo style!) */
+    /* Sticky Bottom Nav Bar (BRImo style) at the bottom of the viewport */
     .sidebar-menu {
         position: fixed !important;
         bottom: 0;
         left: 0;
         right: 0;
         height: 68px !important;
-        background: var(--bg-sidebar);
-        border-top: 1px solid var(--border-subtle);
-        backdrop-filter: blur(24px);
-        -webkit-backdrop-filter: blur(24px);
-        z-index: 1000;
+        background: var(--bg-sidebar) !important;
+        border-top: 1px solid var(--border-subtle) !important;
+        backdrop-filter: blur(24px) !important;
+        -webkit-backdrop-filter: blur(24px) !important;
+        z-index: 1000 !important;
         flex-direction: row !important;
         justify-content: space-around !important;
         padding: 8px 12px 12px !important;
-        box-shadow: 0 -4px 20px rgba(0, 0, 0, 0.06);
+        box-shadow: 0 -4px 20px rgba(0, 0, 0, 0.06) !important;
         gap: 4px !important;
+        display: flex !important;
     }
     
     .menu-section-label {
