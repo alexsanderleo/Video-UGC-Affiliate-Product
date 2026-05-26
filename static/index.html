@@ -435,7 +435,7 @@
                                 </div>
 
                                 <!-- Subtitle Settings -->
-                                <div class="card glass-card settings-card collapsible">
+                                <div class="card glass-card settings-card collapsible collapsed">
                                     <div class="card-header">
                                         <div class="card-icon subtitle-icon"
                                             style="background: rgba(168, 85, 247, 0.1); color: rgb(168, 85, 247); display: flex; align-items: center; justify-content: center; width: 32px; height: 32px; border-radius: 8px; font-size: 16px; box-shadow: var(--shadow-sm);">
@@ -547,7 +547,7 @@
                                 </div>
 
                                 <!-- Voice Selector -->
-                                <div class="card glass-card settings-card">
+                                <div class="card glass-card settings-card collapsible collapsed">
                                     <div class="card-header">
                                         <div class="card-icon voice-icon">
                                             <svg width="20" height="20" viewBox="0 0 24 24" fill="none"
@@ -561,37 +561,39 @@
                                         </div>
                                         <h2 class="card-title">Pengisi Suara AI</h2>
                                     </div>
-                                    <label for="voiceSelect" class="input-label">Pilih Suara Narasi</label>
-                                    <div class="select-wrapper">
-                                        <select id="voiceSelect" class="select-input">
-                                            <option value="id-ID-GadisNeural">👩 Gadis — Suara Wanita (Halus &
-                                                Persuasif)</option>
-                                            <option value="id-ID-ArdiNeural">👨 Ardi — Suara Pria (Formal & Berwibawa)
-                                            </option>
-                                        </select>
-                                        <div class="select-arrow">
-                                            <svg width="14" height="14" viewBox="0 0 24 24" fill="none"
-                                                stroke="currentColor" stroke-width="2">
-                                                <polyline points="6 9 12 15 18 9" />
-                                            </svg>
-                                        </div>
-                                    </div>
-                                    <div class="voice-preview-cards">
-                                        <div class="voice-card active" id="voiceCardFemale">
-                                            <div class="voice-avatar female">👩</div>
-                                            <div class="voice-info">
-                                                <span class="voice-name">Gadis Neural</span>
-                                                <span class="voice-desc">Halus & Persuasif</span>
+                                    <div class="card-content">
+                                        <label for="voiceSelect" class="input-label">Pilih Suara Narasi</label>
+                                        <div class="select-wrapper">
+                                            <select id="voiceSelect" class="select-input">
+                                                <option value="id-ID-GadisNeural">👩 Gadis — Suara Wanita (Halus &
+                                                    Persuasif)</option>
+                                                <option value="id-ID-ArdiNeural">👨 Ardi — Suara Pria (Formal & Berwibawa)
+                                                </option>
+                                            </select>
+                                            <div class="select-arrow">
+                                                <svg width="14" height="14" viewBox="0 0 24 24" fill="none"
+                                                    stroke="currentColor" stroke-width="2">
+                                                    <polyline points="6 9 12 15 18 9" />
+                                                </svg>
                                             </div>
-                                            <div class="voice-check">✓</div>
                                         </div>
-                                        <div class="voice-card" id="voiceCardMale">
-                                            <div class="voice-avatar male">👨</div>
-                                            <div class="voice-info">
-                                                <span class="voice-name">Ardi Neural</span>
-                                                <span class="voice-desc">Formal & Berwibawa</span>
+                                        <div class="voice-preview-cards">
+                                            <div class="voice-card active" id="voiceCardFemale">
+                                                <div class="voice-avatar female">👩</div>
+                                                <div class="voice-info">
+                                                    <span class="voice-name">Gadis Neural</span>
+                                                    <span class="voice-desc">Halus & Persuasif</span>
+                                                </div>
+                                                <div class="voice-check">✓</div>
                                             </div>
-                                            <div class="voice-check">✓</div>
+                                            <div class="voice-card" id="voiceCardMale">
+                                                <div class="voice-avatar male">👨</div>
+                                                <div class="voice-info">
+                                                    <span class="voice-name">Ardi Neural</span>
+                                                    <span class="voice-desc">Formal & Berwibawa</span>
+                                                </div>
+                                                <div class="voice-check">✓</div>
+                                            </div>
                                         </div>
                                     </div>
                                 </div>
@@ -819,27 +821,34 @@
                                             ke Semua Video)</span></h2>
                                 </div>
 
-                                <div class="bulk-settings-grid"
-                                    style="display: grid; grid-template-columns: 1fr; gap: 20px; margin-top: 16px;">
-                                    <!-- Bulk Voice Selector -->
-                                    <div class="settings-col" style="max-width: 360px;">
-                                        <label for="bulkVoiceSelect" class="input-label">Pilih Suara Narasi</label>
-                                        <div class="select-wrapper">
-                                            <select id="bulkVoiceSelect" class="select-input" style="width: 100%;">
-                                                <option value="id-ID-GadisNeural">👩 Gadis — Suara Wanita (Halus &
-                                                    Persuasif)</option>
-                                                <option value="id-ID-ArdiNeural">👨 Ardi — Suara Pria (Formal &
-                                                    Berwibawa)</option>
-                                            </select>
-                                            <div class="select-arrow">
-                                                <svg width="14" height="14" viewBox="0 0 24 24" fill="none"
-                                                    stroke="currentColor" stroke-width="2">
-                                                    <polyline points="6 9 12 15 18 9" />
-                                                </svg>
+                                <!-- Bulk Voice Settings Row (Collapsible) -->
+                                <div class="collapsible-group collapsed">
+                                    <div class="group-header">🎙️ Setelan Pengisi Suara Massal</div>
+                                    <div class="group-content">
+                                        <div class="bulk-settings-grid" style="display: grid; grid-template-columns: 1fr; gap: 20px;">
+                                            <!-- Bulk Voice Selector -->
+                                            <div class="settings-col" style="max-width: 360px;">
+                                                <label for="bulkVoiceSelect" class="input-label">Pilih Suara Narasi</label>
+                                                <div class="select-wrapper">
+                                                    <select id="bulkVoiceSelect" class="select-input" style="width: 100%;">
+                                                        <option value="id-ID-GadisNeural">👩 Gadis — Suara Wanita (Halus &
+                                                            Persuasif)</option>
+                                                        <option value="id-ID-ArdiNeural">👨 Ardi — Suara Pria (Formal &
+                                                            Berwibawa)</option>
+                                                    </select>
+                                                    <div class="select-arrow">
+                                                        <svg width="14" height="14" viewBox="0 0 24 24" fill="none"
+                                                            stroke="currentColor" stroke-width="2">
+                                                            <polyline points="6 9 12 15 18 9" />
+                                                        </svg>
+                                                    </div>
+                                                </div>
                                             </div>
                                         </div>
                                     </div>
                                 </div>
+
+                                <div style="border-top: 1px solid rgba(255,255,255,0.06); margin: 16px 0;"></div>
 
                                 <!-- Collapsible Watermark Group -->
                                 <div class="collapsible-group collapsed">
@@ -923,7 +932,7 @@
                                 <div style="border-top: 1px solid rgba(255,255,255,0.06); margin: 16px 0;"></div>
 
                                 <!-- Bulk Subtitle Settings Row (Collapsible) -->
-                                <div class="collapsible-group">
+                                <div class="collapsible-group collapsed">
                                     <div class="group-header">🔤 Setelan Subtitle Massal</div>
                                     <div class="group-content">
 
