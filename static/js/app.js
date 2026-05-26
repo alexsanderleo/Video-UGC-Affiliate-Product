@@ -2171,8 +2171,32 @@
         });
     }
 
+    // === Collapsible Panels (Accordion) ===
+    function initCollapsibles() {
+        // Outer glass cards (Watermark & Subtitle in Single page)
+        document.querySelectorAll('.glass-card.collapsible .card-header').forEach(header => {
+            header.addEventListener('click', function () {
+                const card = header.closest('.glass-card');
+                if (card) {
+                    card.classList.toggle('collapsed');
+                }
+            });
+        });
+
+        // Inner group panels (Watermark & Subtitle in Bulk page)
+        document.querySelectorAll('.collapsible-group .group-header').forEach(header => {
+            header.addEventListener('click', function () {
+                const group = header.closest('.collapsible-group');
+                if (group) {
+                    group.classList.toggle('collapsed');
+                }
+            });
+        });
+    }
+
     // === Init ===
     initTheme();
+    initCollapsibles();
     initAuth();
     resetToDefaultSettings();
     updateGenerateBtn();

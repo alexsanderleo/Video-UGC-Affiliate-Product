@@ -285,8 +285,7 @@
                                 <h1 class="app-title">Video Affiliate <span class="title-accent">AI</span> Generator
                                 </h1>
                             </div>
-                            <p class="app-subtitle">Transformasi video produk menjadi konten affiliate siap posting —
-                                powered by Aulex</p>
+                            <p class="app-subtitle">Buat video affiliate otomatis dengan narasi AI — powered by Aulex</p>
                         </div>
                     </header>
 
@@ -346,7 +345,7 @@
                             <!-- Settings Row -->
                             <div class="settings-row">
                                 <!-- Watermark Settings -->
-                                <div class="card glass-card settings-card">
+                                <div class="card glass-card settings-card collapsible collapsed">
                                     <div class="card-header">
                                         <div class="card-icon watermark-icon">
                                             <svg width="20" height="20" viewBox="0 0 24 24" fill="none"
@@ -356,83 +355,85 @@
                                                 <path d="M16.5 3.5a2.121 2.121 0 0 1 3 3L7 19l-4 1 1-4L16.5 3.5z" />
                                             </svg>
                                         </div>
-                                        <h2 class="card-title">Watermark</h2>
+                                        <h2 class="card-title">Watermark <span style="font-size: 0.72rem; color: var(--text-muted); font-weight: normal; margin-left: 6px;">(Opsional)</span></h2>
                                     </div>
-                                    <p
-                                        style="font-size: 0.75rem; color: var(--text-secondary); margin-bottom: 16px; margin-top: -4px;">
-                                        Kustomisasi video Anda dengan teks watermark, logo PNG transparan, atau keduanya
-                                        sekaligus (fleksibel & opsional).
-                                    </p>
+                                    <div class="card-content">
+                                        <p
+                                            style="font-size: 0.75rem; color: var(--text-secondary); margin-bottom: 16px; margin-top: -4px;">
+                                            Kustomisasi video Anda dengan teks watermark, logo PNG transparan, atau keduanya
+                                            sekaligus (fleksibel & opsional).
+                                        </p>
 
-                                    <!-- Text Watermark Input -->
-                                    <div class="watermark-input" id="watermarkTextGroup" style="margin-bottom: 16px;">
-                                        <label for="watermarkText" class="input-label">Teks Watermark</label>
-                                        <input type="text" id="watermarkText" class="text-input"
-                                            placeholder="Contoh: @TokoSayaOfficial" maxlength="50">
-                                        <label for="watermarkPosition" class="input-label"
-                                            style="margin-top:12px;">Posisi Teks Watermark</label>
-                                        <div class="select-wrapper">
-                                            <select id="watermarkPosition" class="select-input">
-                                                <option value="top-right">↗ Pojok Kanan Atas</option>
-                                                <option value="top-left">↖ Pojok Kiri Atas</option>
-                                                <option value="top-center">↑ Tengah Atas</option>
-                                                <option value="center" selected>⊕ Tengah</option>
-                                                <option value="bottom-right">↘ Pojok Kanan Bawah</option>
-                                                <option value="bottom-left">↙ Pojok Kiri Bawah</option>
-                                                <option value="bottom-center">↓ Tengah Bawah</option>
-                                                <option value="random">🎲 Random (Pindah per 5 detik)</option>
-                                            </select>
-                                            <div class="select-arrow">
-                                                <svg width="14" height="14" viewBox="0 0 24 24" fill="none"
-                                                    stroke="currentColor" stroke-width="2">
-                                                    <polyline points="6 9 12 15 18 9" />
-                                                </svg>
+                                        <!-- Text Watermark Input -->
+                                        <div class="watermark-input" id="watermarkTextGroup" style="margin-bottom: 16px;">
+                                            <label for="watermarkText" class="input-label">Teks Watermark</label>
+                                            <input type="text" id="watermarkText" class="text-input"
+                                                placeholder="Contoh: @TokoSayaOfficial" maxlength="50">
+                                            <label for="watermarkPosition" class="input-label"
+                                                style="margin-top:12px;">Posisi Teks Watermark</label>
+                                            <div class="select-wrapper">
+                                                <select id="watermarkPosition" class="select-input">
+                                                    <option value="top-right">↗ Pojok Kanan Atas</option>
+                                                    <option value="top-left">↖ Pojok Kiri Atas</option>
+                                                    <option value="top-center">↑ Tengah Atas</option>
+                                                    <option value="center" selected>⊕ Tengah</option>
+                                                    <option value="bottom-right">↘ Pojok Kanan Bawah</option>
+                                                    <option value="bottom-left">↙ Pojok Kiri Bawah</option>
+                                                    <option value="bottom-center">↓ Tengah Bawah</option>
+                                                    <option value="random">🎲 Random (Pindah per 5 detik)</option>
+                                                </select>
+                                                <div class="select-arrow">
+                                                    <svg width="14" height="14" viewBox="0 0 24 24" fill="none"
+                                                        stroke="currentColor" stroke-width="2">
+                                                        <polyline points="6 9 12 15 18 9" />
+                                                    </svg>
+                                                </div>
                                             </div>
                                         </div>
-                                    </div>
 
-                                    <div style="border-top: 1px solid rgba(255,255,255,0.06); margin: 16px 0;"></div>
+                                        <div style="border-top: 1px solid rgba(255,255,255,0.06); margin: 16px 0;"></div>
 
-                                    <!-- Logo Upload Input -->
-                                    <div class="watermark-input" id="watermarkLogoGroup" style="margin-bottom: 16px;">
-                                        <label for="watermarkLogo" class="input-label">Logo Watermark (PNG
-                                            Transparan)</label>
-                                        <div class="logo-upload-zone" id="logoUploadZone">
-                                            <div class="logo-upload-content" id="logoUploadContent">
-                                                <svg width="24" height="24" viewBox="0 0 24 24" fill="none"
-                                                    stroke="currentColor" stroke-width="1.5">
-                                                    <rect x="3" y="3" width="18" height="18" rx="2" ry="2" />
-                                                    <circle cx="8.5" cy="8.5" r="1.5" />
-                                                    <polyline points="21 15 16 10 5 21" />
-                                                </svg>
-                                                <span>Pilih file logo .png</span>
+                                        <!-- Logo Upload Input -->
+                                        <div class="watermark-input" id="watermarkLogoGroup" style="margin-bottom: 16px;">
+                                            <label for="watermarkLogo" class="input-label">Logo Watermark (PNG
+                                                Transparan)</label>
+                                            <div class="logo-upload-zone" id="logoUploadZone">
+                                                <div class="logo-upload-content" id="logoUploadContent">
+                                                    <svg width="24" height="24" viewBox="0 0 24 24" fill="none"
+                                                        stroke="currentColor" stroke-width="1.5">
+                                                        <rect x="3" y="3" width="18" height="18" rx="2" ry="2" />
+                                                        <circle cx="8.5" cy="8.5" r="1.5" />
+                                                        <polyline points="21 15 16 10 5 21" />
+                                                    </svg>
+                                                    <span>Pilih file logo .png</span>
+                                                </div>
+                                                <div class="logo-preview" id="logoPreview" style="display:none;">
+                                                    <img id="logoPreviewImg" alt="Logo preview">
+                                                    <button class="btn-remove-sm" id="btnRemoveLogo">×</button>
+                                                </div>
                                             </div>
-                                            <div class="logo-preview" id="logoPreview" style="display:none;">
-                                                <img id="logoPreviewImg" alt="Logo preview">
-                                                <button class="btn-remove-sm" id="btnRemoveLogo">×</button>
-                                            </div>
+                                            <input type="file" id="logoInput" accept=".png,image/png" hidden>
                                         </div>
-                                        <input type="file" id="logoInput" accept=".png,image/png" hidden>
-                                    </div>
 
-                                    <!-- Watermark Opacity -->
-                                    <div
-                                        style="margin-top: 16px; border-top: 1px solid rgba(255,255,255,0.06); padding-top: 12px;">
+                                        <!-- Watermark Opacity -->
                                         <div
-                                            style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 6px;">
-                                            <label for="wmOpacity" class="input-label" style="margin: 0;">Opacity
-                                                Watermark</label>
-                                            <span id="wmOpacityVal"
-                                                style="font-size: 0.85rem; font-weight: 600; color: var(--text-accent);">65%</span>
+                                            style="margin-top: 16px; border-top: 1px solid rgba(255,255,255,0.06); padding-top: 12px;">
+                                            <div
+                                                style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 6px;">
+                                                <label for="wmOpacity" class="input-label" style="margin: 0;">Opacity
+                                                    Watermark</label>
+                                                <span id="wmOpacityVal"
+                                                    style="font-size: 0.85rem; font-weight: 600; color: var(--text-accent);">65%</span>
+                                            </div>
+                                            <input type="range" id="wmOpacity" class="range-input" min="0.1" max="1.0"
+                                                step="0.05" value="0.65"
+                                                style="width: 100%; height: 6px; border-radius: 4px; background: rgba(255,255,255,0.1); outline: none; -webkit-appearance: none; cursor: pointer; accent-color: var(--text-accent);">
                                         </div>
-                                        <input type="range" id="wmOpacity" class="range-input" min="0.1" max="1.0"
-                                            step="0.05" value="0.65"
-                                            style="width: 100%; height: 6px; border-radius: 4px; background: rgba(255,255,255,0.1); outline: none; -webkit-appearance: none; cursor: pointer; accent-color: var(--text-accent);">
                                     </div>
                                 </div>
 
                                 <!-- Subtitle Settings -->
-                                <div class="card glass-card settings-card">
+                                <div class="card glass-card settings-card collapsible">
                                     <div class="card-header">
                                         <div class="card-icon subtitle-icon"
                                             style="background: rgba(168, 85, 247, 0.1); color: rgb(168, 85, 247); display: flex; align-items: center; justify-content: center; width: 32px; height: 32px; border-radius: 8px; font-size: 16px; box-shadow: var(--shadow-sm);">
@@ -445,12 +446,12 @@
                                         </div>
                                         <h2 class="card-title">Setelan Subtitle</h2>
                                     </div>
-
-                                    <!-- Gunakan Subtitle Option -->
-                                    <div style="margin-bottom: 16px;">
-                                        <label for="subUse" class="input-label">Gunakan Subtitle?</label>
-                                        <div class="select-wrapper">
-                                            <select id="subUse" class="select-input">
+                                    <div class="card-content">
+                                        <!-- Gunakan Subtitle Option -->
+                                        <div style="margin-bottom: 16px;">
+                                            <label for="subUse" class="input-label">Gunakan Subtitle?</label>
+                                            <div class="select-wrapper">
+                                                <select id="subUse" class="select-input">
                                                 <option value="true" selected>✅ Ya, Tampilkan Subtitle</option>
                                                 <option value="false">❌ Tidak, Tanpa Subtitle</option>
                                             </select>
@@ -540,6 +541,7 @@
                                         </div>
                                     </div>
                                     </div> <!-- Close subtitleCustomizationGroup -->
+                                    </div> <!-- Close card-content -->
                                 </div>
 
                                 <!-- Voice Selector -->
@@ -797,8 +799,7 @@
                                 </div>
                                 <h1 class="app-title">Generate Video <span class="title-accent">Massal</span></h1>
                             </div>
-                            <p class="app-subtitle">Unggah hingga 20 video sekaligus dan proses AI narasi premium secara
-                                massal & serentak</p>
+                            <p class="app-subtitle">Proses AI narasi premium secara massal & serentak</p>
                         </div>
                     </header>
 
@@ -817,9 +818,9 @@
                                 </div>
 
                                 <div class="bulk-settings-grid"
-                                    style="display: grid; grid-template-columns: repeat(auto-fit, minmax(280px, 1fr)); gap: 20px; margin-top: 16px;">
+                                    style="display: grid; grid-template-columns: 1fr; gap: 20px; margin-top: 16px;">
                                     <!-- Bulk Voice Selector -->
-                                    <div class="settings-col">
+                                    <div class="settings-col" style="max-width: 360px;">
                                         <label for="bulkVoiceSelect" class="input-label">Pilih Suara Narasi</label>
                                         <div class="select-wrapper">
                                             <select id="bulkVoiceSelect" class="select-input" style="width: 100%;">
@@ -836,24 +837,28 @@
                                             </div>
                                         </div>
                                     </div>
+                                </div>
 
-                                    <!-- Bulk Watermark Mode -->
-                                    <div class="settings-col">
-                                        <label for="bulkWatermarkMode" class="input-label">Jenis Watermark</label>
-                                        <div class="select-wrapper">
-                                            <select id="bulkWatermarkMode" class="select-input" style="width: 100%;">
-                                                <option value="text" selected>✍️ Watermark Teks</option>
-                                                <option value="logo">🖼️ Watermark Logo PNG</option>
-                                            </select>
-                                            <div class="select-arrow">
-                                                <svg width="14" height="14" viewBox="0 0 24 24" fill="none"
-                                                    stroke="currentColor" stroke-width="2">
-                                                    <polyline points="6 9 12 15 18 9" />
-                                                </svg>
+                                <!-- Collapsible Watermark Group -->
+                                <div class="collapsible-group collapsed">
+                                    <div class="group-header">✍️ Setelan Watermark Massal <span style="font-size: 0.72rem; color: var(--text-muted); font-weight: normal; margin-left: 6px;">(Opsional)</span></div>
+                                    <div class="group-content">
+                                        <!-- Bulk Watermark Mode -->
+                                        <div class="settings-col" style="max-width: 320px; margin-bottom: 16px;">
+                                            <label for="bulkWatermarkMode" class="input-label">Jenis Watermark</label>
+                                            <div class="select-wrapper">
+                                                <select id="bulkWatermarkMode" class="select-input" style="width: 100%;">
+                                                    <option value="text" selected>✍️ Watermark Teks</option>
+                                                    <option value="logo">🖼️ Watermark Logo PNG</option>
+                                                </select>
+                                                <div class="select-arrow">
+                                                    <svg width="14" height="14" viewBox="0 0 24 24" fill="none"
+                                                        stroke="currentColor" stroke-width="2">
+                                                        <polyline points="6 9 12 15 18 9" />
+                                                    </svg>
+                                                </div>
                                             </div>
                                         </div>
-                                    </div>
-                                </div>
 
                                 <!-- Dynamic Bulk Watermark Inputs -->
                                 <div id="bulkWatermarkTextGroup" style="margin-top: 16px;">
@@ -910,13 +915,15 @@
                                     </div>
                                     <input type="file" id="bulkLogoInput" accept=".png,image/png" hidden>
                                 </div>
+                                </div> <!-- Close group-content -->
+                                </div> <!-- Close collapsible-group -->
 
                                 <div style="border-top: 1px solid rgba(255,255,255,0.06); margin: 16px 0;"></div>
 
-                                <!-- Bulk Subtitle Settings Row -->
-                                <h3 style="font-size: 0.85rem; font-weight: 600; color: var(--text-accent); margin-bottom: 12px; display: flex; align-items: center; gap: 6px;">
-                                    <span>🔤</span> Setelan Subtitle Massal
-                                </h3>
+                                <!-- Bulk Subtitle Settings Row (Collapsible) -->
+                                <div class="collapsible-group">
+                                    <div class="group-header">🔤 Setelan Subtitle Massal</div>
+                                    <div class="group-content">
 
                                 <!-- Bulk Gunakan Subtitle Option -->
                                 <div style="margin-bottom: 16px; max-width: 320px;">
@@ -1000,6 +1007,8 @@
                                         </div>
                                     </div>
                                 </div>
+                                </div> <!-- Close group-content -->
+                                </div> <!-- Close collapsible-group -->
                             </div>
 
                             <!-- Bulk Drag Drop Video Card -->
@@ -1101,8 +1110,7 @@
                                 </div>
                                 <h1 class="app-title">Convert Video <span class="title-accent">Size</span></h1>
                             </div>
-                            <p class="app-subtitle">Kompres dan konversi format video apa saja ke MP4 berkualitas tinggi
-                                dengan ukuran terkecil</p>
+                            <p class="app-subtitle">Kompres dan konversi format video apa saja ke MP4 berkualitas tinggi</p>
                         </div>
                     </header>
 
