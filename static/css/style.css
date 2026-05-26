@@ -1529,20 +1529,28 @@ body, .app-sidebar, .glass-card, .text-input, .select-input, .user-profile-sideb
         flex-direction: column;
     }
     
-    /* Parent sidebar is reset on mobile so it doesn't trap fixed children */
+    /* Mobile Left Sidebar Drawer Layout */
     .app-sidebar {
-        width: 100% !important;
-        height: auto !important;
-        padding: 0 !important;
-        background: transparent !important;
-        border: none !important;
-        backdrop-filter: none !important;
-        -webkit-backdrop-filter: none !important;
-        transform: none !important;
-        transition: none !important;
-        position: static !important;
-        box-shadow: none !important;
+        position: fixed !important;
+        top: 0 !important;
+        left: 0 !important;
+        bottom: 0 !important;
+        width: 280px !important;
+        height: 100vh !important;
+        background: var(--bg-secondary) !important;
+        border-right: 1px solid var(--border-subtle) !important;
+        box-shadow: 4px 0 24px rgba(0, 0, 0, 0.15) !important;
+        z-index: 1005 !important;
+        transform: translateX(-100%) !important;
+        transition: transform 0.3s cubic-bezier(0.16, 1, 0.3, 1) !important;
         display: block !important;
+        padding: 0 !important;
+        backdrop-filter: blur(20px) !important;
+        -webkit-backdrop-filter: blur(20px) !important;
+    }
+    
+    .app-sidebar.open {
+        transform: translateX(0) !important;
     }
     
     /* Sticky Slim Header Bar at the top of the viewport */
@@ -1561,12 +1569,29 @@ body, .app-sidebar, .glass-card, .text-input, .select-input, .user-profile-sideb
         display: flex !important;
         flex-direction: row !important;
         align-items: center !important;
-        justify-content: space-between !important;
+        justify-content: flex-start !important;
         padding: 0 16px !important;
+    }
+    
+    .menu-toggle-btn.mobile-only {
+        display: flex !important;
+        align-items: center;
+        justify-content: center;
+    }
+    
+    .sidebar-mobile-header.mobile-only {
+        display: flex !important;
     }
     
     .header-logo {
         margin-bottom: 0 !important;
+    }
+    
+    .header-actions {
+        margin-left: auto !important;
+        display: flex;
+        align-items: center;
+        gap: 12px;
     }
     
     /* Clean Avatar and Button only, no labels */
@@ -1579,63 +1604,68 @@ body, .app-sidebar, .glass-card, .text-input, .select-input, .user-profile-sideb
         display: flex !important;
         align-items: center !important;
     }
-
+ 
     .user-profile-sidebar .user-details {
         display: none !important;
     }
     
-    /* Sticky Bottom Nav Bar (BRImo style) at the bottom of the viewport */
+    /* Mobile sidebar menu */
     .sidebar-menu {
-        position: fixed !important;
-        bottom: 0;
-        left: 0;
-        right: 0;
-        height: 68px !important;
-        background: var(--bg-sidebar) !important;
-        border-top: 1px solid var(--border-subtle) !important;
-        backdrop-filter: blur(24px) !important;
-        -webkit-backdrop-filter: blur(24px) !important;
-        z-index: 1000 !important;
-        flex-direction: row !important;
-        justify-content: space-around !important;
-        padding: 8px 12px 12px !important;
-        box-shadow: 0 -4px 20px rgba(0, 0, 0, 0.06) !important;
-        gap: 4px !important;
+        position: static !important;
+        height: auto !important;
+        background: transparent !important;
+        border: none !important;
+        box-shadow: none !important;
+        backdrop-filter: none !important;
+        -webkit-backdrop-filter: none !important;
+        flex-direction: column !important;
+        gap: 8px !important;
+        padding: 0 16px !important;
         display: flex !important;
     }
     
     .menu-section-label {
-        display: none;
+        display: block !important;
+        font-size: 0.72rem !important;
+        font-weight: 700 !important;
+        color: var(--text-muted) !important;
+        letter-spacing: 0.1em !important;
+        padding: 8px 12px 4px !important;
     }
     
-    /* Stacked Menu Items for BRImo aesthetics */
+    /* Clean Spacious Menu Items for easy tapping */
     .menu-item {
-        flex-direction: column !important;
-        gap: 4px !important;
-        padding: 6px 4px !important;
-        font-size: 0.68rem !important;
+        flex-direction: row !important;
+        gap: 12px !important;
+        padding: 14px 16px !important;
+        font-size: 0.95rem !important;
         align-items: center !important;
-        justify-content: center !important;
-        flex: 1 !important;
-        text-align: center !important;
-        border: none !important;
+        justify-content: flex-start !important;
+        text-align: left !important;
+        border: 1px solid transparent !important;
+        border-radius: var(--radius-md) !important;
+        color: var(--text-secondary) !important;
+        width: 100% !important;
         background: transparent !important;
         box-shadow: none !important;
-        color: var(--text-secondary);
-        border-radius: 8px !important;
-        position: relative !important;
     }
 
+    .menu-text.mobile-only {
+        display: none !important;
+    }
+    .menu-text.desktop-only {
+        display: block !important;
+    }
+    
     .menu-icon {
-        font-size: 1.35rem !important;
-        margin-bottom: 1px;
+        font-size: 1.25rem !important;
+        margin-bottom: 0 !important;
     }
     
     .menu-item.active {
-        color: var(--text-menu-active) !important;
-        background: var(--bg-menu-active) !important;
-        border: none !important;
-        box-shadow: none !important;
+        color: var(--text-accent) !important;
+        background: var(--border-subtle) !important;
+        border: 1px solid var(--border-active) !important;
     }
 
     .menu-item.active::before {
@@ -1645,8 +1675,8 @@ body, .app-sidebar, .glass-card, .text-input, .select-input, .user-profile-sideb
     /* Floating absolute PRO badge above the Massal menu icon */
     .menu-item .menu-badge {
         position: absolute !important;
-        top: 2px !important;
-        right: 18% !important;
+        top: 14px !important;
+        right: 16px !important;
         margin-left: 0 !important;
         font-size: 0.55rem !important;
         padding: 1px 4px !important;
@@ -1655,12 +1685,12 @@ body, .app-sidebar, .glass-card, .text-input, .select-input, .user-profile-sideb
         box-shadow: 0 2px 5px rgba(236, 72, 153, 0.3) !important;
     }
     
-    /* Ensure content is padded so it's not hidden behind fixed top/bottom headers */
+    /* Ensure content is padded so it's not hidden behind fixed top header */
     .app-workspace {
         height: auto;
         overflow-y: visible;
         padding-top: 76px !important;
-        padding-bottom: 84px !important;
+        padding-bottom: 40px !important;
         margin-left: 0 !important;
     }
 }

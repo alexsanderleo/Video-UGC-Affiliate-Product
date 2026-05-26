@@ -116,6 +116,9 @@
 </head>
 
 <body>
+    <!-- Sidebar Backdrop Overlay (Mobile Only) -->
+    <div id="sidebarOverlay" style="position: fixed; inset: 0; background: rgba(0, 0, 0, 0.4); backdrop-filter: blur(4px); -webkit-backdrop-filter: blur(4px); z-index: 1004; display: none; opacity: 0; transition: opacity 0.3s ease;"></div>
+
     <!-- Animated Background Particles -->
     <div class="bg-particles" id="bgParticles"></div>
 
@@ -180,6 +183,11 @@
 
     <!-- App Top Header (Veo3 Style) -->
     <header class="app-top-header">
+        <!-- Hamburger Menu Button (Mobile Drawer Toggle) -->
+        <button id="menuToggleBtn" class="menu-toggle-btn mobile-only" title="Buka Menu" style="display: none; background: none; border: none; font-size: 1.6rem; color: var(--text-primary); cursor: pointer; padding: 4px 8px; margin-right: 8px;">
+            ☰
+        </button>
+
         <div class="header-logo">
             <div class="logo-icon-sm">
                 <svg width="24" height="24" viewBox="0 0 32 32" fill="none">
@@ -238,7 +246,11 @@
     <div class="app-layout">
         <!-- Sidebar -->
         <aside class="app-sidebar" id="appSidebar">
-
+            <!-- Mobile Sidebar Header -->
+            <div class="sidebar-mobile-header mobile-only" style="display: none; align-items: center; justify-content: space-between; padding: 16px 20px; border-bottom: 1px solid var(--border-subtle); margin-bottom: 12px;">
+                <span class="sidebar-brand" style="font-weight: 800; font-size: 1.25rem; color: var(--text-primary); font-family: 'Outfit', sans-serif;">Aulex <span class="title-accent" style="color: var(--text-accent);">AI</span></span>
+                <button id="sidebarCloseBtn" style="background: none; border: none; font-size: 1.8rem; color: var(--text-muted); cursor: pointer; padding: 0; line-height: 1;">&times;</button>
+            </div>
 
             <nav class="sidebar-menu">
                 <div class="menu-section-label">MODEL TOOL</div>
@@ -287,7 +299,7 @@
                                 <h1 class="app-title">Video Affiliate <span class="title-accent">AI</span> Generator
                                 </h1>
                             </div>
-                            <p class="app-subtitle">Buat video affiliate otomatis dengan narasi AI — powered by Aulex</p>
+                            <p class="app-subtitle">Buat video affiliate otomatis dalam 1 klik</p>
                         </div>
                     </header>
 
@@ -311,22 +323,9 @@
                                 </div>
                                 <div class="drop-zone" id="dropZone">
                                     <div class="drop-zone-content" id="dropZoneContent">
-                                        <div class="drop-icon">
-                                            <svg width="48" height="48" viewBox="0 0 24 24" fill="none"
-                                                stroke="currentColor" stroke-width="1.5" stroke-linecap="round"
-                                                stroke-linejoin="round">
-                                                <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4" />
-                                                <polyline points="17 8 12 3 7 8" />
-                                                <line x1="12" y1="3" x2="12" y2="15" />
-                                            </svg>
-                                        </div>
-                                        <p class="drop-text">Drag & drop video di sini</p>
-                                        <p class="drop-subtext">atau klik untuk memilih file</p>
-                                        <div class="drop-specs">
-                                            <span class="spec-badge">MP4</span>
-                                            <span class="spec-badge">Maks 100 MB</span>
-                                            <span class="spec-badge">30-60 detik</span>
-                                        </div>
+                                        <div class="drop-icon" style="font-size: 2.5rem; margin-bottom: 12px;">📤</div>
+                                        <p class="drop-text" style="font-weight: 700; font-size: 1.1rem; color: var(--text-primary);">Pilih Video Produk Anda</p>
+                                        <p class="drop-subtext" style="font-size: 0.85rem; color: var(--text-muted); margin-top: 4px;">Sentuh di sini untuk upload video (Format MP4)</p>
                                     </div>
                                     <div class="drop-zone-preview" id="dropZonePreview" style="display:none;">
                                         <video id="previewVideo" muted></video>
@@ -361,10 +360,8 @@
                                     </div>
                                     <div class="card-content">
                                         <p
-                                            style="font-size: 0.75rem; color: var(--text-secondary); margin-bottom: 16px; margin-top: -4px;">
-                                            Kustomisasi video Anda dengan teks watermark, logo PNG transparan, atau keduanya
-                                            sekaligus (fleksibel & opsional).
-                                        </p>
+                                            style="font-size: 0.8rem; color: var(--text-secondary); margin-bottom: 16px; margin-top: -4px;">
+                                            Kustomisasi teks atau logo pada video (opsional).</p>
 
                                         <!-- Text Watermark Input -->
                                         <div class="watermark-input" id="watermarkTextGroup" style="margin-bottom: 16px;">
@@ -717,24 +714,21 @@
                                         </div>
                                         <h2 class="card-title">Copywriting & Caption Kit</h2>
                                     </div>
-                                    <p style="font-size: 0.75rem; color: var(--text-secondary); margin-bottom: 16px; margin-top: -4px;">
-                                        Kustomisasi teks caption Anda secara instan untuk postingan media sosial (TikTok, Instagram, Shopee Video).
-                                    </p>
                                     
                                     <div class="caption-inputs-grid" style="display: grid; grid-template-columns: 1fr; gap: 12px; margin-bottom: 16px;">
                                         <div>
-                                            <label for="outputTitleInput" class="input-label">Judul Video (Bisa Diedit)</label>
+                                            <label for="outputTitleInput" class="input-label">Judul Video</label>
                                             <input type="text" id="outputTitleInput" class="text-input" placeholder="Judul Video...">
                                         </div>
                                         
                                         <div>
-                                            <label for="outputLinkInput" class="input-label">Link Promosi Afiliasi</label>
+                                            <label for="outputLinkInput" class="input-label">Link Shopee / Link Toko</label>
                                             <input type="text" id="outputLinkInput" class="text-input" placeholder="Contoh: s.shopee.co.id/abcdef atau klik di bio" value="s.shopee.co.id/xxxx">
                                         </div>
                                         
                                         <div style="display: grid; grid-template-columns: 1fr; gap: 12px;">
                                             <div>
-                                                <label for="outputCtaSelect" class="input-label">Teks CTA (Ajakan Klik)</label>
+                                                <label for="outputCtaSelect" class="input-label">Kata-Kata Ajakan Beli</label>
                                                 <div class="select-wrapper">
                                                     <select id="outputCtaSelect" class="select-input">
                                                         <option value="Ambil Promo / Pesan Sekarang Klik Di Sini" selected>👉 Ambil Promo / Pesan Sekarang Klik Di Sini</option>
@@ -761,7 +755,7 @@
                                     
                                     <div style="border-top: 1px solid rgba(255,255,255,0.06); margin: 12px 0;"></div>
                                     
-                                    <label for="outputCaption" class="input-label">Preview Caption Akhir (Siap Post)</label>
+                                    <label for="outputCaption" class="input-label">Teks Caption (Siap Salin)</label>
                                     <textarea id="outputCaption" class="caption-textarea" readonly style="min-height: 180px; font-size: 0.85rem; line-height: 1.5; margin-bottom: 12px;"></textarea>
                                     
                                     <button class="btn-copy" id="btnCopy" style="width: 100%; display: flex; justify-content: center; align-items: center; gap: 8px;">
@@ -801,9 +795,9 @@
                                         <path d="M12 10L22 16L12 22V10Z" fill="white" />
                                     </svg>
                                 </div>
-                                <h1 class="app-title">Generate Video <span class="title-accent">Massal</span></h1>
+                                <h1 class="app-title">Buat Video <span class="title-accent">Massal</span></h1>
                             </div>
-                            <p class="app-subtitle">Proses AI narasi premium secara massal & serentak</p>
+                            <p class="app-subtitle">Buat banyak video affiliate sekaligus secara otomatis</p>
                         </div>
                     </header>
 
@@ -1034,20 +1028,10 @@
                                 </div>
                                 <div class="drop-zone" id="bulkDropZone" style="padding: 40px 20px;">
                                     <div class="drop-zone-content" id="bulkDropZoneContent">
-                                        <div class="drop-icon">
-                                            <svg width="48" height="48" viewBox="0 0 24 24" fill="none"
-                                                stroke="currentColor" stroke-width="1.5" stroke-linecap="round"
-                                                stroke-linejoin="round">
-                                                <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4" />
-                                                <polyline points="17 8 12 3 7 8" />
-                                                <line x1="12" y1="3" x2="12" y2="15" />
-                                            </svg>
-                                        </div>
+                                        <div class="drop-icon" style="font-size: 2.5rem; margin-bottom: 12px;">📂</div>
                                         <p class="drop-text"
-                                            style="font-size: 1.1rem; font-weight:600; color:var(--text-primary);">Drag
-                                            & drop file video di sini</p>
-                                        <p class="drop-subtext">Mendukung banyak file video MP4 sekaligus (Maks 100 MB
-                                            per file)</p>
+                                            style="font-size: 1.1rem; font-weight:700; color:var(--text-primary);">Pilih Video Produk Anda (Bisa Banyak)</p>
+                                        <p class="drop-subtext" style="font-size: 0.85rem; color: var(--text-muted); margin-top: 4px;">Sentuh di sini untuk upload semua video sekaligus</p>
                                     </div>
                                     <input type="file" id="bulkFileInput" accept=".mp4,video/mp4" multiple hidden>
                                 </div>
@@ -1119,9 +1103,9 @@
                                         <path d="M12 10L22 16L12 22V10Z" fill="white" />
                                     </svg>
                                 </div>
-                                <h1 class="app-title">Convert Video <span class="title-accent">Size</span></h1>
+                                <h1 class="app-title">Kompres <span class="title-accent">Video</span></h1>
                             </div>
-                            <p class="app-subtitle">Kompres dan konversi format video apa saja ke MP4 berkualitas tinggi</p>
+                            <p class="app-subtitle">Kecilkan ukuran video tanpa mengurangi kualitas</p>
                         </div>
                     </header>
 
@@ -1145,17 +1129,9 @@
                                 </div>
                                 <div class="drop-zone" id="convertDropZone">
                                     <div class="drop-zone-content" id="convertDropZoneContent">
-                                        <div class="drop-icon">
-                                            <svg width="48" height="48" viewBox="0 0 24 24" fill="none"
-                                                stroke="currentColor" stroke-width="1.5" stroke-linecap="round"
-                                                stroke-linejoin="round">
-                                                <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4" />
-                                                <polyline points="17 8 12 3 7 8" />
-                                                <line x1="12" y1="3" x2="12" y2="15" />
-                                            </svg>
-                                        </div>
-                                        <p class="drop-text">Drag & drop video di sini</p>
-                                        <p class="drop-subtext">Mendukung MP4, MKV, AVI, MOV, WEBM (Maks 100 MB)</p>
+                                        <div class="drop-icon" style="font-size: 2.5rem; margin-bottom: 12px;">🗜️</div>
+                                        <p class="drop-text" style="font-weight: 700; font-size: 1.1rem; color: var(--text-primary);">Pilih Video Asli Anda</p>
+                                        <p class="drop-subtext" style="font-size: 0.85rem; color: var(--text-muted); margin-top: 4px;">Sentuh di sini untuk upload video yang mau dikompres</p>
                                     </div>
                                     <div class="drop-zone-preview" id="convertDropZonePreview" style="display:none;">
                                         <video id="convertPreviewVideo" muted></video>
@@ -1190,12 +1166,9 @@
                                 <label class="input-label">Pilih Profil Kompresi</label>
                                 <div class="select-wrapper">
                                     <select id="compressionSelect" class="select-input">
-                                        <option value="22">💎 Kualitas Tinggi — Ukuran sedikit mengecil, kualitas prima
-                                            (CRF 22)</option>
-                                        <option value="26" selected>⚖️ Seimbang — Kompresi ideal untuk platform video
-                                            vertikal (CRF 26)</option>
-                                        <option value="30">📉 Ukuran Terkecil — Hemat ruang maksimal, kualitas cukup
-                                            (CRF 30)</option>
+                                        <option value="22">💎 Kualitas Tinggi (Ukuran Lebih Besar)</option>
+                                        <option value="26" selected>⚖️ Seimbang (Sangat Direkomendasikan)</option>
+                                        <option value="30">📉 Ukuran Terkecil (Hemat Ruang)</option>
                                     </select>
                                     <div class="select-arrow">
                                         <svg width="14" height="14" viewBox="0 0 24 24" fill="none"

@@ -2194,9 +2194,52 @@
         });
     }
 
+    // === Mobile Responsive Left Drawer Menu ===
+    function initMobileMenu() {
+        const menuToggleBtn = document.getElementById('menuToggleBtn');
+        const sidebarCloseBtn = document.getElementById('sidebarCloseBtn');
+        const appSidebar = document.getElementById('appSidebar');
+        const sidebarOverlay = document.getElementById('sidebarOverlay');
+        const menuItems = document.querySelectorAll('.sidebar-menu .menu-item');
+
+        if (!menuToggleBtn || !appSidebar || !sidebarOverlay) return;
+
+        function openMenu() {
+            appSidebar.classList.add('open');
+            sidebarOverlay.style.display = 'block';
+            setTimeout(() => {
+                sidebarOverlay.style.opacity = '1';
+            }, 10);
+        }
+
+        function closeMenu() {
+            appSidebar.classList.remove('open');
+            sidebarOverlay.style.opacity = '0';
+            setTimeout(() => {
+                sidebarOverlay.style.display = 'none';
+            }, 300);
+        }
+
+        menuToggleBtn.addEventListener('click', openMenu);
+        if (sidebarCloseBtn) {
+            sidebarCloseBtn.addEventListener('click', closeMenu);
+        }
+        sidebarOverlay.addEventListener('click', closeMenu);
+
+        // Close sidebar drawer immediately when a menu item is tapped on mobile
+        menuItems.forEach(item => {
+            item.addEventListener('click', () => {
+                if (window.innerWidth <= 820) {
+                    closeMenu();
+                }
+            });
+        });
+    }
+
     // === Init ===
     initTheme();
     initCollapsibles();
+    initMobileMenu();
     initAuth();
     resetToDefaultSettings();
     updateGenerateBtn();
