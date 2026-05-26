@@ -293,27 +293,87 @@
     });
 
     // === Voice Selector ===
-    voiceSelect.addEventListener('change', () => {
+    function updateVoiceCards() {
         const val = voiceSelect.value;
-        if (val === 'id-ID-GadisNeural' || val === 'piper-id-gadis' || val === 'xtts-clone-agomart' || val === 'gtts-id') {
+        const nameFemale = document.querySelector('#voiceCardFemale .voice-name');
+        const descFemale = document.querySelector('#voiceCardFemale .voice-desc');
+        const nameMale = document.querySelector('#voiceCardMale .voice-name');
+        const descMale = document.querySelector('#voiceCardMale .voice-desc');
+        
+        if (!nameFemale || !nameMale) return;
+
+        if (val.startsWith('piper')) {
+            nameFemale.textContent = 'Piper Gadis';
+            descFemale.textContent = 'Wanita Offline (Kilat)';
+            nameMale.textContent = 'Piper Ardi';
+            descMale.textContent = 'Pria Offline (Kilat)';
+            
+            if (val === 'piper-id-gadis') {
+                voiceCardFemale.classList.add('active');
+                voiceCardMale.classList.remove('active');
+            } else {
+                voiceCardMale.classList.add('active');
+                voiceCardFemale.classList.remove('active');
+            }
+        } else if (val.startsWith('xtts')) {
+            nameFemale.textContent = 'XTTS v2 Wanita';
+            descFemale.textContent = 'Kloning Suara Agomart';
+            nameMale.textContent = 'XTTS v2 Pria';
+            descMale.textContent = 'Kloning Suara Agomart';
+            
             voiceCardFemale.classList.add('active');
             voiceCardMale.classList.remove('active');
-        } else if (val === 'id-ID-ArdiNeural' || val === 'piper-id-ardi') {
-            voiceCardMale.classList.add('active');
-            voiceCardFemale.classList.remove('active');
-        } else {
-            voiceCardFemale.classList.remove('active');
+        } else if (val === 'gtts-id') {
+            nameFemale.textContent = 'gTTS ID Wanita';
+            descFemale.textContent = 'Google Translate ID';
+            nameMale.textContent = 'gTTS ID Pria';
+            descMale.textContent = 'Google Translate ID';
+            
+            voiceCardFemale.classList.add('active');
             voiceCardMale.classList.remove('active');
+        } else {
+            nameFemale.textContent = 'Gadis Neural';
+            descFemale.textContent = 'Halus & Persuasif';
+            nameMale.textContent = 'Ardi Neural';
+            descMale.textContent = 'Formal & Berwibawa';
+            
+            if (val === 'id-ID-GadisNeural') {
+                voiceCardFemale.classList.add('active');
+                voiceCardMale.classList.remove('active');
+            } else {
+                voiceCardMale.classList.add('active');
+                voiceCardFemale.classList.remove('active');
+            }
         }
-    });
+    }
+
+    voiceSelect.addEventListener('change', updateVoiceCards);
 
     voiceCardFemale.addEventListener('click', () => {
-        voiceSelect.value = 'id-ID-GadisNeural';
+        const currentVal = voiceSelect.value;
+        if (currentVal.startsWith('piper')) {
+            voiceSelect.value = 'piper-id-gadis';
+        } else if (currentVal.startsWith('xtts')) {
+            voiceSelect.value = 'xtts-clone-agomart';
+        } else if (currentVal === 'gtts-id') {
+            voiceSelect.value = 'gtts-id';
+        } else {
+            voiceSelect.value = 'id-ID-GadisNeural';
+        }
         voiceSelect.dispatchEvent(new Event('change'));
     });
 
     voiceCardMale.addEventListener('click', () => {
-        voiceSelect.value = 'id-ID-ArdiNeural';
+        const currentVal = voiceSelect.value;
+        if (currentVal.startsWith('piper')) {
+            voiceSelect.value = 'piper-id-ardi';
+        } else if (currentVal.startsWith('xtts')) {
+            voiceSelect.value = 'xtts-clone-agomart';
+        } else if (currentVal === 'gtts-id') {
+            voiceSelect.value = 'gtts-id';
+        } else {
+            voiceSelect.value = 'id-ID-ArdiNeural';
+        }
         voiceSelect.dispatchEvent(new Event('change'));
     });
 
