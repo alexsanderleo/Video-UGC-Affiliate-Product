@@ -106,6 +106,9 @@ async def generate_xtts_v2(text: str, output_path: str, voice: str = "xtts-clone
     """Generate TTS using local XTTS v2 voice cloning."""
     import asyncio
     
+    # Auto-agree to Coqui TTS Terms of Service to prevent interactive prompt crash in Celery worker
+    os.environ["COQUI_TOS_AGREED"] = "1"
+    
     try:
         from TTS.api import TTS
     except ImportError:
