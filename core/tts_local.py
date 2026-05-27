@@ -153,7 +153,7 @@ async def generate_xtts_v2(text: str, output_path: str, voice: str = "xtts-clone
     
     if "male" in voice:
         ref_wav_path = ref_dir / "reference_male.wav"
-        default_ref_url = "https://github.com/coqui-ai/TTS/raw/main/tests/data/ljspeech/wavs/LJ001-0002.wav"
+        default_ref_url = "https://huggingface.co/coqui/XTTS-v2/resolve/main/samples/en_sample.wav"
     else:
         ref_wav_path = ref_dir / "reference.wav"
         default_ref_url = "https://github.com/coqui-ai/TTS/raw/main/tests/data/ljspeech/wavs/LJ001-0001.wav"
