@@ -214,11 +214,11 @@ async def generate_gpt_sovits(text: str, output_path: str, voice: str = "sovits-
     if "male" in voice:
         ref_wav_path = ref_dir / "cowok.wav"
         prompt_text = "Ini adalah suara contoh untuk kloning suara pria."
-        prompt_lang = "en"
+        prompt_lang = "zh"
     else:
         ref_wav_path = ref_dir / "cewek.wav"
         prompt_text = "Ini adalah suara contoh untuk kloning suara wanita."
-        prompt_lang = "en"
+        prompt_lang = "zh"
 
     # Fallback to defaults if files don't exist
     if not ref_wav_path.exists():
@@ -240,7 +240,7 @@ async def generate_gpt_sovits(text: str, output_path: str, voice: str = "sovits-
     
     params = {
         "text": text,
-        "text_lang": "en",  # Fallback to English language code for unsupported Indonesian
+        "text_lang": "zh",  # Fallback to Chinese language code for unsupported Indonesian
         "ref_audio_path": str(ref_wav_path),
         "prompt_text": prompt_text,
         "prompt_lang": prompt_lang
