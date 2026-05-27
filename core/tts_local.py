@@ -102,7 +102,7 @@ async def generate_piper(text: str, output_path: str, ffmpeg_path: str):
             
     await asyncio.to_thread(run_conversion)
 
-async def generate_xtts_v2(text: str, output_path: str):
+async def generate_xtts_v2(text: str, output_path: str, voice: str = "xtts-clone-agomart"):
     """Generate TTS using local XTTS v2 voice cloning."""
     import asyncio
     
@@ -118,22 +118,30 @@ async def generate_xtts_v2(text: str, output_path: str):
     # Reference voice sample path for cloning
     ref_dir = BASE_DIR / "static" / "voices"
     ref_dir.mkdir(parents=True, exist_ok=True)
-    ref_wav_path = ref_dir / "reference.wav"
+    
+    if "male" in voice:
+        ref_wav_path = ref_dir / "reference_male.wav"
+        default_ref_url = "https://github.com/coqui-ai/TTS/raw/main/tests/data/ljspeech/wavs/LJ001-0002.wav"
+    else:
+        ref_wav_path = ref_dir / "reference.wav"
+        default_ref_url = "https://github.com/coqui-ai/TTS/raw/main/tests/data/ljspeech/wavs/LJ001-0001.wav"
     
     if not ref_wav_path.exists():
         # Automatically download high-quality reference voice from GitHub!
-        default_ref_url = "https://github.com/coqui-ai/TTS/raw/main/tests/data/ljspeech/wavs/LJ001-0001.wav"
         print(f"[TTS Local] Reference voice not found. Downloading default: {default_ref_url} -> {ref_wav_path}...")
         try:
             download_file(default_ref_url, ref_wav_path)
             print(f"[TTS Local] Default reference voice downloaded successfully.")
         except Exception as e:
-            raise RuntimeError(
-                f"File contoh kloning suara tidak ditemukan di: {ref_wav_path} dan gagal diunduh otomatis.\n"
-                f"Detail: {e}\n"
-                "Silakan taruh file suara contoh format WAV (durasi 5-10 detik) "
-                "dengan nama 'reference.wav' di dalam folder 'static/voices/' untuk mulai kloning."
-            )
+            if "male" in voice and (ref_dir / "reference.wav").exists():
+                ref_wav_path = ref_dir / "reference.wav"
+            else:
+                raise RuntimeError(
+                    f"File contoh kloning suara tidak ditemukan di: {ref_wav_path} dan gagal diunduh otomatis.\n"
+                    f"Detail: {e}\n"
+                    "Silakan taruh file suara contoh format WAV (durasi 5-10 detik) "
+                    "dengan nama 'reference.wav' atau 'reference_male.wav' di dalam folder 'static/voices/' untuk mulai kloning."
+                )
         
     temp_wav_path = Path(output_path).with_suffix(".wav")
     
