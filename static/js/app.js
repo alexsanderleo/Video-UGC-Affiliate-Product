@@ -502,8 +502,23 @@
             });
 
             if (!response.ok) {
-                const errData = await response.json().catch(() => ({ error: 'Server error' }));
-                throw new Error(errData.error || `HTTP ${response.status}`);
+                const errData = await response.json().catch(() => ({}));
+                const errMsg = errData.detail || errData.error || `HTTP ${response.status}`;
+                if (response.status === 401) {
+                    localStorage.removeItem('token');
+                    showToast('⚠️ Sesi Anda telah berakhir. Silakan login ulang!');
+                    const authOverlay = document.getElementById('authOverlay');
+                    const loginForm = document.getElementById('loginForm');
+                    const registerForm = document.getElementById('registerForm');
+                    const authTitle = document.getElementById('authTitle');
+                    if (authOverlay && loginForm) {
+                        authOverlay.style.display = 'flex';
+                        loginForm.style.display = 'block';
+                        if (registerForm) registerForm.style.display = 'none';
+                        if (authTitle) authTitle.textContent = 'Login Ulang';
+                    }
+                }
+                throw new Error(errMsg);
             }
 
             // Read SSE-style streamed response
@@ -1841,8 +1856,23 @@
             });
 
             if (!response.ok) {
-                const errData = await response.json().catch(() => ({ error: 'Gagal memproses video di server' }));
-                throw new Error(errData.error || `HTTP ${response.status}`);
+                const errData = await response.json().catch(() => ({}));
+                const errMsg = errData.detail || errData.error || `HTTP ${response.status}`;
+                if (response.status === 401) {
+                    localStorage.removeItem('token');
+                    showToast('⚠️ Sesi Anda telah berakhir. Silakan login ulang!');
+                    const authOverlay = document.getElementById('authOverlay');
+                    const loginForm = document.getElementById('loginForm');
+                    const registerForm = document.getElementById('registerForm');
+                    const authTitle = document.getElementById('authTitle');
+                    if (authOverlay && loginForm) {
+                        authOverlay.style.display = 'flex';
+                        loginForm.style.display = 'block';
+                        if (registerForm) registerForm.style.display = 'none';
+                        if (authTitle) authTitle.textContent = 'Login Ulang';
+                    }
+                }
+                throw new Error(errMsg);
             }
 
             const reader = response.body.getReader();
