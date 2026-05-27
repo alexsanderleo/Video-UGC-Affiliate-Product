@@ -18,5 +18,5 @@ aiomysql>=0.2.0
 cryptography>=42.0.0
 gtts>=2.5.1
 piper-tts>=1.2.0
-transformers==4.30.2
+transformers==4.33.0
 TTS==0.22.0
