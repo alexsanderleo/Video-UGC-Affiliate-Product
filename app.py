@@ -371,16 +371,6 @@ def step_b_tts(
             loop.close()
         return
 
-    if voice.startswith("xtts"):
-        from core.tts_local import generate_xtts_v2
-        async def _run_xtts():
-            await generate_xtts_v2(text, output_path, voice)
-        loop = asyncio.new_event_loop()
-        try:
-            loop.run_until_complete(_run_xtts())
-        finally:
-            loop.close()
-        return
 
     import edge_tts
 
