@@ -243,7 +243,8 @@ async def generate_gpt_sovits(text: str, output_path: str, voice: str = "sovits-
         "text_lang": "zh",  # Fallback to Chinese language code for unsupported Indonesian
         "ref_audio_path": str(ref_wav_path),
         "prompt_text": prompt_text,
-        "prompt_lang": prompt_lang
+        "prompt_lang": prompt_lang,
+        "text_split_method": "cut4"  # Split by punctuation, bypassing fast-langdetect downloads!
     }
     
     temp_wav_path = Path(output_path).with_suffix(".wav")
