@@ -349,7 +349,7 @@ def step_b_tts(
     print(f"[Step B] Generating TTS with voice: {voice}")
 
     # Check for local/alternative TTS engines
-    if voice == "gtts-id":
+    if voice.startswith("gtts-id"):
         from core.tts_local import generate_gtts
         async def _run_gtts():
             await generate_gtts(text, output_path)
@@ -374,7 +374,7 @@ def step_b_tts(
     if voice.startswith("xtts"):
         from core.tts_local import generate_xtts_v2
         async def _run_xtts():
-            await generate_xtts_v2(text, output_path)
+            await generate_xtts_v2(text, output_path, voice)
         loop = asyncio.new_event_loop()
         try:
             loop.run_until_complete(_run_xtts())

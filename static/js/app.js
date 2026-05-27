@@ -321,16 +321,26 @@
             nameMale.textContent = 'XTTS v2 Pria';
             descMale.textContent = 'Kloning Suara Agomart';
             
-            voiceCardFemale.classList.add('active');
-            voiceCardMale.classList.remove('active');
-        } else if (val === 'gtts-id') {
+            if (val === 'xtts-clone-agomart-male') {
+                voiceCardMale.classList.add('active');
+                voiceCardFemale.classList.remove('active');
+            } else {
+                voiceCardFemale.classList.add('active');
+                voiceCardMale.classList.remove('active');
+            }
+        } else if (val.startsWith('gtts')) {
             nameFemale.textContent = 'gTTS ID Wanita';
             descFemale.textContent = 'Google Translate ID';
             nameMale.textContent = 'gTTS ID Pria';
             descMale.textContent = 'Google Translate ID';
             
-            voiceCardFemale.classList.add('active');
-            voiceCardMale.classList.remove('active');
+            if (val === 'gtts-id-male') {
+                voiceCardMale.classList.add('active');
+                voiceCardFemale.classList.remove('active');
+            } else {
+                voiceCardFemale.classList.add('active');
+                voiceCardMale.classList.remove('active');
+            }
         } else {
             nameFemale.textContent = 'Gadis Neural';
             descFemale.textContent = 'Halus & Persuasif';
@@ -355,7 +365,7 @@
             voiceSelect.value = 'piper-id-gadis';
         } else if (currentVal.startsWith('xtts')) {
             voiceSelect.value = 'xtts-clone-agomart';
-        } else if (currentVal === 'gtts-id') {
+        } else if (currentVal.startsWith('gtts')) {
             voiceSelect.value = 'gtts-id';
         } else {
             voiceSelect.value = 'id-ID-GadisNeural';
@@ -368,9 +378,9 @@
         if (currentVal.startsWith('piper')) {
             voiceSelect.value = 'piper-id-ardi';
         } else if (currentVal.startsWith('xtts')) {
-            voiceSelect.value = 'xtts-clone-agomart';
-        } else if (currentVal === 'gtts-id') {
-            voiceSelect.value = 'gtts-id';
+            voiceSelect.value = 'xtts-clone-agomart-male';
+        } else if (currentVal.startsWith('gtts')) {
+            voiceSelect.value = 'gtts-id-male';
         } else {
             voiceSelect.value = 'id-ID-ArdiNeural';
         }

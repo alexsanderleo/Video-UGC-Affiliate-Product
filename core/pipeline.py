@@ -287,7 +287,7 @@ async def step_b_tts(
 ):
     """Convert text to speech using Edge-TTS asynchronously and optionally write SRT/ASS subtitles with dynamic custom styling."""
     # Check for local/alternative TTS engines
-    if voice == "gtts-id":
+    if voice.startswith("gtts-id"):
         from core.tts_local import generate_gtts
         await generate_gtts(text, output_path)
         return
@@ -299,7 +299,7 @@ async def step_b_tts(
         
     if voice.startswith("xtts"):
         from core.tts_local import generate_xtts_v2
-        await generate_xtts_v2(text, output_path)
+        await generate_xtts_v2(text, output_path, voice)
         return
 
     import edge_tts
