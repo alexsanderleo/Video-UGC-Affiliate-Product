@@ -203,3 +203,77 @@ async def generate_xtts_v2(text: str, output_path: str, voice: str = "xtts-clone
             temp_wav_path.unlink()
             
     await asyncio.to_thread(run_conversion)
+
+async def generate_gpt_sovits(text: str, output_path: str, voice: str = "sovits-clone-agomart"):
+    """Generate TTS using local GPT-SoVITS API server."""
+    import httpx
+    import asyncio
+    
+    ref_dir = BASE_DIR / "static" / "voices"
+    
+    if "male" in voice:
+        ref_wav_path = ref_dir / "cowok.wav"
+        prompt_text = "Ini adalah suara contoh untuk kloning suara pria."
+        prompt_lang = "id"
+    else:
+        ref_wav_path = ref_dir / "cewek.wav"
+        prompt_text = "Ini adalah suara contoh untuk kloning suara wanita."
+        prompt_lang = "id"
+
+    # Fallback to defaults if files don't exist
+    if not ref_wav_path.exists():
+        if "male" in voice:
+            raise RuntimeError(
+                "File static/voices/cowok.wav tidak ditemukan di server.\n"
+                "Silakan unggah rekaman suara pria berformat .wav (5-8 detik) "
+                "dengan nama 'cowok.wav' di dalam folder static/voices/ terlebih dahulu."
+            )
+        else:
+            raise RuntimeError(
+                "File static/voices/cewek.wav tidak ditemukan di server.\n"
+                "Silakan unggah rekaman suara wanita berformat .wav (5-8 detik) "
+                "dengan nama 'cewek.wav' di dalam folder static/voices/ terlebih dahulu."
+            )
+
+    # Call the local GPT-SoVITS API server running on port 9000 (standard port)
+    api_url = "http://127.0.0.1:9000/"  # GPT-SoVITS api_v2.py default endpoint
+    
+    params = {
+        "text": text,
+        "text_lang": "id",  # GPT-SoVITS V2 supports Indonesian very well!
+        "ref_audio_path": str(ref_wav_path),
+        "prompt_text": prompt_text,
+        "prompt_lang": prompt_lang
+    }
+    
+    temp_wav_path = Path(output_path).with_suffix(".wav")
+    
+    async def fetch_audio():
+        async with httpx.AsyncClient(timeout=120.0) as client:
+            try:
+                response = await client.get(api_url, params=params)
+                if response.status_code != 200:
+                    response = await client.post(f"{api_url}tts", json=params)
+            except Exception:
+                response = await client.post(api_url, json=params)
+                
+            if response.status_code != 200:
+                raise RuntimeError(
+                    f"GPT-SoVITS API returned error status {response.status_code}: {response.text}\n"
+                    "Pastikan API Server GPT-SoVITS sudah dijalankan di VPS Anda dengan perintah:\n"
+                    "python api_v2.py --port 9000"
+                )
+            
+            with open(temp_wav_path, "wb") as f:
+                f.write(response.content)
+                
+    await fetch_audio()
+    
+    # Convert WAV to MP3 using local FFmpeg
+    from core.pipeline import FFMPEG_PATH
+    def run_conversion():
+        convert_wav_to_mp3(FFMPEG_PATH, str(temp_wav_path), output_path)
+        if temp_wav_path.exists():
+            temp_wav_path.unlink()
+            
+    await asyncio.to_thread(run_conversion)

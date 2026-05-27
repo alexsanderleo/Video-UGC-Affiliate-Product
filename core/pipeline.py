@@ -301,6 +301,11 @@ async def step_b_tts(
         from core.tts_local import generate_xtts_v2
         await generate_xtts_v2(text, output_path, voice)
         return
+        
+    if voice.startswith("sovits"):
+        from core.tts_local import generate_gpt_sovits
+        await generate_gpt_sovits(text, output_path, voice)
+        return
 
     import edge_tts
     

@@ -315,6 +315,19 @@
                 voiceCardMale.classList.add('active');
                 voiceCardFemale.classList.remove('active');
             }
+        } else if (val.startsWith('sovits')) {
+            nameFemale.textContent = 'GPT-SoVITS Wanita';
+            descFemale.textContent = 'Kloning Cepat & Efisien';
+            nameMale.textContent = 'GPT-SoVITS Pria';
+            descMale.textContent = 'Kloning Cepat & Efisien';
+            
+            if (val === 'sovits-clone-agomart-male') {
+                voiceCardMale.classList.add('active');
+                voiceCardFemale.classList.remove('active');
+            } else {
+                voiceCardFemale.classList.add('active');
+                voiceCardMale.classList.remove('active');
+            }
         } else if (val.startsWith('xtts')) {
             nameFemale.textContent = 'XTTS v2 Wanita';
             descFemale.textContent = 'Kloning Suara Agomart';
@@ -363,6 +376,8 @@
         const currentVal = voiceSelect.value;
         if (currentVal.startsWith('piper')) {
             voiceSelect.value = 'piper-id-gadis';
+        } else if (currentVal.startsWith('sovits')) {
+            voiceSelect.value = 'sovits-clone-agomart';
         } else if (currentVal.startsWith('xtts')) {
             voiceSelect.value = 'xtts-clone-agomart';
         } else if (currentVal.startsWith('gtts')) {
@@ -377,6 +392,8 @@
         const currentVal = voiceSelect.value;
         if (currentVal.startsWith('piper')) {
             voiceSelect.value = 'piper-id-ardi';
+        } else if (currentVal.startsWith('sovits')) {
+            voiceSelect.value = 'sovits-clone-agomart-male';
         } else if (currentVal.startsWith('xtts')) {
             voiceSelect.value = 'xtts-clone-agomart-male';
         } else if (currentVal.startsWith('gtts')) {
