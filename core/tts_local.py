@@ -152,10 +152,10 @@ async def generate_xtts_v2(text: str, output_path: str, voice: str = "xtts-clone
     ref_dir.mkdir(parents=True, exist_ok=True)
     
     if "male" in voice:
-        ref_wav_path = ref_dir / "reference_male.wav"
+        ref_wav_path = ref_dir / "cowok.wav"
         default_ref_url = "https://huggingface.co/coqui/XTTS-v2/resolve/main/samples/en_sample.wav"
     else:
-        ref_wav_path = ref_dir / "reference.wav"
+        ref_wav_path = ref_dir / "cewek.wav"
         default_ref_url = "https://github.com/coqui-ai/TTS/raw/main/tests/data/ljspeech/wavs/LJ001-0001.wav"
     
     if not ref_wav_path.exists():
@@ -165,14 +165,14 @@ async def generate_xtts_v2(text: str, output_path: str, voice: str = "xtts-clone
             download_file(default_ref_url, ref_wav_path)
             print(f"[TTS Local] Default reference voice downloaded successfully.")
         except Exception as e:
-            if "male" in voice and (ref_dir / "reference.wav").exists():
-                ref_wav_path = ref_dir / "reference.wav"
+            if "male" in voice and (ref_dir / "cewek.wav").exists():
+                ref_wav_path = ref_dir / "cewek.wav"
             else:
                 raise RuntimeError(
                     f"File contoh kloning suara tidak ditemukan di: {ref_wav_path} dan gagal diunduh otomatis.\n"
                     f"Detail: {e}\n"
                     "Silakan taruh file suara contoh format WAV (durasi 5-10 detik) "
-                    "dengan nama 'reference.wav' atau 'reference_male.wav' di dalam folder 'static/voices/' untuk mulai kloning."
+                    "dengan nama 'cowok.wav' atau 'cewek.wav' di dalam folder 'static/voices/' untuk mulai kloning."
                 )
         
     temp_wav_path = Path(output_path).with_suffix(".wav")
