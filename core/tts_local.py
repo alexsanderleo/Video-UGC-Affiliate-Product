@@ -173,10 +173,12 @@ async def generate_xtts_v2(text: str, output_path: str, voice: str = "xtts-clone
     def run_xtts():
         # Load XTTS v2 model (will download automatically on first run)
         tts = TTS("tts_models/multilingual/multi-dataset/xtts_v2").to("cpu")
+        # XTTS v2 does not support Indonesian ('id'). We use 'en' (English) as the language code fallback.
+        # This synthesizes the Indonesian text using the English phonetic model, producing a high-quality cloned voice.
         tts.tts_to_file(
             text=text,
             speaker_wav=str(ref_wav_path),
-            language="id",
+            language="en",
             file_path=str(temp_wav_path)
         )
         
