@@ -435,8 +435,7 @@
                                 <div class="card glass-card settings-card collapsible collapsed">
                                     <div class="card-header">
                                         <div class="card-icon subtitle-icon"
-                                            style="background: rgba(168, 85, 247, 0.1); color: rgb(168, 85, 247); display: flex; align-items: center; justify-content: center; width: 32px; height: 32px; border-radius: 8px; font-size: 16px; box-shadow: var(--shadow-sm);">
-                                        <div class="card-icon" style="background: rgba(30,144,255,0.1); color: #1E90FF;">🎙️</div>
+                                            style="background: rgba(168, 85, 247, 0.1); color: rgb(168, 85, 247); display: flex; align-items: center; justify-content: center; width: 32px; height: 32px; border-radius: 8px; font-size: 16px; box-shadow: var(--shadow-sm);">🎙️</div>
                                         <h2 class="card-title">Setelan Subtitle & Suara AI</h2>
                                     </div>
                                     <div class="card-content">
@@ -445,23 +444,29 @@
                                             <label for="voiceSelect" class="input-label">Pilih Suara Narasi</label>
                                             <div class="select-wrapper">
                                                 <select id="voiceSelect" class="select-input">
-                                                    <option value="id-ID-GadisNeural">👩 Gadis — Suara Wanita (Halus & Persuasif)</option>
-                                                    <option value="id-ID-ArdiNeural">👨 Ardi — Suara Pria (Formal & Berwibawa)</option>
-                                                    <option value="piper-id-gadis">🎙️ Piper ID — Wanita Lokal (Offline Kilat)</option>
-                                                    <option value="piper-id-ardi">🎙️ Piper ID — Pria Lokal (Offline Kilat)</option>
-                                                    <option value="supertonic-id-F1">⚡ Supertonic 3 Gadis — Wanita (F1 - Halus &amp; Persuasif)</option>
-                                                    <option value="supertonic-id-F2">⚡ Supertonic 3 Rara — Wanita (F2 - Ceria &amp; Dinamis)</option>
-                                                    <option value="supertonic-id-F3">⚡ Supertonic 3 Indah — Wanita (F3 - Tenang &amp; Lembut)</option>
-                                                    <option value="supertonic-id-F4">⚡ Supertonic 3 Sari — Wanita (F4 - Profesional &amp; Tegas)</option>
-                                                    <option value="supertonic-id-F5">⚡ Supertonic 3 Putri — Wanita (F5 - Anggun &amp; Ramah)</option>
-                                                    <option value="supertonic-id-M1">⚡ Supertonic 3 Ardi — Pria (M1 - Formal &amp; Berwibawa)</option>
-                                                    <option value="supertonic-id-M2">⚡ Supertonic 3 Budi — Pria (M2 - Santai &amp; Akrab)</option>
-                                                    <option value="supertonic-id-M3">⚡ Supertonic 3 Candra — Pria (M3 - Energik &amp; Lantang)</option>
-                                                    <option value="supertonic-id-M4">⚡ Supertonic 3 Dedi — Pria (M4 - Hangat &amp; Bersahabat)</option>
-                                                    <option value="supertonic-id-M5">⚡ Supertonic 3 Eko — Pria (M5 - Dalam &amp; Mantap)</option>
-                                                    <option value="gtts-id">🤖 Google Translate ID Wanita — Klasik Cadangan</option>
-                                                    <option value="gtts-id-male">🤖 Google Translate ID Pria — Klasik Cadangan</option>
-                                                </select>
+                                                     <optgroup label="✨ REKOMENDASI (ONLINE)">
+                                                         <option value="id-ID-GadisNeural">👩 Gadis (Halus &amp; Persuasif)</option>
+                                                         <option value="id-ID-ArdiNeural">👨 Ardi (Formal &amp; Berwibawa)</option>
+                                                     </optgroup>
+                                                     <optgroup label="⚡ SUPERTONIC 3 (OFFLINE PREMIUM)">
+                                                         <option value="supertonic-id-F1">👩 F1 - Gadis (Halus &amp; Persuasif)</option>
+                                                         <option value="supertonic-id-F2">👩 F2 - Rara (Ceria &amp; Dinamis)</option>
+                                                         <option value="supertonic-id-F3">👩 F3 - Indah (Tenang &amp; Lembut)</option>
+                                                         <option value="supertonic-id-F4">👩 F4 - Sari (Profesional &amp; Tegas)</option>
+                                                         <option value="supertonic-id-F5">👩 F5 - Putri (Anggun &amp; Ramah)</option>
+                                                         <option value="supertonic-id-M1">👨 M1 - Ardi (Formal &amp; Berwibawa)</option>
+                                                         <option value="supertonic-id-M2">👨 M2 - Budi (Santai &amp; Akrab)</option>
+                                                         <option value="supertonic-id-M3">👨 M3 - Candra (Energik &amp; Lantang)</option>
+                                                         <option value="supertonic-id-M4">👨 M4 - Dedi (Hangat &amp; Bersahabat)</option>
+                                                         <option value="supertonic-id-M5">👨 M5 - Eko (Dalam &amp; Mantap)</option>
+                                                     </optgroup>
+                                                     <optgroup label="🤖 CADANGAN (OFFLINE STANDARD)">
+                                                         <option value="piper-id-gadis">🎙️ Piper Wanita (Kilat)</option>
+                                                         <option value="piper-id-ardi">🎙️ Piper Pria (Kilat)</option>
+                                                         <option value="gtts-id">🤖 Google Translate Wanita</option>
+                                                         <option value="gtts-id-male">🤖 Google Translate Pria</option>
+                                                     </optgroup>
+                                                 </select>
                                                 <div class="select-arrow">
                                                     <svg width="14" height="14" viewBox="0 0 24 24" fill="none"
                                                         stroke="currentColor" stroke-width="2">
@@ -854,23 +859,29 @@
                                                 <label for="bulkVoiceSelect" class="input-label">Pilih Suara Narasi</label>
                                                 <div class="select-wrapper">
                                                     <select id="bulkVoiceSelect" class="select-input">
-                                                        <option value="id-ID-GadisNeural">👩 Gadis — Suara Wanita (Halus & Persuasif)</option>
-                                                        <option value="id-ID-ArdiNeural">👨 Ardi — Suara Pria (Formal & Berwibawa)</option>
-                                                        <option value="piper-id-gadis">🎙️ Piper ID — Wanita Lokal (Offline Kilat)</option>
-                                                        <option value="piper-id-ardi">🎙️ Piper ID — Pria Lokal (Offline Kilat)</option>
-                                                        <option value="supertonic-id-F1">⚡ Supertonic 3 Gadis — Wanita (F1 - Halus &amp; Persuasif)</option>
-                                                        <option value="supertonic-id-F2">⚡ Supertonic 3 Rara — Wanita (F2 - Ceria &amp; Dinamis)</option>
-                                                        <option value="supertonic-id-F3">⚡ Supertonic 3 Indah — Wanita (F3 - Tenang &amp; Lembut)</option>
-                                                        <option value="supertonic-id-F4">⚡ Supertonic 3 Sari — Wanita (F4 - Profesional &amp; Tegas)</option>
-                                                        <option value="supertonic-id-F5">⚡ Supertonic 3 Putri — Wanita (F5 - Anggun &amp; Ramah)</option>
-                                                        <option value="supertonic-id-M1">⚡ Supertonic 3 Ardi — Pria (M1 - Formal &amp; Berwibawa)</option>
-                                                        <option value="supertonic-id-M2">⚡ Supertonic 3 Budi — Pria (M2 - Santai &amp; Akrab)</option>
-                                                        <option value="supertonic-id-M3">⚡ Supertonic 3 Candra — Pria (M3 - Energik &amp; Lantang)</option>
-                                                        <option value="supertonic-id-M4">⚡ Supertonic 3 Dedi — Pria (M4 - Hangat &amp; Bersahabat)</option>
-                                                        <option value="supertonic-id-M5">⚡ Supertonic 3 Eko — Pria (M5 - Dalam &amp; Mantap)</option>
-                                                        <option value="gtts-id">🤖 Google Translate ID Wanita — Klasik Cadangan</option>
-                                                        <option value="gtts-id-male">🤖 Google Translate ID Pria — Klasik Cadangan</option>
-                                                    </select>
+                                                     <optgroup label="✨ REKOMENDASI (ONLINE)">
+                                                         <option value="id-ID-GadisNeural">👩 Gadis (Halus &amp; Persuasif)</option>
+                                                         <option value="id-ID-ArdiNeural">👨 Ardi (Formal &amp; Berwibawa)</option>
+                                                     </optgroup>
+                                                     <optgroup label="⚡ SUPERTONIC 3 (OFFLINE PREMIUM)">
+                                                         <option value="supertonic-id-F1">👩 F1 - Gadis (Halus &amp; Persuasif)</option>
+                                                         <option value="supertonic-id-F2">👩 F2 - Rara (Ceria &amp; Dinamis)</option>
+                                                         <option value="supertonic-id-F3">👩 F3 - Indah (Tenang &amp; Lembut)</option>
+                                                         <option value="supertonic-id-F4">👩 F4 - Sari (Profesional &amp; Tegas)</option>
+                                                         <option value="supertonic-id-F5">👩 F5 - Putri (Anggun &amp; Ramah)</option>
+                                                         <option value="supertonic-id-M1">👨 M1 - Ardi (Formal &amp; Berwibawa)</option>
+                                                         <option value="supertonic-id-M2">👨 M2 - Budi (Santai &amp; Akrab)</option>
+                                                         <option value="supertonic-id-M3">👨 M3 - Candra (Energik &amp; Lantang)</option>
+                                                         <option value="supertonic-id-M4">👨 M4 - Dedi (Hangat &amp; Bersahabat)</option>
+                                                         <option value="supertonic-id-M5">👨 M5 - Eko (Dalam &amp; Mantap)</option>
+                                                     </optgroup>
+                                                     <optgroup label="🤖 CADANGAN (OFFLINE STANDARD)">
+                                                         <option value="piper-id-gadis">🎙️ Piper Wanita (Kilat)</option>
+                                                         <option value="piper-id-ardi">🎙️ Piper Pria (Kilat)</option>
+                                                         <option value="gtts-id">🤖 Google Translate Wanita</option>
+                                                         <option value="gtts-id-male">🤖 Google Translate Pria</option>
+                                                     </optgroup>
+                                                 </select>
                                                     <div class="select-arrow">
                                                         <svg width="14" height="14" viewBox="0 0 24 24" fill="none"
                                                             stroke="currentColor" stroke-width="2">

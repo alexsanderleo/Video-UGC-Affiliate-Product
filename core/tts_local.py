@@ -105,41 +105,80 @@ async def generate_piper(text: str, output_path: str, ffmpeg_path: str):
     await asyncio.to_thread(run_conversion)
 
 
+_tts_instance = None
+_tts_lock = asyncio.Lock()
+
+async def get_supertonic_tts_instance():
+    global _tts_instance
+    if _tts_instance is None:
+        async with _tts_lock:
+            if _tts_instance is None:
+                from supertonic import TTS
+                print("[TTS Local] Initializing Supertonic 3 TTS engine globally...")
+                _tts_instance = TTS(auto_download=True)
+    return _tts_instance
+
 async def generate_supertonic(text: str, output_path: str, voice: str):
     """Generate TTS using Supertonic 3 local ONNX engine in natural Indonesian."""
     import asyncio
-    from supertonic import TTS
     
     # Preset voice styles: F1-F5 (female), M1-M5 (male)
-    # Parse the exact preset code (e.g. F1-F5 or M1-M5) from the voice string
     voice_name = "F1"
     for preset in ["F1", "F2", "F3", "F4", "F5", "M1", "M2", "M3", "M4", "M5"]:
         if preset.lower() in voice.lower():
             voice_name = preset
             break
-        
-    def run_synthesis():
-        # Initialize Supertonic TTS engine (downloads models automatically on first run)
-        tts = TTS(auto_download=True)
-        style = tts.get_voice_style(voice_name=voice_name)
-        
-        # Synthesize using native Indonesian lang="id"
-        wav, duration = tts.synthesize(text, voice_style=style, lang="id")
-        
-        # Save output audio to temporary WAV file
-        temp_wav_path = Path(output_path).with_suffix(".wav")
-        tts.save_audio(wav, str(temp_wav_path))
-        return temp_wav_path
-        
-    temp_wav_path = await asyncio.to_thread(run_synthesis)
-    
-    # Convert WAV to MP3 using local FFmpeg
-    from core.pipeline import FFMPEG_PATH
-    def run_conversion():
-        convert_wav_to_mp3(FFMPEG_PATH, str(temp_wav_path), output_path)
-        if temp_wav_path.exists():
-            temp_wav_path.unlink()
             
-    await asyncio.to_thread(run_conversion)
+    is_male = voice_name.startswith("M")
+    fallback_voice = "id-ID-ArdiNeural" if is_male else "id-ID-GadisNeural"
+    
+    try:
+        print(f"[TTS Local] Attempting Supertonic 3 synthesis (Voice: {voice_name}) for text: {text[:50]}...")
+        
+        # Get cached global TTS instance
+        tts = await get_supertonic_tts_instance()
+        
+        def run_synthesis():
+            style = tts.get_voice_style(voice_name=voice_name)
+            wav, duration = tts.synthesize(text, voice_style=style, lang="id")
+            temp_wav_path = Path(output_path).with_suffix(".wav")
+            tts.save_audio(wav, str(temp_wav_path))
+            return temp_wav_path
+            
+        temp_wav_path = await asyncio.to_thread(run_synthesis)
+        
+        # Determine FFmpeg path safely
+        ffmpeg_exe = "ffmpeg"
+        try:
+            from core.pipeline import FFMPEG_PATH
+            ffmpeg_exe = FFMPEG_PATH
+        except ImportError:
+            try:
+                from app import FFMPEG_PATH
+                ffmpeg_exe = FFMPEG_PATH
+            except ImportError:
+                import shutil
+                found = shutil.which("ffmpeg")
+                if found:
+                    ffmpeg_exe = found
+                    
+        # Convert WAV to MP3 using local FFmpeg
+        def run_conversion():
+            convert_wav_to_mp3(ffmpeg_exe, str(temp_wav_path), output_path)
+            if temp_wav_path.exists():
+                temp_wav_path.unlink()
+                
+        await asyncio.to_thread(run_conversion)
+        print(f"[TTS Local] Supertonic 3 synthesis completed successfully.")
+        
+    except Exception as e:
+        print(f"[TTS Local ERROR] Supertonic 3 failed: {e}")
+        print(f"[TTS Local WARNING] Falling back to Edge-TTS ({fallback_voice}) to prevent hanging...")
+        
+        # Fallback to Edge-TTS online (extremely reliable and high quality)
+        import edge_tts
+        communicate = edge_tts.Communicate(text, fallback_voice)
+        await communicate.save(output_path)
+        print(f"[TTS Local FALLBACK] Edge-TTS synthesis completed successfully.")
 
 
