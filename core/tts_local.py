@@ -36,6 +36,20 @@ def ensure_piper_model():
     if not PIPER_CONFIG_PATH.exists():
         download_file(PIPER_CONFIG_URL, PIPER_CONFIG_PATH)
 
+def resample_reference_audio(ffmpeg_path: str, input_path: str, output_path: str):
+    """Automatically resample reference audio to 16kHz, Mono, 16-bit PCM for optimal GPT-SoVITS cloning."""
+    cmd = [
+        ffmpeg_path,
+        "-y",
+        "-i", input_path,
+        "-ar", "16000",
+        "-ac", "1",
+        "-c:a", "pcm_s16le",
+        output_path
+    ]
+    import subprocess
+    subprocess.run(cmd, capture_output=True, timeout=15)
+
 def convert_wav_to_mp3(ffmpeg_path: str, wav_path: str, mp3_path: str):
     """Convert raw WAV audio to MP3 using local FFmpeg."""
     cmd = [
@@ -235,46 +249,65 @@ async def generate_gpt_sovits(text: str, output_path: str, voice: str = "sovits-
                 "dengan nama 'cewek.wav' di dalam folder static/voices/ terlebih dahulu."
             )
 
-    # Call the local GPT-SoVITS API server running on port 9000 (standard port)
-    api_url = "http://127.0.0.1:9000/"  # GPT-SoVITS api_v2.py default endpoint
-    
-    params = {
-        "text": text,
-        "text_lang": "zh",  # Fallback to Chinese language code for unsupported Indonesian
-        "ref_audio_path": str(ref_wav_path),
-        "prompt_text": prompt_text,
-        "prompt_lang": prompt_lang,
-        "text_split_method": "cut4"  # Split by punctuation, bypassing fast-langdetect downloads!
-    }
-    
-    temp_wav_path = Path(output_path).with_suffix(".wav")
-    
-    async def fetch_audio():
-        async with httpx.AsyncClient(timeout=120.0) as client:
-            try:
-                response = await client.get(api_url, params=params)
-                if response.status_code != 200:
-                    response = await client.post(f"{api_url}tts", json=params)
-            except Exception:
-                response = await client.post(api_url, json=params)
-                
-            if response.status_code != 200:
-                raise RuntimeError(
-                    f"GPT-SoVITS API returned error status {response.status_code}: {response.text}\n"
-                    "Pastikan API Server GPT-SoVITS sudah dijalankan di VPS Anda dengan perintah:\n"
-                    "python api_v2.py --port 9000"
-                )
-            
-            with open(temp_wav_path, "wb") as f:
-                f.write(response.content)
-                
-    await fetch_audio()
-    
-    # Convert WAV to MP3 using local FFmpeg
+    # Automatically resample reference audio to 16kHz, Mono, 16-bit PCM (GPT-SoVITS standard)
+    # using local FFmpeg before calling the API. This resolves any chipmunk, slow-mo, or distorted
+    # sounds caused by high sample rates (e.g. 48kHz from Focusrite Scarlett audio interfaces).
     from core.pipeline import FFMPEG_PATH
-    def run_conversion():
-        convert_wav_to_mp3(FFMPEG_PATH, str(temp_wav_path), output_path)
-        if temp_wav_path.exists():
-            temp_wav_path.unlink()
-            
-    await asyncio.to_thread(run_conversion)
+    temp_ref_path = BASE_DIR / "temp" / f"resampled_ref_{voice}.wav"
+    try:
+        await asyncio.to_thread(resample_reference_audio, FFMPEG_PATH, str(ref_wav_path), str(temp_ref_path))
+        target_ref_path = temp_ref_path
+    except Exception as e:
+        print(f"[SoVITS Resampler] Warning: {e}. Falling back to raw file.")
+        target_ref_path = ref_wav_path
+
+    try:
+        # Call the local GPT-SoVITS API server running on port 9000 (standard port)
+        api_url = "http://127.0.0.1:9000/"  # GPT-SoVITS api_v2.py default endpoint
+        
+        params = {
+            "text": text,
+            "text_lang": "zh",  # Fallback to Chinese language code for unsupported Indonesian
+            "ref_audio_path": str(target_ref_path),
+            "prompt_text": prompt_text,
+            "prompt_lang": prompt_lang,
+            "text_split_method": "cut4"  # Split by punctuation, bypassing fast-langdetect downloads!
+        }
+        
+        temp_wav_path = Path(output_path).with_suffix(".wav")
+        
+        async def fetch_audio():
+            async with httpx.AsyncClient(timeout=120.0) as client:
+                try:
+                    response = await client.get(api_url, params=params)
+                    if response.status_code != 200:
+                        response = await client.post(f"{api_url}tts", json=params)
+                except Exception:
+                    response = await client.post(api_url, json=params)
+                    
+                if response.status_code != 200:
+                    raise RuntimeError(
+                        f"GPT-SoVITS API returned error status {response.status_code}: {response.text}\n"
+                        "Pastikan API Server GPT-SoVITS sudah dijalankan di VPS Anda dengan perintah:\n"
+                        "python api_v2.py --port 9000"
+                    )
+                
+                with open(temp_wav_path, "wb") as f:
+                    f.write(response.content)
+                    
+        await fetch_audio()
+        
+        # Convert WAV to MP3 using local FFmpeg
+        def run_conversion():
+            convert_wav_to_mp3(FFMPEG_PATH, str(temp_wav_path), output_path)
+            if temp_wav_path.exists():
+                temp_wav_path.unlink()
+                
+        await asyncio.to_thread(run_conversion)
+    finally:
+        # Secure cleanup of resampled reference file
+        if temp_ref_path.exists():
+            try:
+                temp_ref_path.unlink()
+            except Exception:
+                pass
