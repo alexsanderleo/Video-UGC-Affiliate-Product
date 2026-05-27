@@ -57,6 +57,14 @@
     const outputCtaSelect = document.getElementById('outputCtaSelect');
     const outputHashtagsInput = document.getElementById('outputHashtagsInput');
 
+    const scriptEditPanel = document.getElementById('scriptEditPanel');
+    const editTitle = document.getElementById('editTitle');
+    const editNarration = document.getElementById('editNarration');
+    const editHashtags = document.getElementById('editHashtags');
+    const btnRenderVideo = document.getElementById('btnRenderVideo');
+    const btnRenderContent = document.getElementById('btnRenderContent');
+    const btnRenderLoading = document.getElementById('btnRenderLoading');
+
     // === State ===
     let selectedVideoFile = null;
     let selectedLogoFile = null;
@@ -65,6 +73,9 @@
     let activeGenerateJobId = null;
     let activeConvertJobId = null;
     let currentNarration = '';
+    let activeVideoFilename = null;
+    let activeAnalyzeJobId = null;
+    let activeVideoDuration = null;
 
     // === Constants ===
     const MAX_FILE_SIZE = 100 * 1024 * 1024; // 100 MB
@@ -443,24 +454,132 @@
         isProcessing = true;
         updateGenerateBtn();
 
-
         // Show loading state
         btnContent.style.display = 'none';
         btnLoading.style.display = 'flex';
         btnGenerate.classList.add('processing');
-        btnLoadingText.textContent = 'Memproses...';
+        btnLoadingText.textContent = 'Menganalisis video...';
 
-        // Show progress panel, hide output
-        progressPanel.style.display = 'block';
+        // Hide output and script panel, show progress panel
         outputSection.style.display = 'none';
+        scriptEditPanel.style.display = 'none';
+        progressPanel.style.display = 'block';
         resetProgress();
 
         // Build FormData
         const formData = new FormData();
         formData.append('video', selectedVideoFile);
+
+        // Step A: Active
+        setStepState(stepA, stepAStatus, 'active', 'Menganalisis video dengan AI...');
+        progressBar.style.width = '20%';
+
+        // Headers
+        const headers = {};
+        if (token) {
+            headers['Authorization'] = `Bearer ${token}`;
+        }
+
+        try {
+            // Call Stage 1: Analyze endpoint
+            const response = await fetch('/api/generate/analyze', {
+                method: 'POST',
+                body: formData,
+                headers: headers
+            });
+
+            if (!response.ok) {
+                const errData = await response.json().catch(() => ({}));
+                const errMsg = errData.detail || errData.error || `HTTP ${response.status}`;
+                if (response.status === 401) {
+                    localStorage.removeItem('token');
+                    showToast('⚠️ Sesi Anda telah berakhir. Silakan login ulang!');
+                    authOverlay.style.display = 'flex';
+                    loginForm.style.display = 'block';
+                    registerForm.style.display = 'none';
+                    authTitle.textContent = 'Login Ulang';
+                }
+                throw new Error(errMsg);
+            }
+
+            const result = await response.json();
+
+            // Store values in State
+            activeAnalyzeJobId = result.job_id;
+            activeVideoFilename = result.video_filename;
+            activeVideoDuration = result.video_duration;
+
+            // Mark Step A as done
+            setStepState(stepA, stepAStatus, 'done', '✓ Skrip narasi berhasil dibuat');
+            progressBar.style.width = '35%';
+
+            // Populate the interactive script edit panel
+            editTitle.value = result.title || '';
+            editNarration.value = result.narration || '';
+            editHashtags.value = result.hashtags || '';
+
+            // Display script edit panel
+            scriptEditPanel.style.display = 'block';
+            setTimeout(() => {
+                scriptEditPanel.scrollIntoView({ behavior: 'smooth', block: 'center' });
+            }, 100);
+
+            showToast('✨ Analisis AI selesai! Silakan edit naskah Anda di bawah.', false);
+
+        } catch (err) {
+            console.error('Analyze error:', err);
+            showToast('❌ ' + err.message);
+            setStepState(stepA, stepAStatus, 'error', 'Gagal: ' + err.message);
+        } finally {
+            isProcessing = false;
+            btnContent.style.display = 'flex';
+            btnLoading.style.display = 'none';
+            btnGenerate.classList.remove('processing');
+            updateGenerateBtn();
+        }
+    });
+
+    btnRenderVideo.addEventListener('click', async () => {
+        const token = localStorage.getItem('token');
+        if (!token) {
+            showToast('⚠️ Sesi Anda telah berakhir. Silakan login kembali.');
+            return;
+        }
+
+        if (isProcessing) return;
+
+        const titleVal = editTitle.value.trim();
+        const narrationVal = editNarration.value.trim();
+        const hashtagsVal = editHashtags.value.trim();
+
+        if (!narrationVal) {
+            showToast('⚠️ Teks narasi tidak boleh kosong!');
+            return;
+        }
+
+        isProcessing = true;
+        
+        // UI states
+        btnRenderContent.style.display = 'none';
+        btnRenderLoading.style.display = 'flex';
+        btnRenderVideo.disabled = true;
+
+        // Reset Steps B & C
+        setStepState(stepB, stepBStatus, 'active', 'Mengkonversi teks ke suara AI...');
+        setStepState(stepC, stepCStatus, 'active', 'Menunggu rendering...');
+        progressBar.style.width = '40%';
+
+        // Prepare FormData
+        const formData = new FormData();
+        formData.append('job_id', activeAnalyzeJobId);
+        formData.append('video_filename', activeVideoFilename);
+        formData.append('title', titleVal);
+        formData.append('narration', narrationVal);
+        formData.append('hashtags', hashtagsVal);
+
         formData.append('voice', voiceSelect.value);
 
-        // Dynamic watermarks overlay (both can exist concurrently!)
+        // Dynamic watermark options
         const wmText = watermarkText.value.trim();
         if (wmText) {
             formData.append('watermark_text', wmText);
@@ -470,10 +589,9 @@
         if (selectedLogoFile) {
             formData.append('watermark_logo', selectedLogoFile);
         }
-        // Send a backward-compatible mode parameter
         formData.append('watermark_mode', selectedLogoFile ? 'logo' : 'text');
 
-        // Subtitle customization and watermark opacity parameters
+        // Subtitle styles
         const subFont = document.getElementById('subFont')?.value || 'Arial';
         const subSize = document.getElementById('subSize')?.value || 26;
         const subColor = document.getElementById('subColor')?.value || '#FFFF00';
@@ -491,28 +609,13 @@
         const singleUseSubtitle = document.getElementById('subUse')?.value || 'true';
         formData.append('use_subtitle', singleUseSubtitle);
 
+        const headers = {
+            'Authorization': `Bearer ${token}`
+        };
+
         try {
-            // Start SSE-based progress tracking
-            const taskId = Date.now().toString();
-            formData.append('task_id', taskId);
-
-            // Use EventSource for progress (start before the POST)
-            let progressSource = null;
-
-            // Step A: Active
-            setStepState(stepA, stepAStatus, 'active', 'Menganalisis video dengan AI...');
-            progressBar.style.width = '10%';
-            btnLoadingText.textContent = 'AI menganalisis video...';
-
-            // Retrieve JWT token
-            const token = localStorage.getItem('token');
-            const headers = {};
-            if (token) {
-                headers['Authorization'] = `Bearer ${token}`;
-            }
-
-            // Send to backend
-            const response = await fetch('/api/generate', {
+            // Trigger Stage 2: Render endpoint
+            const response = await fetch('/api/generate/render', {
                 method: 'POST',
                 body: formData,
                 headers: headers
@@ -521,24 +624,10 @@
             if (!response.ok) {
                 const errData = await response.json().catch(() => ({}));
                 const errMsg = errData.detail || errData.error || `HTTP ${response.status}`;
-                if (response.status === 401) {
-                    localStorage.removeItem('token');
-                    showToast('⚠️ Sesi Anda telah berakhir. Silakan login ulang!');
-                    const authOverlay = document.getElementById('authOverlay');
-                    const loginForm = document.getElementById('loginForm');
-                    const registerForm = document.getElementById('registerForm');
-                    const authTitle = document.getElementById('authTitle');
-                    if (authOverlay && loginForm) {
-                        authOverlay.style.display = 'flex';
-                        loginForm.style.display = 'block';
-                        if (registerForm) registerForm.style.display = 'none';
-                        if (authTitle) authTitle.textContent = 'Login Ulang';
-                    }
-                }
                 throw new Error(errMsg);
             }
 
-            // Read SSE-style streamed response
+            // Read SSE-style streamed progress response
             const reader = response.body.getReader();
             const decoder = new TextDecoder();
             let buffer = '';
@@ -550,7 +639,7 @@
 
                 buffer += decoder.decode(value, { stream: true });
                 const lines = buffer.split('\n');
-                buffer = lines.pop(); // Keep incomplete line in buffer
+                buffer = lines.pop();
 
                 for (const line of lines) {
                     if (line.startsWith('data: ')) {
@@ -572,7 +661,6 @@
                 }
             }
 
-            // Process any remaining buffer
             if (buffer.startsWith('data: ')) {
                 try {
                     const data = JSON.parse(buffer.slice(6));
@@ -584,27 +672,22 @@
             }
 
             if (finalResult) {
+                // Render finished successfully! Hide edit panel and display results
+                scriptEditPanel.style.display = 'none';
                 showOutput(finalResult);
             } else {
-                throw new Error('Pipeline selesai tanpa hasil');
+                throw new Error('Proses rendering selesai tanpa hasil.');
             }
 
         } catch (err) {
-            console.error('Generate error:', err);
+            console.error('Render error:', err);
             showToast('❌ ' + err.message);
-
-            // Mark current active step as error
-            const activeStep = document.querySelector('.progress-step.active');
-            if (activeStep) {
-                const statusEl = activeStep.querySelector('.step-status');
-                activeStep.className = 'progress-step error';
-                if (statusEl) statusEl.textContent = 'Gagal: ' + err.message;
-            }
+            setStepState(stepC, stepCStatus, 'error', 'Gagal: ' + err.message);
         } finally {
             isProcessing = false;
-            btnContent.style.display = 'flex';
-            btnLoading.style.display = 'none';
-            btnGenerate.classList.remove('processing');
+            btnRenderContent.style.display = 'flex';
+            btnRenderLoading.style.display = 'none';
+            btnRenderVideo.disabled = false;
             updateGenerateBtn();
         }
     });

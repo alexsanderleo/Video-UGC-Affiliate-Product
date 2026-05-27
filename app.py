@@ -922,6 +922,227 @@ def serve_output(filename):
     )
 
 
+@app.route('/api/generate/analyze', methods=['POST'])
+def generate_analyze():
+    """
+    Step 1 of local generation pipeline.
+    Uploads video and runs Qwen VL Plus analysis, returning draft copywriting.
+    """
+    job_id = str(uuid.uuid4())[:8]
+    try:
+        video_file = request.files.get('video')
+        if not video_file:
+            return jsonify({'error': 'Tidak ada file video yang diunggah'}), 400
+
+        # Save uploaded video
+        video_ext = Path(video_file.filename).suffix or '.mp4'
+        video_filename = f"{job_id}_input{video_ext}"
+        video_path = str(UPLOAD_DIR / video_filename)
+        video_file.save(video_path)
+
+        # Get video duration via ffprobe
+        video_duration = get_video_duration(video_path)
+        video_duration_int = max(5, int(round(video_duration)))
+
+        # Step A: Qwen VL Plus
+        try:
+            script = step_a_video_understanding(video_path, duration_seconds=video_duration_int)
+        except Exception as e:
+            print(f"[app/api/generate/analyze] Error during Qwen: {e}")
+            script = (
+                "[JUDUL]\nProduk Keren Viral Terlaris\n\n"
+                "[HASHTAG]\n#produkviral #racunshopee #affiliate\n\n"
+                "[NARASI]\nHai semuanya! Kamu harus lihat produk keren ini! "
+                "Lihat betapa luar biasanya kualitas produk ini, benar-benar amazing! "
+                "Wow, coba perhatikan bagian ini — luar biasa kan?! "
+                "Tidak heran produk ini sudah viral di mana-mana! "
+                "Buruan grab sebelum kehabisan, link ada di bio ya!"
+            )
+
+        # Parse Qwen output into Title, Hashtags, Narration
+        from core.tasks import parse_qwen_output
+        title, hashtags, narration = parse_qwen_output(script)
+
+        return jsonify({
+            'status': 'success',
+            'job_id': job_id,
+            'video_filename': video_filename,
+            'video_duration': video_duration,
+            'title': title,
+            'narration': narration,
+            'hashtags': hashtags,
+        })
+    except Exception as e:
+        print(f"[app/api/generate/analyze] General error: {e}")
+        return jsonify({'error': str(e)}), 500
+
+
+@app.route('/api/generate/render', methods=['POST'])
+def generate_render():
+    """
+    Step 2 of local generation pipeline.
+    Receives edited script, generates voice and blends final video, returning progress via SSE.
+    """
+    def pipeline_stream():
+        job_id = request.form.get('job_id')
+        video_filename = request.form.get('video_filename')
+        title = request.form.get('title')
+        narration = request.form.get('narration')
+        hashtags = request.form.get('hashtags')
+        
+        voice = request.form.get('voice', 'id-ID-GadisNeural')
+        wm_mode = request.form.get('watermark_mode', 'text')
+        wm_text = request.form.get('watermark_text', '')
+        wm_position = request.form.get('watermark_position', 'top-right')
+
+        sub_font = request.form.get('sub_font', 'Arial')
+        sub_size = int(request.form.get('sub_size', 26))
+        sub_color = request.form.get('sub_color', '#FFFF00')
+        sub_sec_color = request.form.get('sub_sec_color', '#FFFFFF')
+        sub_opacity = float(request.form.get('sub_opacity', 1.0))
+        wm_opacity = float(request.form.get('wm_opacity', 0.65))
+        use_subtitle = request.form.get('use_subtitle', 'true') == 'true'
+
+        video_path = str(UPLOAD_DIR / video_filename)
+        tts_path = None
+        output_path = None
+
+        try:
+            if not Path(video_path).exists():
+                yield sse_event({'step': 'error', 'message': 'File video tidak ditemukan di server. Silakan upload ulang.'})
+                return
+
+            # Save logo if uploaded
+            logo_path = None
+            logo_file = request.files.get('watermark_logo')
+            if logo_file:
+                logo_filename = f"{job_id}_logo.png"
+                logo_path = str(UPLOAD_DIR / logo_filename)
+                logo_file.save(logo_path)
+
+            # --- Step B: Edge-TTS ---
+            yield sse_event({'step': 'B_start', 'status': 'processing'})
+
+            # Clean script
+            tts_text = clean_script_for_tts(narration)
+            if '[' in tts_text and 'Catatan' in tts_text:
+                tts_text = re.sub(r'\[.*?Catatan.*?\]', '', tts_text).strip()
+            if not tts_text:
+                tts_text = "Hai semuanya! Produk ini luar biasa, buruan cek sekarang!"
+
+            tts_filename = f"{job_id}_narasi.mp3"
+            tts_path = str(TEMP_DIR / tts_filename)
+            srt_path = None
+            if use_subtitle:
+                srt_filename = f"{job_id}_subtitles.ass"
+                srt_path = str(TEMP_DIR / srt_filename)
+
+            try:
+                step_b_tts(
+                    tts_text, voice, tts_path, srt_path=srt_path,
+                    sub_font=sub_font, sub_size=sub_size, sub_color=sub_color,
+                    sub_sec_color=sub_sec_color, sub_opacity=sub_opacity
+                )
+            except Exception as e:
+                print(f"[Step B local] Error: {e}")
+                raise RuntimeError(f"Text-to-Speech gagal: {str(e)}")
+
+            yield sse_event({'step': 'B_done', 'status': 'done'})
+
+            # --- Generate SRT Subtitles (audio-driven timing) ---
+            if use_subtitle and srt_path:
+                tts_audio_duration = get_audio_duration(tts_path)
+                try:
+                    generate_srt(
+                        tts_text, tts_audio_duration, srt_path,
+                        sub_font=sub_font, sub_size=sub_size, sub_color=sub_color,
+                        sub_sec_color=sub_sec_color, sub_opacity=sub_opacity
+                    )
+                except Exception as e:
+                    print(f"[SRT local] Error generating subtitles: {e}")
+                    srt_path = None
+
+            # --- Step C: FFmpeg ---
+            yield sse_event({'step': 'C_start', 'status': 'processing'})
+
+            backsound = ensure_backsound()
+            output_filename = f"{job_id}_output_final.mp4"
+            output_path = str(OUTPUT_DIR / output_filename)
+
+            try:
+                step_c_ffmpeg(
+                    input_video=video_path,
+                    tts_audio=tts_path,
+                    backsound=backsound,
+                    watermark_text=wm_text,
+                    watermark_mode=wm_mode,
+                    watermark_logo=logo_path,
+                    output_path=output_path,
+                    watermark_position=wm_position,
+                    subtitle_path=srt_path,
+                    sub_font=sub_font,
+                    sub_size=sub_size,
+                    sub_color=sub_color,
+                    sub_sec_color=sub_sec_color,
+                    sub_opacity=sub_opacity,
+                    wm_opacity=wm_opacity,
+                )
+            except Exception as e:
+                print(f"[Step C local] Error: {e}")
+                raise RuntimeError(f"Fengine rendering gagal: {str(e)[:200]}")
+
+            yield sse_event({'step': 'C_done', 'status': 'done'})
+
+            # --- Complete ---
+            yield sse_event({
+                'step': 'complete',
+                'status': 'complete',
+                'video_url': f'/outputs/{output_filename}',
+                'filename': output_filename,
+                'caption': f"[JUDUL]\n{title}\n\n[HASHTAG]\n{hashtags}\n\n[NARASI]\n{narration}",
+                'title': title,
+                'hashtags': hashtags,
+                'narration': narration
+            })
+
+            print(f"[Pipeline local] Job {job_id} COMPLETED SUCCESSFULLY ✓")
+
+        except Exception as e:
+            print(f"[Pipeline local] Job {job_id} FAILED: {e}")
+            yield sse_event({
+                'step': 'error',
+                'status': 'error',
+                'message': str(e)
+            })
+        finally:
+            # Cleanup temp files
+            try:
+                if tts_path and Path(tts_path).exists():
+                    Path(tts_path).unlink()
+            except Exception:
+                pass
+            try:
+                if video_path and Path(video_path).exists():
+                    Path(video_path).unlink()
+            except Exception:
+                pass
+            try:
+                if logo_path and Path(logo_path).exists():
+                    Path(logo_path).unlink()
+            except Exception:
+                pass
+
+    return Response(
+        stream_with_context(pipeline_stream()),
+        mimetype='text/event-stream',
+        headers={
+            'Cache-Control': 'no-cache',
+            'X-Accel-Buffering': 'no',
+            'Connection': 'keep-alive'
+        }
+    )
+
+
 @app.route('/api/generate', methods=['POST'])
 def generate():
     """
