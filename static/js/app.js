@@ -327,17 +327,36 @@
                 voiceCardFemale.classList.remove('active');
             }
         } else if (val.startsWith('supertonic')) {
-            nameFemale.textContent = 'Supertonic Gadis';
-            descFemale.textContent = 'Wanita Lokal (ONNX Kilat)';
-            nameMale.textContent = 'Supertonic Ardi';
-            descMale.textContent = 'Pria Lokal (ONNX Kilat)';
+            const isMale = val.includes('-M');
+            const supertonicVoices = {
+                'supertonic-id-F1': { name: 'Supertonic Gadis', desc: 'F1 - Halus &amp; Persuasif' },
+                'supertonic-id-F2': { name: 'Supertonic Rara', desc: 'F2 - Ceria &amp; Dinamis' },
+                'supertonic-id-F3': { name: 'Supertonic Indah', desc: 'F3 - Tenang &amp; Lembut' },
+                'supertonic-id-F4': { name: 'Supertonic Sari', desc: 'F4 - Profesional &amp; Tegas' },
+                'supertonic-id-F5': { name: 'Supertonic Putri', desc: 'F5 - Anggun &amp; Ramah' },
+                'supertonic-id-M1': { name: 'Supertonic Ardi', desc: 'M1 - Formal &amp; Berwibawa' },
+                'supertonic-id-M2': { name: 'Supertonic Budi', desc: 'M2 - Santai &amp; Akrab' },
+                'supertonic-id-M3': { name: 'Supertonic Candra', desc: 'M3 - Energik &amp; Lantang' },
+                'supertonic-id-M4': { name: 'Supertonic Dedi', desc: 'M4 - Hangat &amp; Bersahabat' },
+                'supertonic-id-M5': { name: 'Supertonic Eko', desc: 'M5 - Dalam &amp; Mantap' }
+            };
+
+            const info = supertonicVoices[val] || { name: 'Supertonic', desc: 'Lokal ONNX' };
             
-            if (val === 'supertonic-id-gadis') {
-                voiceCardFemale.classList.add('active');
-                voiceCardMale.classList.remove('active');
-            } else {
+            if (isMale) {
+                nameMale.textContent = info.name;
+                descMale.textContent = info.desc;
+                nameFemale.textContent = 'Supertonic Wanita';
+                descFemale.textContent = 'Klik untuk pilih';
                 voiceCardMale.classList.add('active');
                 voiceCardFemale.classList.remove('active');
+            } else {
+                nameFemale.textContent = info.name;
+                descFemale.textContent = info.desc;
+                nameMale.textContent = 'Supertonic Pria';
+                descMale.textContent = 'Klik untuk pilih';
+                voiceCardFemale.classList.add('active');
+                voiceCardMale.classList.remove('active');
             }
         } else if (val.startsWith('gtts')) {
             nameFemale.textContent = 'gTTS ID Wanita';
@@ -375,7 +394,9 @@
         if (currentVal.startsWith('piper')) {
             voiceSelect.value = 'piper-id-gadis';
         } else if (currentVal.startsWith('supertonic')) {
-            voiceSelect.value = 'supertonic-id-gadis';
+            if (!currentVal.includes('-F')) {
+                voiceSelect.value = 'supertonic-id-F1';
+            }
         } else if (currentVal.startsWith('gtts')) {
             voiceSelect.value = 'gtts-id';
         } else {
@@ -389,7 +410,9 @@
         if (currentVal.startsWith('piper')) {
             voiceSelect.value = 'piper-id-ardi';
         } else if (currentVal.startsWith('supertonic')) {
-            voiceSelect.value = 'supertonic-id-ardi';
+            if (!currentVal.includes('-M')) {
+                voiceSelect.value = 'supertonic-id-M1';
+            }
         } else if (currentVal.startsWith('gtts')) {
             voiceSelect.value = 'gtts-id-male';
         } else {

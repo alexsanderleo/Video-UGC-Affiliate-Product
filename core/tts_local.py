@@ -111,10 +111,12 @@ async def generate_supertonic(text: str, output_path: str, voice: str):
     from supertonic import TTS
     
     # Preset voice styles: F1-F5 (female), M1-M5 (male)
-    # Default is female "F1" (Gadis style), unless "male" or "ardi" is in the voice name.
+    # Parse the exact preset code (e.g. F1-F5 or M1-M5) from the voice string
     voice_name = "F1"
-    if "male" in voice or "ardi" in voice:
-        voice_name = "M1"
+    for preset in ["F1", "F2", "F3", "F4", "F5", "M1", "M2", "M3", "M4", "M5"]:
+        if preset.lower() in voice.lower():
+            voice_name = preset
+            break
         
     def run_synthesis():
         # Initialize Supertonic TTS engine (downloads models automatically on first run)
