@@ -19,7 +19,7 @@ from fastapi.staticfiles import StaticFiles
 from fastapi.responses import FileResponse, HTMLResponse
 
 from api.v1.router import router as v1_router
-from api.v1.generate import generate_video
+from api.v1.generate import generate_video, router as generate_router
 from core.config import get_settings
 from core.database import close_db, init_db
 
@@ -68,6 +68,8 @@ app.add_middleware(
 
 # --- Include API v1 Router ---
 app.include_router(v1_router, prefix=settings.API_V1_PREFIX)
+# Also include under prefix /api directly for legacy frontend compatibility (Stage 1 /analyze & Stage 2 /render)
+app.include_router(generate_router, prefix="/api")
 
 
 # --- Legacy / PoC Frontend API Compatibility ---
