@@ -109,6 +109,28 @@ async def generate_xtts_v2(text: str, output_path: str, voice: str = "xtts-clone
     # Auto-agree to Coqui TTS Terms of Service to prevent interactive prompt crash in Celery worker
     os.environ["COQUI_TOS_AGREED"] = "1"
     
+    # Register safe globals and monkeypatch torch.load for PyTorch 2.6+ to prevent "Weights only load failed" serialization crash
+    import torch
+    try:
+        # 1. Monkeypatch torch.load and torch.serialization.load to force weights_only=False
+        original_load = torch.load
+        def patched_load(f, *args, **kwargs):
+            kwargs["weights_only"] = False
+            return original_load(f, *args, **kwargs)
+        torch.load = patched_load
+        if hasattr(torch, "serialization") and hasattr(torch.serialization, "load"):
+            torch.serialization.load = patched_load
+        print("[XTTS Patched Load] Successfully monkeypatched torch.load to weights_only=False")
+    except Exception as e:
+        print(f"[XTTS Patched Load] Warning: {e}")
+
+    try:
+        from TTS.tts.configs.xtts_config import XttsConfig
+        if hasattr(torch, "serialization") and hasattr(torch.serialization, "add_safe_globals"):
+            torch.serialization.add_safe_globals([XttsConfig])
+    except Exception as e:
+        print(f"[XTTS Safe Globals] Warning: {e}")
+    
     try:
         from TTS.api import TTS
     except ImportError:
