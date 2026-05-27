@@ -326,6 +326,19 @@
                 voiceCardMale.classList.add('active');
                 voiceCardFemale.classList.remove('active');
             }
+        } else if (val.startsWith('supertonic')) {
+            nameFemale.textContent = 'Supertonic Gadis';
+            descFemale.textContent = 'Wanita Lokal (ONNX Kilat)';
+            nameMale.textContent = 'Supertonic Ardi';
+            descMale.textContent = 'Pria Lokal (ONNX Kilat)';
+            
+            if (val === 'supertonic-id-gadis') {
+                voiceCardFemale.classList.add('active');
+                voiceCardMale.classList.remove('active');
+            } else {
+                voiceCardMale.classList.add('active');
+                voiceCardFemale.classList.remove('active');
+            }
         } else if (val.startsWith('gtts')) {
             nameFemale.textContent = 'gTTS ID Wanita';
             descFemale.textContent = 'Google Translate ID';
@@ -361,6 +374,8 @@
         const currentVal = voiceSelect.value;
         if (currentVal.startsWith('piper')) {
             voiceSelect.value = 'piper-id-gadis';
+        } else if (currentVal.startsWith('supertonic')) {
+            voiceSelect.value = 'supertonic-id-gadis';
         } else if (currentVal.startsWith('gtts')) {
             voiceSelect.value = 'gtts-id';
         } else {
@@ -373,6 +388,8 @@
         const currentVal = voiceSelect.value;
         if (currentVal.startsWith('piper')) {
             voiceSelect.value = 'piper-id-ardi';
+        } else if (currentVal.startsWith('supertonic')) {
+            voiceSelect.value = 'supertonic-id-ardi';
         } else if (currentVal.startsWith('gtts')) {
             voiceSelect.value = 'gtts-id-male';
         } else {

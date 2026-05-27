@@ -297,6 +297,11 @@ async def step_b_tts(
         await generate_piper(text, output_path, FFMPEG_PATH)
         return
         
+    if voice.startswith("supertonic"):
+        from core.tts_local import generate_supertonic
+        await generate_supertonic(text, output_path, voice)
+        return
+        
 
 
     import edge_tts

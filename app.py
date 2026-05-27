@@ -371,6 +371,17 @@ def step_b_tts(
             loop.close()
         return
 
+    if voice.startswith("supertonic"):
+        from core.tts_local import generate_supertonic
+        async def _run_supertonic():
+            await generate_supertonic(text, output_path, voice)
+        loop = asyncio.new_event_loop()
+        try:
+            loop.run_until_complete(_run_supertonic())
+        finally:
+            loop.close()
+        return
+
 
     import edge_tts
 

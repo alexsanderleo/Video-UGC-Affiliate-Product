@@ -105,3 +105,39 @@ async def generate_piper(text: str, output_path: str, ffmpeg_path: str):
     await asyncio.to_thread(run_conversion)
 
 
+async def generate_supertonic(text: str, output_path: str, voice: str):
+    """Generate TTS using Supertonic 3 local ONNX engine in natural Indonesian."""
+    import asyncio
+    from supertonic import TTS
+    
+    # Preset voice styles: F1-F5 (female), M1-M5 (male)
+    # Default is female "F1" (Gadis style), unless "male" or "ardi" is in the voice name.
+    voice_name = "F1"
+    if "male" in voice or "ardi" in voice:
+        voice_name = "M1"
+        
+    def run_synthesis():
+        # Initialize Supertonic TTS engine (downloads models automatically on first run)
+        tts = TTS(auto_download=True)
+        style = tts.get_voice_style(voice_name=voice_name)
+        
+        # Synthesize using native Indonesian lang="id"
+        wav, duration = tts.synthesize(text, voice_style=style, lang="id")
+        
+        # Save output audio to temporary WAV file
+        temp_wav_path = Path(output_path).with_suffix(".wav")
+        tts.save_audio(wav, str(temp_wav_path))
+        return temp_wav_path
+        
+    temp_wav_path = await asyncio.to_thread(run_synthesis)
+    
+    # Convert WAV to MP3 using local FFmpeg
+    from core.pipeline import FFMPEG_PATH
+    def run_conversion():
+        convert_wav_to_mp3(FFMPEG_PATH, str(temp_wav_path), output_path)
+        if temp_wav_path.exists():
+            temp_wav_path.unlink()
+            
+    await asyncio.to_thread(run_conversion)
+
+
