@@ -175,11 +175,14 @@ async def generate_xtts_v2(text: str, output_path: str, voice: str = "xtts-clone
                     "dengan nama 'cowok.wav' atau 'cewek.wav' di dalam folder 'static/voices/' untuk mulai kloning."
                 )
         
+    device = "cuda" if torch.cuda.is_available() else "cpu"
+    print(f"[XTTS Device] Running on device: {device}")
+    
     temp_wav_path = Path(output_path).with_suffix(".wav")
     
     def run_xtts():
         # Load XTTS v2 model (will download automatically on first run)
-        tts = TTS("tts_models/multilingual/multi-dataset/xtts_v2").to("cpu")
+        tts = TTS("tts_models/multilingual/multi-dataset/xtts_v2").to(device)
         # XTTS v2 does not support Indonesian ('id'). We use 'en' (English) as the language code fallback.
         # This synthesizes the Indonesian text using the English phonetic model, producing a high-quality cloned voice.
         tts.tts_to_file(
