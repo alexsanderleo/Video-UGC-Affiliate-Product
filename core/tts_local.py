@@ -213,11 +213,11 @@ async def generate_gpt_sovits(text: str, output_path: str, voice: str = "sovits-
     
     if "male" in voice:
         ref_wav_path = ref_dir / "cowok.wav"
-        prompt_text = "Ini adalah suara contoh untuk kloning suara pria."
+        prompt_text = "Halo semua, suara ini cocok banget untuk alur cerita atau narasi panjang, yang akan membuat penonton merasa tenang dan terbawa suasana."
         prompt_lang = "zh"
     else:
         ref_wav_path = ref_dir / "cewek.wav"
-        prompt_text = "Ini adalah suara contoh untuk kloning suara wanita."
+        prompt_text = "Ini adalah suara yang siap berkreasi bersama Anda. Apapun idenya, mari kita wujudkan jadi audio memukau."
         prompt_lang = "zh"
 
     # Fallback to defaults if files don't exist
