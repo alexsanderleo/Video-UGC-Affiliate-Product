@@ -130,7 +130,14 @@ async def generate_xtts_v2(text: str, output_path: str, voice: str = "xtts-clone
             torch.serialization.add_safe_globals([XttsConfig])
     except Exception as e:
         print(f"[XTTS Safe Globals] Warning: {e}")
-    
+    # Force torchaudio to use the 'soundfile' backend to prevent PyTorch 2.9+ / torchaudio torchcodec errors
+    import torchaudio
+    try:
+        torchaudio.set_audio_backend("soundfile")
+        print("[XTTS Torchaudio Backend] Successfully set backend to soundfile")
+    except Exception as e:
+        print(f"[XTTS Torchaudio Backend] Warning setting backend: {e}")
+
     try:
         from TTS.api import TTS
     except ImportError:
