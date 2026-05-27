@@ -431,7 +431,7 @@
                                     </div>
                                 </div>
 
-                                <!-- Subtitle Settings -->
+                                <!-- Subtitle Settings & Suara AI -->
                                 <div class="card glass-card settings-card collapsible collapsed">
                                     <div class="card-header">
                                         <div class="card-icon subtitle-icon"
@@ -443,140 +443,31 @@
                                                 <path d="M7 15h4M15 15h2M7 11h10" />
                                             </svg>
                                         </div>
-                                        <h2 class="card-title">Setelan Subtitle</h2>
+                                        <h2 class="card-title">Setelan Subtitle & Suara AI</h2>
                                     </div>
                                     <div class="card-content">
-                                        <!-- Gunakan Subtitle Option -->
+                                        <!-- Voice Selector Section (Inside Setelan Subtitle properly) -->
                                         <div style="margin-bottom: 16px;">
-                                            <label for="subUse" class="input-label">Gunakan Subtitle?</label>
+                                            <label for="voiceSelect" class="input-label">Pilih Suara Narasi</label>
                                             <div class="select-wrapper">
-                                                <select id="subUse" class="select-input">
-                                                <option value="true" selected>✅ Ya, Tampilkan Subtitle</option>
-                                                <option value="false">❌ Tidak, Tanpa Subtitle</option>
-                                            </select>
-                                            <div class="select-arrow">
-                                                <svg width="14" height="14" viewBox="0 0 24 24" fill="none"
-                                                    stroke="currentColor" stroke-width="2">
-                                                    <polyline points="6 9 12 15 18 9" />
-                                                </svg>
+                                                <select id="voiceSelect" class="select-input">
+                                                    <option value="id-ID-GadisNeural">👩 Gadis — Suara Wanita (Halus & Persuasif)</option>
+                                                    <option value="id-ID-ArdiNeural">👨 Ardi — Suara Pria (Formal & Berwibawa)</option>
+                                                    <option value="piper-id-gadis">🎙️ Piper ID — Wanita Lokal (Offline Kilat)</option>
+                                                    <option value="piper-id-ardi">🎙️ Piper ID — Pria Lokal (Offline Kilat)</option>
+                                                    <option value="xtts-clone-agomart">👥 XTTS v2 — Kloning Suara Agomart</option>
+                                                    <option value="gtts-id">🤖 Google Translate ID — Klasik Cadangan</option>
+                                                </select>
+                                                <div class="select-arrow">
+                                                    <svg width="14" height="14" viewBox="0 0 24 24" fill="none"
+                                                        stroke="currentColor" stroke-width="2">
+                                                        <polyline points="6 9 12 15 18 9" />
+                                                    </svg>
+                                                </div>
                                             </div>
                                         </div>
-                                    </div>
-
-                                    <!-- Wrapper untuk kontrol kustomisasi subtitle agar mudah meredup/disabled secara dinamis -->
-                                    <div id="subtitleCustomizationGroup" style="transition: all 0.3s ease;">
-                                        <!-- Subtitle Font Select -->
-                                        <div style="margin-bottom: 12px;">
-                                            <label for="subFont" class="input-label">Font Subtitle</label>
-                                        <div class="select-wrapper">
-                                            <select id="subFont" class="select-input">
-                                                <option value="Arial" selected>Arial Bold (Standar)</option>
-                                                <option value="Impact">Impact (TikTok Classic)</option>
-                                                <option value="Poppins">Poppins Bold (Rounded Populer)</option>
-                                                <option value="Poppins ExtraBold">Poppins ExtraBold (Sangat Tebal)
-                                                </option>
-                                                <option value="Anton">Anton (Tinggi & Padat - Sangat Viral)</option>
-                                                <option value="Bebas Neue">Bebas Neue (Tall Condensed Bold)</option>
-                                                <option value="Verdana">Verdana Bold</option>
-                                                <option value="Trebuchet MS">Trebuchet MS Bold</option>
-                                            </select>
-                                            <div class="select-arrow">
-                                                <svg width="14" height="14" viewBox="0 0 24 24" fill="none"
-                                                    stroke="currentColor" stroke-width="2">
-                                                    <polyline points="6 9 12 15 18 9" />
-                                                </svg>
-                                            </div>
-                                        </div>
-                                    </div>
-
-                                    <!-- Font Size Slider -->
-                                    <div style="margin-bottom: 12px;">
-                                        <div
-                                            style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 6px;">
-                                            <label for="subSize" class="input-label" style="margin: 0;">Ukuran
-                                                Font</label>
-                                            <span id="subSizeVal"
-                                                style="font-size: 0.85rem; font-weight: 600; color: var(--text-accent);">26px</span>
-                                        </div>
-                                        <input type="range" id="subSize" class="range-input" min="16" max="80" step="1"
-                                            value="26"
-                                            style="width: 100%; height: 6px; border-radius: 4px; background: rgba(255,255,255,0.1); outline: none; -webkit-appearance: none; cursor: pointer; accent-color: var(--text-accent);">
-                                    </div>
-
-                                    <!-- Subtitle Opacity Slider -->
-                                    <div style="margin-bottom: 16px;">
-                                        <div
-                                            style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 6px;">
-                                            <label for="subOpacity" class="input-label" style="margin: 0;">Opacity
-                                                Subtitle</label>
-                                            <span id="subOpacityVal"
-                                                style="font-size: 0.85rem; font-weight: 600; color: var(--text-accent);">100%</span>
-                                        </div>
-                                        <input type="range" id="subOpacity" class="range-input" min="0.5" max="1.0"
-                                            step="0.05" value="1.0"
-                                            style="width: 100%; height: 6px; border-radius: 4px; background: rgba(255,255,255,0.1); outline: none; -webkit-appearance: none; cursor: pointer; accent-color: var(--text-accent);">
-                                    </div>
-
-                                    <!-- Colors Grid -->
-                                    <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 12px;">
-                                        <div>
-                                            <label for="subSecColor" class="input-label"
-                                                style="margin-bottom: 6px; display: block;">Warna Teks (Base)</label>
-                                            <div style="display: flex; align-items: center; gap: 8px;">
-                                                <input type="color" id="subSecColor" value="#FFFFFF"
-                                                    style="border: none; width: 36px; height: 36px; border-radius: 50%; background: none; cursor: pointer; padding: 0;">
-                                                <span id="subSecColorHex"
-                                                    style="font-size: 0.8rem; font-family: monospace; color: var(--text-secondary);">#FFFFFF</span>
-                                            </div>
-                                        </div>
-                                        <div>
-                                            <label for="subColor" class="input-label"
-                                                style="margin-bottom: 6px; display: block;">Warna Highlight</label>
-                                            <div style="display: flex; align-items: center; gap: 8px;">
-                                                <input type="color" id="subColor" value="#FFFF00"
-                                                    style="border: none; width: 36px; height: 36px; border-radius: 50%; background: none; cursor: pointer; padding: 0;">
-                                                <span id="subColorHex"
-                                                    style="font-size: 0.8rem; font-family: monospace; color: var(--text-secondary);">#FFFF00</span>
-                                        </div>
-                                    </div>
-                                    </div> <!-- Close subtitleCustomizationGroup -->
-                                    </div> <!-- Close card-content -->
-                                </div>
-
-                                <!-- Voice Selector -->
-                                <div class="card glass-card settings-card collapsible collapsed">
-                                    <div class="card-header">
-                                        <div class="card-icon voice-icon">
-                                            <svg width="20" height="20" viewBox="0 0 24 24" fill="none"
-                                                stroke="currentColor" stroke-width="2" stroke-linecap="round"
-                                                stroke-linejoin="round">
-                                                <path d="M12 1a3 3 0 0 0-3 3v8a3 3 0 0 0 6 0V4a3 3 0 0 0-3-3z" />
-                                                <path d="M19 10v2a7 7 0 0 1-14 0v-2" />
-                                                <line x1="12" y1="19" x2="12" y2="23" />
-                                                <line x1="8" y1="23" x2="16" y2="23" />
-                                            </svg>
-                                        </div>
-                                        <h2 class="card-title">Pengisi Suara AI</h2>
-                                    </div>
-                                    <div class="card-content">
-                                        <label for="voiceSelect" class="input-label">Pilih Suara Narasi</label>
-                                        <div class="select-wrapper">
-                                            <select id="voiceSelect" class="select-input">
-                                                <option value="id-ID-GadisNeural">👩 Gadis — Suara Wanita (Halus & Persuasif)</option>
-                                                <option value="id-ID-ArdiNeural">👨 Ardi — Suara Pria (Formal & Berwibawa)</option>
-                                                <option value="piper-id-gadis">🎙️ Piper ID — Wanita Lokal (Offline Kilat)</option>
-                                                <option value="piper-id-ardi">🎙️ Piper ID — Pria Lokal (Offline Kilat)</option>
-                                                <option value="xtts-clone-agomart">👥 XTTS v2 — Kloning Suara Agomart</option>
-                                                <option value="gtts-id">🤖 Google Translate ID — Klasik Cadangan</option>
-                                            </select>
-                                            <div class="select-arrow">
-                                                <svg width="14" height="14" viewBox="0 0 24 24" fill="none"
-                                                    stroke="currentColor" stroke-width="2">
-                                                    <polyline points="6 9 12 15 18 9" />
-                                                </svg>
-                                            </div>
-                                        </div>
-                                        <div class="voice-preview-cards">
+                                        
+                                        <div class="voice-preview-cards" style="margin-bottom: 20px;">
                                             <div class="voice-card active" id="voiceCardFemale">
                                                 <div class="voice-avatar female">👩</div>
                                                 <div class="voice-info">
@@ -594,7 +485,94 @@
                                                 <div class="voice-check">✓</div>
                                             </div>
                                         </div>
-                                    </div>
+
+                                        <div style="border-top: 1px solid rgba(255,255,255,0.06); margin: 16px 0;"></div>
+
+                                        <!-- Gunakan Subtitle Option -->
+                                        <div style="margin-bottom: 16px;">
+                                            <label for="subUse" class="input-label">Gunakan Subtitle?</label>
+                                            <div class="select-wrapper">
+                                                <select id="subUse" class="select-input">
+                                                    <option value="true" selected>✅ Ya, Tampilkan Subtitle</option>
+                                                    <option value="false">❌ Tidak, Tanpa Subtitle</option>
+                                                </select>
+                                                <div class="select-arrow">
+                                                    <svg width="14" height="14" viewBox="0 0 24 24" fill="none"
+                                                        stroke="currentColor" stroke-width="2">
+                                                        <polyline points="6 9 12 15 18 9" />
+                                                    </svg>
+                                                </div>
+                                            </div>
+                                        </div>
+
+                                        <!-- Wrapper untuk kontrol kustomisasi subtitle agar mudah meredup/disabled secara dinamis -->
+                                        <div id="subtitleCustomizationGroup" style="transition: all 0.3s ease;">
+                                            <!-- Subtitle Font Select -->
+                                            <div style="margin-bottom: 12px;">
+                                                <label for="subFont" class="input-label">Font Subtitle</label>
+                                                <div class="select-wrapper">
+                                                    <select id="subFont" class="select-input">
+                                                        <option value="Arial" selected>Arial Bold (Standar)</option>
+                                                        <option value="Impact">Impact (TikTok Classic)</option>
+                                                        <option value="Poppins">Poppins Bold (Rounded Populer)</option>
+                                                        <option value="Poppins ExtraBold">Poppins ExtraBold (Sangat Tebal)</option>
+                                                        <option value="Anton">Anton (Tinggi & Padat - Sangat Viral)</option>
+                                                        <option value="Bebas Neue">Bebas Neue (Tall Condensed Bold)</option>
+                                                        <option value="Verdana">Verdana Bold</option>
+                                                        <option value="Trebuchet MS">Trebuchet MS Bold</option>
+                                                    </select>
+                                                    <div class="select-arrow">
+                                                        <svg width="14" height="14" viewBox="0 0 24 24" fill="none"
+                                                            stroke="currentColor" stroke-width="2">
+                                                            <polyline points="6 9 12 15 18 9" />
+                                                        </svg>
+                                                    </div>
+                                                </div>
+                                            </div>
+
+                                            <!-- Font Size Slider -->
+                                            <div style="margin-bottom: 12px;">
+                                                <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 6px;">
+                                                    <label for="subSize" class="input-label" style="margin: 0;">Ukuran Font</label>
+                                                    <span id="subSizeVal" style="font-size: 0.85rem; font-weight: 600; color: var(--text-accent);">26px</span>
+                                                </div>
+                                                <input type="range" id="subSize" class="range-input" min="16" max="80" step="1"
+                                                    value="26"
+                                                    style="width: 100%; height: 6px; border-radius: 4px; background: rgba(255,255,255,0.1); outline: none; -webkit-appearance: none; cursor: pointer; accent-color: var(--text-accent);">
+                                            </div>
+
+                                            <!-- Subtitle Opacity Slider -->
+                                            <div style="margin-bottom: 16px;">
+                                                <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 6px;">
+                                                    <label for="subOpacity" class="input-label" style="margin: 0;">Opacity Subtitle</label>
+                                                    <span id="subOpacityVal" style="font-size: 0.85rem; font-weight: 600; color: var(--text-accent);">100%</span>
+                                                </div>
+                                                <input type="range" id="subOpacity" class="range-input" min="0.5" max="1.0"
+                                                    step="0.05" value="1.0"
+                                                    style="width: 100%; height: 6px; border-radius: 4px; background: rgba(255,255,255,0.1); outline: none; -webkit-appearance: none; cursor: pointer; accent-color: var(--text-accent);">
+                                            </div>
+
+                                            <!-- Colors Grid -->
+                                            <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 12px;">
+                                                <div>
+                                                    <label for="subSecColor" class="input-label" style="margin-bottom: 6px; display: block;">Warna Teks (Base)</label>
+                                                    <div style="display: flex; align-items: center; gap: 8px;">
+                                                        <input type="color" id="subSecColor" value="#FFFFFF"
+                                                            style="border: none; width: 36px; height: 36px; border-radius: 50%; background: none; cursor: pointer; padding: 0;">
+                                                        <span id="subSecColorHex" style="font-size: 0.8rem; font-family: monospace; color: var(--text-secondary);">#FFFFFF</span>
+                                                    </div>
+                                                </div>
+                                                <div>
+                                                    <label for="subColor" class="input-label" style="margin-bottom: 6px; display: block;">Warna Highlight</label>
+                                                    <div style="display: flex; align-items: center; gap: 8px;">
+                                                        <input type="color" id="subColor" value="#FFFF00"
+                                                            style="border: none; width: 36px; height: 36px; border-radius: 50%; background: none; cursor: pointer; padding: 0;">
+                                                        <span id="subColorHex" style="font-size: 0.8rem; font-family: monospace; color: var(--text-secondary);">#FFFF00</span>
+                                                    </div>
+                                                </div>
+                                            </div>
+                                        </div> <!-- Close subtitleCustomizationGroup -->
+                                    </div> <!-- Close card-content -->
                                 </div>
                             </div>
 

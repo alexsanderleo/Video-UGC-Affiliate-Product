@@ -73,7 +73,7 @@ async def generate_piper(text: str, output_path: str, ffmpeg_path: str):
     
     def run_piper_cli():
         cmd = [
-            "python", "-m", "piper",
+            sys.executable, "-m", "piper",
             "-m", str(PIPER_MODEL_PATH),
             "-c", str(PIPER_CONFIG_PATH),
             "-f", str(temp_wav_path)
@@ -121,12 +121,19 @@ async def generate_xtts_v2(text: str, output_path: str):
     ref_wav_path = ref_dir / "reference.wav"
     
     if not ref_wav_path.exists():
-        # Create a placeholder dummy WAV reference or raise error
-        raise RuntimeError(
-            f"File contoh kloning suara tidak ditemukan di: {ref_wav_path}\n"
-            "Silakan taruh file suara contoh format WAV (durasi 5-10 detik) "
-            "dengan nama 'reference.wav' di dalam folder 'static/voices/' untuk mulai kloning."
-        )
+        # Automatically download high-quality reference voice from GitHub!
+        default_ref_url = "https://github.com/coqui-ai/TTS/raw/main/tests/data/ljspeech/wavs/LJ001-0001.wav"
+        print(f"[TTS Local] Reference voice not found. Downloading default: {default_ref_url} -> {ref_wav_path}...")
+        try:
+            download_file(default_ref_url, ref_wav_path)
+            print(f"[TTS Local] Default reference voice downloaded successfully.")
+        except Exception as e:
+            raise RuntimeError(
+                f"File contoh kloning suara tidak ditemukan di: {ref_wav_path} dan gagal diunduh otomatis.\n"
+                f"Detail: {e}\n"
+                "Silakan taruh file suara contoh format WAV (durasi 5-10 detik) "
+                "dengan nama 'reference.wav' di dalam folder 'static/voices/' untuk mulai kloning."
+            )
         
     temp_wav_path = Path(output_path).with_suffix(".wav")
     
