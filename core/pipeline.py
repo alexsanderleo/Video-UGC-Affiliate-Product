@@ -755,7 +755,7 @@ def step_c_ffmpeg(
         logo_x, logo_y = "x=W-w-30", "y=30"
 
     # Build dynamic inputs and trace their indices
-    input_args = ['-i', input_video, '-t', t_arg, '-i', tts_audio]
+    input_args = ['-i', input_video, '-i', tts_audio]
     next_index = 2
     
     backsound_index = -1
