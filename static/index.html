@@ -271,11 +271,7 @@
                     <span class="menu-text desktop-only">Kompres Video Kualitas Terbaik</span>
                     <span class="menu-text mobile-only">Kompres</span>
                 </button>
-                <button class="menu-item" id="menuBtnNanoBanana">
-                    <span class="menu-icon">🍌</span>
-                    <span class="menu-text desktop-only">Nano Banana (AI Image)</span>
-                    <span class="menu-text mobile-only">Image</span>
-                </button>
+
             </nav>
         </aside>
 
@@ -1359,143 +1355,7 @@
                 </div>
             </div>
 
-            <!-- nano-banana page -->
-            <div id="nanoBananaPage" class="page-container" style="display: none;">
-                <div class="app-container">
-                    <!-- Header -->
-                    <header class="app-header">
-                        <div class="header-glow"></div>
-                        <div class="header-content">
-                            <div class="logo-section">
-                                <div class="logo-icon" style="background: linear-gradient(135deg, #FBBF24, #D97706); color: white; display: flex; align-items: center; justify-content: center; border-radius: 8px;">
-                                    <span style="font-size: 1.4rem; padding: 2px;">🍌</span>
-                                </div>
-                                <h1 class="app-title">Nano <span class="title-accent" style="color: #FBBF24;">Banana</span> AI Image</h1>
-                            </div>
-                            <p class="app-subtitle">Buat gambar kualitas Pro berkualitas tinggi dari deskripsi teks menggunakan model IMAGEN 3.5</p>
-                        </div>
-                    </header>
 
-                    <!-- Main Content -->
-                    <main class="main-content">
-                        <!-- Left Column: Input Form -->
-                        <section class="input-section">
-                            <div class="card glass-card">
-                                <div class="card-header">
-                                    <div class="card-icon" style="background: rgba(251, 191, 36, 0.1); color: #FBBF24; display: flex; align-items: center; justify-content: center; width: 40px; height: 40px; border-radius: var(--radius-sm);">
-                                        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-                                            <rect x="3" y="3" width="18" height="18" rx="2" ry="2"/>
-                                            <circle cx="8.5" cy="8.5" r="1.5"/>
-                                            <polyline points="21 15 16 10 5 21"/>
-                                        </svg>
-                                    </div>
-                                    <h2 class="card-title">Pengaturan Gambar</h2>
-                                </div>
-
-                                <div class="card-content" style="display: flex; flex-direction: column; gap: 20px;">
-                                    <!-- Prompt Input -->
-                                    <div>
-                                        <label for="bananaPrompt" class="input-label">Prompt Deskripsi Gambar <span style="color: var(--accent-secondary);">*</span></label>
-                                        <textarea id="bananaPrompt" class="caption-textarea" placeholder="Contoh: A futuristic cityscape, cyberpunk style, neon lights, highly detailed, 8k resolution..." style="width: 100%; min-height: 120px; font-size: 0.85rem; line-height: 1.6; resize: vertical; border-radius: var(--radius-md); padding: 12px; background: var(--bg-input); border: 1px solid var(--border-subtle); color: var(--text-primary); outline: none;"></textarea>
-                                    </div>
-
-                                    <!-- Aspect Ratio -->
-                                    <div>
-                                        <label for="bananaAspectRatio" class="input-label">Rasio Aspek</label>
-                                        <div class="select-wrapper">
-                                            <select id="bananaAspectRatio" class="select-input">
-                                                <option value="IMAGE_ASPECT_RATIO_SQUARE" selected>Square (1:1)</option>
-                                                <option value="IMAGE_ASPECT_RATIO_PORTRAIT">Portrait (9:16)</option>
-                                                <option value="IMAGE_ASPECT_RATIO_LANDSCAPE">Landscape (16:9)</option>
-                                            </select>
-                                            <div class="select-arrow">
-                                                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                                                    <polyline points="6 9 12 15 18 9" />
-                                                </svg>
-                                            </div>
-                                        </div>
-                                    </div>
-
-                                    <!-- Optional Token (Collapsible Settings) -->
-                                    <div class="collapsible-group collapsed" style="border: 1px solid var(--border-subtle); border-radius: var(--radius-md); background: rgba(255,255,255,0.01);">
-                                        <div class="group-header" style="padding: 10px 14px; font-size: 0.8rem; font-weight: 600; cursor: pointer; color: var(--text-muted); display: flex; justify-content: space-between; align-items: center; border-bottom: 1px solid transparent; transition: all 0.2s;">
-                                            <span>🔑 Kunci Autentikasi (Opsional)</span>
-                                        </div>
-                                        <div class="group-content" style="padding: 12px 14px; display: flex; flex-direction: column; gap: 8px;">
-                                            <label for="bananaToken" class="input-label" style="font-size: 0.72rem; margin-bottom: 2px;">Gemini Labs Bearer Token</label>
-                                            <input type="password" id="bananaToken" class="text-input" placeholder="Masukkan bearer token Anda (kosongkan untuk default server)..." style="font-size: 0.8rem; padding: 8px 12px; background: var(--bg-input); border: 1px solid var(--border-subtle); border-radius: var(--radius-sm); color: var(--text-primary); width: 100%;">
-                                            <p style="font-size: 0.68rem; color: var(--text-muted); line-height: 1.4; margin: 0;">Secara default server akan menggunakan token dari file `.env`. Anda bisa menimpa token di sini jika ingin menggunakan token pribadi.</p>
-                                        </div>
-                                    </div>
-
-                                    <!-- Generate Button -->
-                                    <button class="btn-generate" id="btnGenerateBanana" style="background: linear-gradient(135deg, #FBBF24, #D97706); box-shadow: 0 4px 20px rgba(251, 191, 36, 0.3); margin: 0; min-height: unset; padding: 14px 24px; border: none; cursor: pointer; font-weight: 700; width: 100%; border-radius: var(--radius-md); transition: all 0.2s;">
-                                        <span class="btn-content" id="bananaBtnContent" style="display: flex; align-items: center; justify-content: center; gap: 8px; font-size: 0.95rem; color: white;">
-                                            <span style="font-size: 1.15rem;">🍌</span> Buat Gambar Pro
-                                        </span>
-                                        <span class="btn-loading" id="bananaBtnLoading" style="display:none; align-items: center; justify-content: center; gap: 8px; color: white;">
-                                            <div class="spinner"></div>
-                                            <span id="bananaBtnLoadingText">Menghubungi Engine...</span>
-                                        </span>
-                                    </button>
-                                </div>
-                            </div>
-                        </section>
-
-                        <!-- Right Column: Output / Gallery -->
-                        <section class="output-section">
-                            <!-- Placeholder -->
-                            <div class="card glass-card output-card" id="bananaOutputPlaceholder" style="min-height: 380px; display: flex; flex-direction: column; align-items: center; justify-content: center; padding: 40px; text-align: center; border: 1px dashed var(--border-subtle); border-radius: var(--radius-lg); position: relative;">
-                                <div class="placeholder-glow" style="position: absolute; width: 150px; height: 150px; background: radial-gradient(circle, rgba(251, 191, 36, 0.1) 0%, transparent 70%); pointer-events: none; z-index: 1;"></div>
-                                <div style="font-size: 4rem; margin-bottom: 20px; z-index: 2; filter: drop-shadow(0 8px 16px rgba(251,191,36,0.2));">🎨</div>
-                                <h3 style="font-size: 1.25rem; font-weight: 700; color: var(--text-primary); margin-bottom: 8px; font-family: 'Outfit', sans-serif; z-index: 2;">Belum Ada Gambar</h3>
-                                <p style="font-size: 0.85rem; color: var(--text-muted); max-width: 280px; line-height: 1.5; z-index: 2; margin: 0;">Ketik deskripsi prompt di sebelah kiri dan klik "Buat Gambar Pro" untuk memvisualisasikan ide Anda.</p>
-                            </div>
-
-                            <!-- Image Result Viewer -->
-                            <div class="card glass-card output-card" id="bananaResultCard" style="display: none; padding: 20px; display: flex; flex-direction: column; gap: 16px; border-radius: var(--radius-lg);">
-                                <div class="card-header" style="border-bottom: 1px solid var(--border-subtle); padding-bottom: 12px; margin-bottom: 4px; display: flex; align-items: center; gap: 8px;">
-                                    <div class="card-icon" style="background: rgba(16, 185, 129, 0.1); color: #10B981; display: flex; align-items: center; justify-content: center; width: 40px; height: 40px; border-radius: var(--radius-sm);">
-                                        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-                                            <path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"/>
-                                            <polyline points="22 4 12 14.01 9 11.01"/>
-                                        </svg>
-                                    </div>
-                                    <h2 class="card-title">Gambar Berhasil Dibuat</h2>
-                                </div>
-
-                                <!-- Image Container -->
-                                <div style="position: relative; border-radius: var(--radius-md); overflow: hidden; background: #050505; border: 1px solid var(--border-subtle); display: flex; justify-content: center; align-items: center; cursor: zoom-in;" id="bananaImageWrapper">
-                                    <img id="bananaResultImage" src="" alt="Nano Banana Result" style="max-width: 100%; max-height: 480px; object-fit: contain; display: block; transition: transform 0.2s;">
-                                </div>
-
-                                <div style="display: flex; gap: 12px;">
-                                    <!-- Download Button -->
-                                    <a id="btnDownloadBanana" href="" download="nano-banana-pro.png" class="queue-card-btn-download" style="flex: 1; display: flex; justify-content: center; align-items: center; gap: 8px; padding: 12px; font-weight: 700; background: linear-gradient(135deg, #10B981, #059669); color: white; border-radius: var(--radius-md); border: none; cursor: pointer; text-decoration: none; font-size: 0.9rem; box-shadow: 0 4px 15px rgba(16, 185, 129, 0.3); transition: all 0.2s;">
-                                        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-                                            <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4" />
-                                            <polyline points="7 10 12 15 17 10" />
-                                            <line x1="12" y1="15" x2="12" y2="3" />
-                                        </svg>
-                                        Download Gambar
-                                    </a>
-                                </div>
-                            </div>
-                        </section>
-                    </main>
-
-                    <!-- Footer -->
-                    <footer class="app-footer">
-                        <p>Powered by <strong>Imagen 3.5 Engine</strong> · <strong>Aulex Banana Pro</strong></p>
-                    </footer>
-                </div>
-            </div>
-
-            <!-- Lightbox Zoom Modal -->
-            <div id="bananaZoomModal" style="display: none; position: fixed; inset: 0; background: rgba(0,0,0,0.95); z-index: 9999; align-items: center; justify-content: center; padding: 20px; cursor: zoom-out;">
-                <button id="btnCloseBananaZoom" style="position: absolute; top: 20px; right: 20px; background: rgba(0,0,0,0.5); border: 1px solid rgba(255,255,255,0.1); border-radius: 50%; width: 44px; height: 44px; color: white; font-size: 1.5rem; cursor: pointer; display: flex; align-items: center; justify-content: center; z-index: 10000; line-height: 1;">&times;</button>
-                <img id="bananaZoomImage" src="" alt="Full Zoom Result" style="max-width: 95%; max-height: 90vh; object-fit: contain; border-radius: 4px; box-shadow: 0 10px 40px rgba(0,0,0,0.5);">
-            </div>
         </div>
     </div>
 
