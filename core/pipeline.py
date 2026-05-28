@@ -818,12 +818,13 @@ def step_c_ffmpeg(
         else:
             last_v_processed = "[0:v]"
 
-    # Base background and video blending filter using last_v_processed
+    # Base background and video blending filter using last_v_processed (with split filter to support multiple outputs from internal pads)
     if pre_filter:
         filter_complex = (
             pre_filter + ";"
-            f"{last_v_processed}scale=720:1280,boxblur=20:5[bg];"
-            f"{last_v_processed}scale=640:1136[main];"
+            f"{last_v_processed}split=2[v_split_bg][v_split_main];"
+            f"[v_split_bg]scale=720:1280,boxblur=20:5[bg];"
+            f"[v_split_main]scale=640:1136[main];"
             f"[bg][main]overlay=(W-w)/2:(H-h)/2[vid_with_bg]"
         )
     else:
