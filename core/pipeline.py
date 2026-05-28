@@ -328,8 +328,8 @@ async def step_b_tts(
     output_path: str,
     srt_path: Optional[str] = None,
     sub_font: str = "Arial",
-    sub_size: int = 26,
-    sub_color: str = "#FFFF00",
+    sub_size: int = 40,
+    sub_color: str = "#00FF4C",
     sub_sec_color: str = "#FFFFFF",
     sub_opacity: float = 1.0,
 ):
@@ -485,8 +485,8 @@ def generate_srt(
     audio_duration: float,
     output_srt_path: str,
     sub_font: str = "Arial",
-    sub_size: int = 26,
-    sub_color: str = "#FFFF00",
+    sub_size: int = 40,
+    sub_color: str = "#00FF4C",
     sub_sec_color: str = "#FFFFFF",
     sub_opacity: float = 1.0,
 ) -> str:
@@ -592,8 +592,8 @@ def generate_ass(
     word_events,
     ass_path,
     sub_font: str = "Arial",
-    sub_size: int = 26,
-    sub_color: str = "#FFFF00",
+    sub_size: int = 40,
+    sub_color: str = "#00FF4C",
     sub_sec_color: str = "#FFFFFF",
     sub_opacity: float = 1.0,
 ):
@@ -688,13 +688,13 @@ def step_c_ffmpeg(
     subtitle_path: Optional[str] = None,
     job_id: Optional[str] = None,
     sub_font: str = "Arial",
-    sub_size: int = 26,
-    sub_color: str = "#FFFF00",
+    sub_size: int = 40,
+    sub_color: str = "#00FF4C",
     sub_sec_color: str = "#FFFFFF",
     sub_opacity: float = 1.0,
     wm_opacity: float = 0.65,
     use_speed_ramping: str = "true",
-    use_camera_shake: str = "true",
+    use_camera_shake: str = "false",
     thumbnail_path: Optional[str] = None,
     backsound_volume: float = 0.12,
 ):
@@ -808,8 +808,22 @@ def step_c_ffmpeg(
             last_v = "[v_ramped]"
             
     # Check camera shake setting
-    if str(use_camera_shake).lower() == 'true':
-        pre_filter += f"{last_v}crop=w=iw-16:h=ih-16:x='8+8*sin(2*PI*t*3)':y='8+8*cos(2*PI*t*3)'[v_processed]"
+    shake_val = str(use_camera_shake).lower()
+    if shake_val in ('true', 'normal', 'slow', 'fast'):
+        # determine amplitude and frequency
+        if shake_val == 'slow':
+            amp, freq = 4, 1.5
+        elif shake_val == 'fast':
+            amp, freq = 12, 5
+        else: # true or normal
+            amp, freq = 8, 3
+        
+        crop_w = f"iw-{2*amp}"
+        crop_h = f"ih-{2*amp}"
+        crop_x = f"'{amp}+{amp}*sin(2*PI*t*{freq})'"
+        crop_y = f"'{amp}+{amp}*cos(2*PI*t*{freq})'"
+        
+        pre_filter += f"{last_v}crop=w={crop_w}:h={crop_h}:x={crop_x}:y={crop_y}[v_processed]"
         last_v_processed = "[v_processed]"
     else:
         if pre_filter:

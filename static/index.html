@@ -544,10 +544,10 @@
                                             <div style="margin-bottom: 12px;">
                                                 <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 6px;">
                                                     <label for="subSize" class="input-label" style="margin: 0;">Ukuran Font</label>
-                                                    <span id="subSizeVal" style="font-size: 0.85rem; font-weight: 600; color: var(--text-accent);">26px</span>
+                                                    <span id="subSizeVal" style="font-size: 0.85rem; font-weight: 600; color: var(--text-accent);">40px</span>
                                                 </div>
                                                 <input type="range" id="subSize" class="range-input" min="16" max="80" step="1"
-                                                    value="26"
+                                                    value="40"
                                                     style="width: 100%; height: 6px; border-radius: 4px; background: rgba(255,255,255,0.1); outline: none; -webkit-appearance: none; cursor: pointer; accent-color: var(--text-accent);">
                                             </div>
 
@@ -575,9 +575,9 @@
                                                 <div>
                                                     <label for="subColor" class="input-label" style="margin-bottom: 6px; display: block;">Warna Highlight</label>
                                                     <div style="display: flex; align-items: center; gap: 8px;">
-                                                        <input type="color" id="subColor" value="#FFFF00"
+                                                        <input type="color" id="subColor" value="#00FF4C"
                                                             style="border: none; width: 36px; height: 36px; border-radius: 50%; background: none; cursor: pointer; padding: 0;">
-                                                        <span id="subColorHex" style="font-size: 0.8rem; font-family: monospace; color: var(--text-secondary);">#FFFF00</span>
+                                                        <span id="subColorHex" style="font-size: 0.8rem; font-family: monospace; color: var(--text-secondary);">#00FF4C</span>
                                                     </div>
                                                 </div>
                                             </div>
@@ -624,8 +624,10 @@
                                             <label for="useCameraShake" class="input-label">Camera Shake (Efek Kamera Getar)</label>
                                             <div class="select-wrapper">
                                                 <select id="useCameraShake" class="select-input">
-                                                    <option value="true" selected>📳 Aktif (Getar Halus Otomatis)</option>
-                                                    <option value="false">❌ Nonaktif</option>
+                                                    <option value="false" selected>❌ Nonaktif</option>
+                                                    <option value="slow">📳 Getar Sangat Halus (Subtle)</option>
+                                                    <option value="true">📳 Getar Sedang (Default Lama)</option>
+                                                    <option value="fast">📳 Getar Kencang (Energetic)</option>
                                                 </select>
                                                 <div class="select-arrow">
                                                     <svg width="14" height="14" viewBox="0 0 24 24" fill="none"
@@ -1170,9 +1172,9 @@
                                     <div>
                                         <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 6px;">
                                             <label for="bulkSubSize" class="input-label" style="margin: 0;">Ukuran Font</label>
-                                            <span id="bulkSubSizeVal" style="font-size: 0.85rem; font-weight: 600; color: var(--text-accent);">70px</span>
+                                            <span id="bulkSubSizeVal" style="font-size: 0.85rem; font-weight: 600; color: var(--text-accent);">40px</span>
                                         </div>
-                                        <input type="range" id="bulkSubSize" class="range-input" min="16" max="80" step="1" value="70"
+                                        <input type="range" id="bulkSubSize" class="range-input" min="16" max="80" step="1" value="40"
                                             style="width: 100%; height: 6px; border-radius: 4px; background: rgba(255,255,255,0.1); outline: none; -webkit-appearance: none; cursor: pointer; accent-color: var(--text-accent);">
                                     </div>
 
@@ -1199,9 +1201,9 @@
                                         <div>
                                             <label for="bulkSubColor" class="input-label" style="margin-bottom: 6px; display: block; font-size: 0.75rem;">Highlight</label>
                                             <div style="display: flex; align-items: center; gap: 8px;">
-                                                <input type="color" id="bulkSubColor" value="#FFFF00"
+                                                <input type="color" id="bulkSubColor" value="#00FF4C"
                                                     style="border: none; width: 32px; height: 32px; border-radius: 50%; background: none; cursor: pointer; padding: 0;">
-                                                <span id="bulkSubColorHex" style="font-size: 0.75rem; font-family: monospace; color: var(--text-secondary);">#FFFF00</span>
+                                                <span id="bulkSubColorHex" style="font-size: 0.75rem; font-family: monospace; color: var(--text-secondary);">#00FF4C</span>
                                             </div>
                                         </div>
                                     </div>

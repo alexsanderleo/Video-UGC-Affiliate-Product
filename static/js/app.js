@@ -846,8 +846,8 @@
 
         // Subtitle styles
         const subFont = document.getElementById('subFont')?.value || 'Arial';
-        const subSize = document.getElementById('subSize')?.value || 26;
-        const subColor = document.getElementById('subColor')?.value || '#FFFF00';
+        const subSize = document.getElementById('subSize')?.value || 40;
+        const subColor = document.getElementById('subColor')?.value || '#00FF4C';
         const subSecColor = document.getElementById('subSecColor')?.value || '#FFFFFF';
         const subOpacity = document.getElementById('subOpacity')?.value || 1.0;
         const wmOpacity = document.getElementById('wmOpacity')?.value || 0.65;
@@ -863,7 +863,7 @@
         formData.append('use_subtitle', singleUseSubtitle);
 
         const useSpeedRamping = document.getElementById('useSpeedRamping')?.value || 'true';
-        const useCameraShake = document.getElementById('useCameraShake')?.value || 'true';
+        const useCameraShake = document.getElementById('useCameraShake')?.value || 'false';
         formData.append('use_speed_ramping', useSpeedRamping);
         formData.append('use_camera_shake', useCameraShake);
 
@@ -1324,7 +1324,7 @@
         }
         const bulkSubSize = document.getElementById('bulkSubSize');
         if (bulkSubSize) {
-            bulkSubSize.value = 70; // reset to standard default
+            bulkSubSize.value = 40; // reset to standard default
             bulkSubSize.dispatchEvent(new Event('input'));
         }
         const bulkSubOpacity = document.getElementById('bulkSubOpacity');
@@ -1335,8 +1335,8 @@
         const bulkSubColor = document.getElementById('bulkSubColor');
         const bulkSubColorHex = document.getElementById('bulkSubColorHex');
         if (bulkSubColor) {
-            bulkSubColor.value = '#FFFF00';
-            if (bulkSubColorHex) bulkSubColorHex.textContent = '#FFFF00';
+            bulkSubColor.value = '#00FF4C';
+            if (bulkSubColorHex) bulkSubColorHex.textContent = '#00FF4C';
         }
         const bulkSubSecColor = document.getElementById('bulkSubSecColor');
         const bulkSubSecColorHex = document.getElementById('bulkSubSecColorHex');
@@ -1351,10 +1351,10 @@
             subFont.value = 'Arial';
         }
 
-        // 3. Ukuran Font -> 71px
+        // 3. Ukuran Font -> 40px
         const subSize = document.getElementById('subSize');
         if (subSize) {
-            subSize.value = 71;
+            subSize.value = 40;
             subSize.dispatchEvent(new Event('input'));
         }
 
@@ -2219,8 +2219,8 @@
 
         // Subtitle customization settings for bulk video generation
         const bulkSubFont = document.getElementById('bulkSubFont')?.value || 'Arial';
-        const bulkSubSize = document.getElementById('bulkSubSize')?.value || 70;
-        const bulkSubColor = document.getElementById('bulkSubColor')?.value || '#FFFF00';
+        const bulkSubSize = document.getElementById('bulkSubSize')?.value || 40;
+        const bulkSubColor = document.getElementById('bulkSubColor')?.value || '#00FF4C';
         const bulkSubSecColor = document.getElementById('bulkSubSecColor')?.value || '#FFFFFF';
         const bulkSubOpacity = document.getElementById('bulkSubOpacity')?.value || 1.0;
         const wmOpacity = document.getElementById('wmOpacity')?.value || 0.65; // fallback to single or default
