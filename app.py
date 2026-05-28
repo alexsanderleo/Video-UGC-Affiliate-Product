@@ -1053,9 +1053,10 @@ def step_c_ffmpeg(
     )
 
     if process.returncode != 0:
-        stderr_last = process.stderr[-1500:] if process.stderr else 'No stderr'
+        stderr_last = process.stderr[-2000:] if process.stderr else 'No stderr'
         print(f"[Step C] FFmpeg FAILED:\n{stderr_last}")
-        raise RuntimeError(f"FFmpeg gagal merender video. Error: {stderr_last[-300:]}")
+        cmd_str = " ".join(cmd)
+        raise RuntimeError(f"FFmpeg gagal merender video. Command run: {cmd_str}. Error: {stderr_last[-600:]}")
 
     if not Path(output_path).exists():
         raise RuntimeError("FFmpeg selesai tapi file output tidak ditemukan")
