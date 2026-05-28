@@ -59,6 +59,16 @@
 
         // Toast utility function
         function showToast(message, isError = true) {
+            // Intercept expired or invalid token warnings on admin dashboard to force a redirect and relogin
+            if (message && (message.includes('Token tidak valid') || message.includes('expired') || message.includes('Sesi telah berakhir') || message.includes('Token tidak ditemukan'))) {
+                localStorage.removeItem('token');
+                message = '⚠️ Sesi Anda telah berakhir. Mengalihkan ke halaman login...';
+                isError = true;
+                setTimeout(() => {
+                    window.location.href = '/';
+                }, 1500);
+            }
+
             const existing = document.querySelector('.error-toast');
             if (existing) existing.remove();
 

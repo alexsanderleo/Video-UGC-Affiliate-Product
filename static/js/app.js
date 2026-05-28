@@ -103,6 +103,29 @@
 
     // === Utility: Show Error Toast ===
     function showToast(message, isError = true) {
+        // Intercept expired or invalid token warnings to prompt a relogin
+        if (message && (message.includes('Token tidak valid') || message.includes('expired') || message.includes('Sesi telah berakhir') || message.includes('Token tidak ditemukan'))) {
+            localStorage.removeItem('token');
+            localStorage.removeItem('email');
+            message = '⚠️ Sesi Anda telah berakhir. Silakan login ulang!';
+            isError = true;
+            
+            const authOverlay = document.getElementById('authOverlay');
+            const loginForm = document.getElementById('loginForm');
+            const registerForm = document.getElementById('registerForm');
+            const authTitle = document.getElementById('authTitle');
+            if (authOverlay && loginForm) {
+                authOverlay.style.display = 'flex';
+                loginForm.style.display = 'block';
+                if (registerForm) registerForm.style.display = 'none';
+                if (authTitle) authTitle.textContent = 'Login Ulang';
+            }
+            // Trigger auth status refresh
+            try {
+                initAuth();
+            } catch(e) {}
+        }
+
         // Remove existing toast
         const existing = document.querySelector('.error-toast');
         if (existing) existing.remove();
