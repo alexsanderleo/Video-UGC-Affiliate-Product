@@ -738,7 +738,7 @@
                                 </div>
 
                                 <!-- Caption Output -->
-                                <div class="card glass-card output-card">
+                                <div id="captionOutputCard" class="card glass-card output-card collapsible collapsed">
                                     <div class="card-header">
                                         <div class="card-icon caption-icon" style="background: rgba(6, 182, 212, 0.1); color: rgb(6, 182, 212);">
                                             <svg width="20" height="20" viewBox="0 0 24 24" fill="none"
@@ -754,58 +754,60 @@
                                         <h2 class="card-title">Copywriting & Caption Kit</h2>
                                     </div>
                                     
-                                    <div class="caption-inputs-grid" style="display: grid; grid-template-columns: 1fr; gap: 12px; margin-bottom: 16px;">
-                                        <div>
-                                            <label for="outputTitleInput" class="input-label">Judul Video</label>
-                                            <input type="text" id="outputTitleInput" class="text-input" placeholder="Judul Video...">
-                                        </div>
-                                        
-                                        <div>
-                                            <label for="outputLinkInput" class="input-label">Link Shopee / Link Toko</label>
-                                            <input type="text" id="outputLinkInput" class="text-input" placeholder="Contoh: s.shopee.co.id/abcdef atau klik di bio" value="s.shopee.co.id/xxxx">
-                                        </div>
-                                        
-                                        <div style="display: grid; grid-template-columns: 1fr; gap: 12px;">
+                                    <div class="card-content">
+                                        <div class="caption-inputs-grid" style="display: grid; grid-template-columns: 1fr; gap: 12px; margin-bottom: 16px;">
                                             <div>
-                                                <label for="outputCtaSelect" class="input-label">Kata-Kata Ajakan Beli</label>
-                                                <div class="select-wrapper">
-                                                    <select id="outputCtaSelect" class="select-input">
-                                                        <option value="Ambil Promo / Pesan Sekarang Klik Di Sini" selected>👉 Ambil Promo / Pesan Sekarang Klik Di Sini</option>
-                                                        <option value="Checkout Sekarang Di Sini">👉 Checkout Sekarang Di Sini</option>
-                                                        <option value="Beli Di Sini">👉 Beli Di Sini</option>
-                                                        <option value="Dapatkan Promo Spesial Di Sini">👉 Dapatkan Promo Spesial Di Sini</option>
-                                                        <option value="Klik Di Sini Untuk Berbelanja">👉 Klik Di Sini Untuk Berbelanja</option>
-                                                    </select>
-                                                    <div class="select-arrow">
-                                                        <svg width="14" height="14" viewBox="0 0 24 24" fill="none"
-                                                            stroke="currentColor" stroke-width="2">
-                                                            <polyline points="6 9 12 15 18 9" />
-                                                        </svg>
-                                                    </div>
-                                                </div>
+                                                <label for="outputTitleInput" class="input-label">Judul Video</label>
+                                                <input type="text" id="outputTitleInput" class="text-input" placeholder="Judul Video...">
                                             </div>
                                             
                                             <div>
-                                                <label for="outputHashtagsInput" class="input-label">Hashtags</label>
-                                                <input type="text" id="outputHashtagsInput" class="text-input" placeholder="Hashtags...">
+                                                <label for="outputLinkInput" class="input-label">Link Shopee / Link Toko</label>
+                                                <input type="text" id="outputLinkInput" class="text-input" placeholder="Contoh: s.shopee.co.id/abcdef atau klik di bio" value="s.shopee.co.id/xxxx">
+                                            </div>
+                                            
+                                            <div style="display: grid; grid-template-columns: 1fr; gap: 12px;">
+                                                <div>
+                                                    <label for="outputCtaSelect" class="input-label">Kata-Kata Ajakan Beli</label>
+                                                    <div class="select-wrapper">
+                                                        <select id="outputCtaSelect" class="select-input">
+                                                            <option value="Ambil Promo / Pesan Sekarang Klik Di Sini" selected>👉 Ambil Promo / Pesan Sekarang Klik Di Sini</option>
+                                                            <option value="Checkout Sekarang Di Sini">👉 Checkout Sekarang Di Sini</option>
+                                                            <option value="Beli Di Sini">👉 Beli Di Sini</option>
+                                                            <option value="Dapatkan Promo Spesial Di Sini">👉 Dapatkan Promo Spesial Di Sini</option>
+                                                            <option value="Klik Di Sini Untuk Berbelanja">👉 Klik Di Sini Untuk Berbelanja</option>
+                                                        </select>
+                                                        <div class="select-arrow">
+                                                            <svg width="14" height="14" viewBox="0 0 24 24" fill="none"
+                                                                stroke="currentColor" stroke-width="2">
+                                                                <polyline points="6 9 12 15 18 9" />
+                                                            </svg>
+                                                        </div>
+                                                    </div>
+                                                </div>
+                                                
+                                                <div>
+                                                    <label for="outputHashtagsInput" class="input-label">Hashtags</label>
+                                                    <input type="text" id="outputHashtagsInput" class="text-input" placeholder="Hashtags...">
+                                                </div>
                                             </div>
                                         </div>
+                                        
+                                        <div style="border-top: 1px solid rgba(255,255,255,0.06); margin: 12px 0;"></div>
+                                        
+                                        <label for="outputCaption" class="input-label">Teks Caption (Siap Salin)</label>
+                                        <textarea id="outputCaption" class="caption-textarea" readonly placeholder="Hasil caption promosi Anda akan muncul di sini setelah video berhasil dirender..." style="min-height: 180px; font-size: 0.85rem; line-height: 1.5; margin-bottom: 12px;"></textarea>
+                                        
+                                        <button class="btn-copy" id="btnCopy" style="width: 100%; display: flex; justify-content: center; align-items: center; gap: 8px;">
+                                            <svg width="18" height="18" viewBox="0 0 24 24" fill="none"
+                                                stroke="currentColor" stroke-width="2" stroke-linecap="round"
+                                                stroke-linejoin="round">
+                                                <rect x="9" y="9" width="13" height="13" rx="2" ry="2" />
+                                                <path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1" />
+                                            </svg>
+                                            <span id="copyBtnText">Salin Semua Caption</span>
+                                        </button>
                                     </div>
-                                    
-                                    <div style="border-top: 1px solid rgba(255,255,255,0.06); margin: 12px 0;"></div>
-                                    
-                                    <label for="outputCaption" class="input-label">Teks Caption (Siap Salin)</label>
-                                    <textarea id="outputCaption" class="caption-textarea" readonly placeholder="Hasil caption promosi Anda akan muncul di sini setelah video berhasil dirender..." style="min-height: 180px; font-size: 0.85rem; line-height: 1.5; margin-bottom: 12px;"></textarea>
-                                    
-                                    <button class="btn-copy" id="btnCopy" style="width: 100%; display: flex; justify-content: center; align-items: center; gap: 8px;">
-                                        <svg width="18" height="18" viewBox="0 0 24 24" fill="none"
-                                            stroke="currentColor" stroke-width="2" stroke-linecap="round"
-                                            stroke-linejoin="round">
-                                            <rect x="9" y="9" width="13" height="13" rx="2" ry="2" />
-                                            <path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1" />
-                                        </svg>
-                                        <span id="copyBtnText">Salin Semua Caption</span>
-                                    </button>
                                 </div>
                             </div>
                         </section>

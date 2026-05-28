@@ -466,11 +466,13 @@
         btnGenerate.classList.add('processing');
         btnLoadingText.textContent = 'Menganalisis video...';
 
-        // Collapse settings cards to keep workspace clean
+        // Collapse settings cards & caption card to keep workspace clean
         const watermarkCard = document.getElementById('watermarkSettingsCard');
         const subtitleCard = document.getElementById('subtitleSettingsCard');
+        const captionCard = document.getElementById('captionOutputCard');
         if (watermarkCard) watermarkCard.classList.add('collapsed');
         if (subtitleCard) subtitleCard.classList.add('collapsed');
+        if (captionCard) captionCard.classList.add('collapsed');
 
         // Reset output section to placeholder state during new analyze
         const placeholder = document.getElementById('outputVideoPlaceholder');
@@ -593,11 +595,13 @@
 
         isProcessing = true;
         
-        // Collapse settings cards to keep workspace clean
+        // Collapse settings cards & caption card to keep workspace clean
         const watermarkCard = document.getElementById('watermarkSettingsCard');
         const subtitleCard = document.getElementById('subtitleSettingsCard');
+        const captionCard = document.getElementById('captionOutputCard');
         if (watermarkCard) watermarkCard.classList.add('collapsed');
         if (subtitleCard) subtitleCard.classList.add('collapsed');
+        if (captionCard) captionCard.classList.add('collapsed');
         
         // UI states
         btnRenderContent.style.display = 'none';
@@ -853,6 +857,12 @@
 
         // Live preview combined
         updateCombinedCaption();
+
+        // Automatically expand Copywriting & Caption Kit card on successful render
+        const captionCard = document.getElementById('captionOutputCard');
+        if (captionCard) {
+            captionCard.classList.remove('collapsed');
+        }
 
         // Scroll to output only on mobile to keep desktop layout static and clean
         if (window.innerWidth <= 820) {
