@@ -2018,6 +2018,45 @@ body, .app-sidebar, .glass-card, .text-input, .select-input, .user-profile-sideb
         flex: 1;
         text-align: center;
     }
+
+    /* Bulk video selector drop zone (Pilih Video Produk) compact on mobile */
+    #bulkDropZone {
+        min-height: 110px !important;
+        padding: 16px 12px !important;
+    }
+    
+    #bulkDropZone .drop-icon {
+        font-size: 1.8rem !important;
+        margin-bottom: 4px !important;
+    }
+    
+    #bulkDropZone .drop-text {
+        font-size: 0.9rem !important;
+        font-weight: 600 !important;
+    }
+    
+    #bulkDropZone .drop-subtext {
+        font-size: 0.75rem !important;
+        margin-top: 2px !important;
+    }
+
+    /* Compact video queue list items on mobile to prevent taking up full viewport */
+    .queue-card {
+        padding: 12px !important;
+    }
+    
+    .queue-card-video {
+        max-height: 150px !important;
+    }
+    
+    .queue-card-video-wrapper {
+        margin-bottom: 6px !important;
+    }
+    
+    .queue-card-output {
+        margin-top: 8px !important;
+        padding-top: 8px !important;
+    }
 }
 
 /* ========================================
