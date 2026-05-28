@@ -303,37 +303,81 @@ async def step_b_tts(
         return
         
 
-
+    # --- Edge-TTS with timeout protection ---
     import edge_tts
     
-    if srt_path:
-        communicate = edge_tts.Communicate(text, voice, boundary="WordBoundary")
-        submaker = edge_tts.SubMaker()
-        word_events = []
-        with open(output_path, "wb") as f:
-            async for chunk in communicate.stream():
-                if chunk["type"] == "audio":
-                    f.write(chunk["data"])
-                elif chunk["type"] == "WordBoundary":
-                    submaker.feed(chunk)
-                    word_events.append(chunk)
-        
-        if srt_path.endswith('.ass'):
-            generate_ass(
-                word_events, srt_path,
-                sub_font=sub_font, sub_size=sub_size,
-                sub_color=sub_color, sub_sec_color=sub_sec_color,
-                sub_opacity=sub_opacity
-            )
+    async def _run_edge_tts():
+        if srt_path:
+            communicate = edge_tts.Communicate(text, voice, boundary="WordBoundary")
+            submaker = edge_tts.SubMaker()
+            word_events = []
+            with open(output_path, "wb") as f:
+                async for chunk in communicate.stream():
+                    if chunk["type"] == "audio":
+                        f.write(chunk["data"])
+                    elif chunk["type"] == "WordBoundary":
+                        submaker.feed(chunk)
+                        word_events.append(chunk)
+            
+            if srt_path.endswith('.ass'):
+                generate_ass(
+                    word_events, srt_path,
+                    sub_font=sub_font, sub_size=sub_size,
+                    sub_color=sub_color, sub_sec_color=sub_sec_color,
+                    sub_opacity=sub_opacity
+                )
+            else:
+                with open(srt_path, "w", encoding="utf-8") as f:
+                    f.write(submaker.get_srt())
         else:
-            with open(srt_path, "w", encoding="utf-8") as f:
-                f.write(submaker.get_srt())
-    else:
-        communicate = edge_tts.Communicate(text, voice)
-        await communicate.save(output_path)
+            communicate = edge_tts.Communicate(text, voice)
+            await communicate.save(output_path)
     
-    if not Path(output_path).exists():
-        raise RuntimeError("Edge-TTS failed to produce the audio file.")
+    # Try Edge-TTS with 60s timeout to prevent infinite hang on blocked VPS IPs
+    try:
+        await asyncio.wait_for(_run_edge_tts(), timeout=60)
+        if Path(output_path).exists() and Path(output_path).stat().st_size > 0:
+            return
+        raise RuntimeError("Edge-TTS produced empty file")
+    except (asyncio.TimeoutError, Exception) as e:
+        print(f"[Step B WARNING] Edge-TTS failed/timed out ({voice}): {e}")
+        # Clean up partial/empty files
+        for p in [output_path, srt_path]:
+            if p and Path(p).exists():
+                try:
+                    Path(p).unlink()
+                except Exception:
+                    pass
+
+    # Fallback 1: Piper-TTS (100% local, no internet needed)
+    try:
+        print(f"[Step B FALLBACK 1] Trying Piper-TTS (local/offline)...")
+        from core.tts_local import generate_piper
+        await generate_piper(text, output_path, FFMPEG_PATH)
+        if Path(output_path).exists() and Path(output_path).stat().st_size > 0:
+            print(f"[Step B FALLBACK 1] Piper-TTS completed successfully.")
+            return
+    except Exception as e2:
+        print(f"[Step B FALLBACK 1 FAILED] Piper-TTS failed: {e2}")
+        if Path(output_path).exists():
+            try:
+                Path(output_path).unlink()
+            except Exception:
+                pass
+
+    # Fallback 2: gTTS (Google Translate — very reliable on VPS)
+    try:
+        print(f"[Step B FALLBACK 2] Trying gTTS (Google Translate)...")
+        from core.tts_local import generate_gtts
+        await generate_gtts(text, output_path)
+        if Path(output_path).exists() and Path(output_path).stat().st_size > 0:
+            print(f"[Step B FALLBACK 2] gTTS completed successfully.")
+            return
+    except Exception as e3:
+        print(f"[Step B FALLBACK 2 FAILED] gTTS failed: {e3}")
+
+    raise RuntimeError("Semua mesin TTS gagal (Edge-TTS, Piper, gTTS). Periksa koneksi server.")
+
 
 def get_audio_duration(audio_path: str) -> float:
     """Get exact audio duration in seconds using ffprobe."""

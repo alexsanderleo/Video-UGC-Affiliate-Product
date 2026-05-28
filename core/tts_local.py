@@ -173,12 +173,31 @@ async def generate_supertonic(text: str, output_path: str, voice: str):
         
     except Exception as e:
         print(f"[TTS Local ERROR] Supertonic 3 failed: {e}")
-        print(f"[TTS Local WARNING] Falling back to Edge-TTS ({fallback_voice}) to prevent hanging...")
+        print(f"[TTS Local WARNING] Falling back with timeout protection...")
         
-        # Fallback to Edge-TTS online (extremely reliable and high quality)
-        import edge_tts
-        communicate = edge_tts.Communicate(text, fallback_voice)
-        await communicate.save(output_path)
-        print(f"[TTS Local FALLBACK] Edge-TTS synthesis completed successfully.")
+        # Fallback 1: Try Edge-TTS with strict 30s timeout (prevents infinite hang on blocked VPS IPs)
+        try:
+            import edge_tts
+            print(f"[TTS Local FALLBACK 1] Trying Edge-TTS ({fallback_voice}) with 30s timeout...")
+            communicate = edge_tts.Communicate(text, fallback_voice)
+            await asyncio.wait_for(communicate.save(output_path), timeout=30)
+            print(f"[TTS Local FALLBACK 1] Edge-TTS synthesis completed successfully.")
+            return
+        except (asyncio.TimeoutError, Exception) as e2:
+            print(f"[TTS Local FALLBACK 1 FAILED] Edge-TTS failed/timed out: {e2}")
+            # Clean up partial file
+            if Path(output_path).exists():
+                Path(output_path).unlink()
+        
+        # Fallback 2: gTTS (Google Translate — very reliable, never blocks VPS IPs)
+        try:
+            print(f"[TTS Local FALLBACK 2] Using gTTS (Google Translate)...")
+            await generate_gtts(text, output_path)
+            print(f"[TTS Local FALLBACK 2] gTTS synthesis completed successfully.")
+            return
+        except Exception as e3:
+            print(f"[TTS Local FALLBACK 2 FAILED] gTTS failed: {e3}")
+        
+        raise RuntimeError(f"Semua mesin TTS gagal. Supertonic: {e}")
 
 

@@ -412,19 +412,67 @@ def step_b_tts(
             communicate = edge_tts.Communicate(text, voice)
             await communicate.save(output_path)
 
-    # Run async in a new event loop
+    # Run Edge-TTS with 60s timeout to prevent infinite hang on blocked VPS IPs
+    edge_tts_success = False
     loop = asyncio.new_event_loop()
     asyncio.set_event_loop(loop)
     try:
-        loop.run_until_complete(_generate())
+        loop.run_until_complete(asyncio.wait_for(_generate(), timeout=60))
+        if Path(output_path).exists() and Path(output_path).stat().st_size > 0:
+            edge_tts_success = True
+    except (asyncio.TimeoutError, Exception) as e:
+        print(f"[Step B WARNING] Edge-TTS failed/timed out ({voice}): {e}")
+        # Clean up partial/empty files
+        for p in [output_path, srt_path]:
+            if p and Path(p).exists():
+                try:
+                    Path(p).unlink()
+                except Exception:
+                    pass
     finally:
         loop.close()
 
-    if not Path(output_path).exists():
-        raise RuntimeError("Edge-TTS gagal menghasilkan file audio")
-    
-    audio_size = Path(output_path).stat().st_size
-    print(f"[Step B] TTS audio saved: {output_path} ({audio_size / 1024:.0f} KB)")
+    if edge_tts_success:
+        audio_size = Path(output_path).stat().st_size
+        print(f"[Step B] TTS audio saved: {output_path} ({audio_size / 1024:.0f} KB)")
+        return
+
+    # Fallback 1: Piper-TTS (100% local, no internet needed)
+    try:
+        print(f"[Step B FALLBACK 1] Trying Piper-TTS (local/offline)...")
+        from core.tts_local import generate_piper
+        loop2 = asyncio.new_event_loop()
+        try:
+            loop2.run_until_complete(generate_piper(text, output_path, FFMPEG_PATH))
+        finally:
+            loop2.close()
+        if Path(output_path).exists() and Path(output_path).stat().st_size > 0:
+            print(f"[Step B FALLBACK 1] Piper-TTS completed successfully.")
+            return
+    except Exception as e2:
+        print(f"[Step B FALLBACK 1 FAILED] Piper-TTS failed: {e2}")
+        if Path(output_path).exists():
+            try:
+                Path(output_path).unlink()
+            except Exception:
+                pass
+
+    # Fallback 2: gTTS (Google Translate — very reliable on VPS)
+    try:
+        print(f"[Step B FALLBACK 2] Trying gTTS (Google Translate)...")
+        from core.tts_local import generate_gtts
+        loop3 = asyncio.new_event_loop()
+        try:
+            loop3.run_until_complete(generate_gtts(text, output_path))
+        finally:
+            loop3.close()
+        if Path(output_path).exists() and Path(output_path).stat().st_size > 0:
+            print(f"[Step B FALLBACK 2] gTTS completed successfully.")
+            return
+    except Exception as e3:
+        print(f"[Step B FALLBACK 2 FAILED] gTTS failed: {e3}")
+
+    raise RuntimeError("Semua mesin TTS gagal (Edge-TTS, Piper, gTTS). Periksa koneksi server.")
 
 
 # ============================================================
