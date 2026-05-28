@@ -1902,7 +1902,8 @@
     function updateBulkStats() {
         const total = bulkQueue.length;
         const queue = bulkQueue.filter(j => j.status === 'pending').length;
-        const active = bulkQueue.filter(j => j.status === 'processing').length;
+        const active = bulkQueue.filter(j => j.status === 'analyzing' || j.status === 'rendering').length;
+        const analyzed = bulkQueue.filter(j => j.status === 'analyzed').length;
         const done = bulkQueue.filter(j => j.status === 'success').length;
         const error = bulkQueue.filter(j => j.status === 'error').length;
 
@@ -1912,8 +1913,17 @@
         bulkStatDone.textContent = done;
         bulkStatError.textContent = error;
 
-        // Start button state
-        btnBulkStart.disabled = total === 0 || active > 0 || queue === 0;
+        // Start button state and label
+        if (queue > 0) {
+            btnBulkStart.innerHTML = '🔍 Mulai Analisis AI Massal';
+            btnBulkStart.disabled = active > 0;
+        } else if (analyzed > 0) {
+            btnBulkStart.innerHTML = '⚡ Mulai Render Video Massal';
+            btnBulkStart.disabled = active > 0;
+        } else {
+            btnBulkStart.innerHTML = '⚡ Mulai Generate Massal';
+            btnBulkStart.disabled = true;
+        }
 
         // Download all successful button state
         const btnBulkDownloadAll = document.getElementById('btnBulkDownloadAll');
@@ -1950,7 +1960,6 @@
             if (job.selectedBacksoundFile === undefined) job.selectedBacksoundFile = null;
 
             let outputHtml = '';
-            let settingsHtml = '';
 
             if (job.status === 'success') {
                 outputHtml = `
@@ -2040,8 +2049,121 @@
                     <button class="queue-card-remove" data-id="${job.id}">&times;</button>
                     ${outputHtml}
                 `;
+            } else if (job.status === 'analyzed') {
+                const leftHtml = `
+                    <div style="flex: 1.2; min-width: 280px; display: flex; flex-direction: column; gap: 6px;">
+                        <div class="queue-card-header" style="margin-bottom: 2px; display: flex; align-items: center; justify-content: space-between; width: 100%;">
+                            <span class="queue-card-title" title="${job.file.name}" style="font-size: 0.88rem; font-weight: 700; max-width: 75%; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;">🎬 ${job.file.name}</span>
+                            <span class="queue-card-size" style="font-size: 0.72rem; color: var(--text-secondary); background: rgba(255, 255, 255, 0.05); padding: 2px 6px; border-radius: 4px;">${formatSize(job.file.size)}</span>
+                        </div>
+                        <div style="margin-bottom: 4px;">
+                            <label class="input-label" style="font-size: 0.65rem; margin-bottom: 1px;">Judul Video</label>
+                            <input type="text" class="text-input job-title-input" data-id="${job.id}" value="${job.title || ''}" style="padding: 4px 8px; font-size: 0.75rem;">
+                        </div>
+                        <div style="margin-bottom: 4px;">
+                            <label class="input-label" style="font-size: 0.65rem; margin-bottom: 1px;">Narasi / Script (Bisa Edit)</label>
+                            <textarea class="caption-textarea job-narration-input" data-id="${job.id}" style="min-height: 80px; padding: 6px; font-size: 0.75rem; line-height: 1.3; margin-bottom: 4px; width: 100%; border-radius: 4px; background: rgba(0,0,0,0.2); border: 1px solid var(--border-subtle); color: var(--text-primary); resize: vertical;">${job.narration || ''}</textarea>
+                        </div>
+                        <div style="margin-bottom: 4px;">
+                            <label class="input-label" style="font-size: 0.65rem; margin-bottom: 1px;">Hashtags</label>
+                            <input type="text" class="text-input job-hashtags-input" data-id="${job.id}" value="${job.hashtags || ''}" style="padding: 4px 8px; font-size: 0.75rem;">
+                        </div>
+                    </div>
+                `;
+
+                let thumbnailPickerHtml = '';
+                if (job.selectedThumbnailFile) {
+                    thumbnailPickerHtml = `
+                        <div style="position: relative; display: inline-flex; align-items: center; gap: 8px;">
+                            <img src="${job.selectedThumbnailUrl}" style="height: 44px; width: 44px; object-fit: cover; border-radius: var(--radius-sm); border: 1px solid var(--border-subtle);">
+                            <button type="button" class="btn-remove-job-thumbnail" data-id="${job.id}" style="position: absolute; top: -6px; right: -6px; width: 18px; height: 18px; border-radius: 50%; background: #EF4444; color: white; border: none; font-size: 11px; cursor: pointer; display: flex; align-items: center; justify-content: center; line-height: 1;">&times;</button>
+                        </div>
+                    `;
+                } else {
+                    thumbnailPickerHtml = `
+                        <button type="button" class="btn-select-job-thumbnail" data-id="${job.id}" style="padding: 6px 10px; background: rgba(255,255,255,0.05); border: 1px solid var(--border-subtle); border-radius: var(--radius-sm); color: var(--text-primary); font-size: 0.75rem; font-weight: 600; cursor: pointer; display: flex; align-items: center; gap: 4px;">
+                            🖼️ Cover Video
+                        </button>
+                        <input type="file" class="input-job-thumb" id="input_thumb_${job.id}" data-id="${job.id}" accept=".png,.jpg,.jpeg" style="display: none;">
+                    `;
+                }
+
+                const isCustom = job.backsoundMode === 'custom';
+                const isNone = job.backsoundMode === 'none';
+                
+                let customAudioPickerHtml = '';
+                if (isCustom) {
+                    if (job.selectedBacksoundFile) {
+                        customAudioPickerHtml = `
+                            <div style="position: relative; display: inline-flex; align-items: center; gap: 6px; background: rgba(255,255,255,0.03); border: 1px solid var(--border-subtle); padding: 4px 8px; border-radius: 4px; max-width: 140px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-size: 0.72rem; color: var(--text-primary);">
+                                🎵 ${job.selectedBacksoundFile.name}
+                                <button type="button" class="btn-remove-job-audio" data-id="${job.id}" style="margin-left: 4px; width: 14px; height: 14px; border-radius: 50%; background: #EF4444; color: white; border: none; font-size: 9px; cursor: pointer; display: flex; align-items: center; justify-content: center; line-height: 1;">&times;</button>
+                            </div>
+                        `;
+                    } else {
+                        customAudioPickerHtml = `
+                            <button type="button" class="btn-select-job-audio" data-id="${job.id}" style="padding: 4px 8px; background: rgba(255,255,255,0.05); border: 1px dashed var(--border-subtle); border-radius: var(--radius-sm); color: var(--text-secondary); font-size: 0.72rem; cursor: pointer;">
+                                📤 Upload
+                            </button>
+                            <input type="file" class="input-job-audio" id="input_audio_${job.id}" data-id="${job.id}" accept=".mp3,.wav" style="display: none;">
+                        `;
+                    }
+                }
+
+                const volumeHtml = !isNone ? `
+                    <div style="display: flex; align-items: center; gap: 8px; margin-top: 4px; width: 100%;">
+                        <span style="font-size: 0.7rem; color: var(--text-secondary); flex-shrink: 0;">Vol:</span>
+                        <input type="range" class="job-backsound-volume" data-id="${job.id}" min="0.0" max="0.5" step="0.01" value="${job.backsoundVolume}" style="flex: 1; height: 4px; accent-color: var(--text-accent); cursor: pointer;">
+                        <span class="job-backsound-volume-val" style="font-size: 0.72rem; font-weight: 600; color: var(--text-accent); flex-shrink: 0; min-width: 24px;">${Math.round(job.backsoundVolume * 100)}%</span>
+                    </div>
+                ` : '';
+
+                const settingsHtml = `
+                    <div class="job-settings-panel" style="flex: 1; min-width: 250px; display: flex; flex-direction: column; gap: 6px; padding-left: 16px; border-left: 1px solid rgba(255,255,255,0.06);">
+                        <!-- Thumbnail Selection -->
+                        <div style="display: flex; align-items: center; justify-content: space-between; gap: 8px;">
+                            <span style="font-size: 0.75rem; font-weight: 600; color: var(--text-secondary);">🖼️ Cover/Thumbnail:</span>
+                            <div style="display: flex; align-items: center;">
+                                ${thumbnailPickerHtml}
+                            </div>
+                        </div>
+
+                        <!-- Backsound Selection -->
+                        <div style="display: flex; flex-direction: column; gap: 4px; margin-top: 4px; border-top: 1px dashed rgba(255,255,255,0.04); padding-top: 4px;">
+                            <div style="display: flex; align-items: center; justify-content: space-between; gap: 8px;">
+                                <span style="font-size: 0.75rem; font-weight: 600; color: var(--text-secondary);">🎵 Backsound:</span>
+                                <div style="display: flex; align-items: center; gap: 4px;">
+                                    <div class="select-wrapper" style="margin-bottom: 0;">
+                                        <select class="job-backsound-select" data-id="${job.id}" style="padding: 2px 16px 2px 4px; font-size: 0.7rem; border-radius: 4px; background: var(--bg-input); border: 1px solid var(--border-subtle); color: var(--text-primary); cursor: pointer;">
+                                            <option value="backsound1" ${job.backsoundMode === 'backsound1' ? 'selected' : ''}>Bawaan 1</option>
+                                            <option value="backsound2" ${job.backsoundMode === 'backsound2' ? 'selected' : ''}>Bawaan 2</option>
+                                            <option value="backsound3" ${job.backsoundMode === 'backsound3' ? 'selected' : ''}>Bawaan 3</option>
+                                            <option value="custom" ${job.backsoundMode === 'custom' ? 'selected' : ''}>Kustom</option>
+                                            <option value="none" ${job.backsoundMode === 'none' ? 'selected' : ''}>Mute</option>
+                                        </select>
+                                    </div>
+                                    ${customAudioPickerHtml}
+                                </div>
+                            </div>
+                            ${volumeHtml}
+                        </div>
+                        
+                        <!-- Individual Render Trigger -->
+                        <button type="button" class="btn-render-individual" data-id="${job.id}" style="margin-top: 10px; width: 100%; padding: 6px; font-size: 0.78rem; font-weight: 600; border-radius: var(--radius-sm); background: var(--gradient-success); color: white; border: none; cursor: pointer;">
+                            ⚡ Render Video Ini
+                        </button>
+                    </div>
+                `;
+
+                card.innerHTML = `
+                    <button class="queue-card-remove" data-id="${job.id}">&times;</button>
+                    <div style="display: flex; flex-direction: row; flex-wrap: wrap; gap: 16px; width: 100%;">
+                        ${leftHtml}
+                        ${settingsHtml}
+                    </div>
+                `;
             } else {
-                // job.status === 'pending' or 'processing'
+                // job.status === 'pending', 'analyzing', or 'rendering'
                 const leftHtml = `
                     <div style="flex: 1; min-width: 200px; display: flex; flex-direction: column; gap: 6px;">
                         <div class="queue-card-header" style="margin-bottom: 2px; display: flex; align-items: center; justify-content: space-between; width: 100%;">
@@ -2049,7 +2171,7 @@
                             <span class="queue-card-size" style="font-size: 0.72rem; color: var(--text-secondary); background: rgba(255, 255, 255, 0.05); padding: 2px 6px; border-radius: 4px;">${formatSize(job.file.size)}</span>
                         </div>
                         <div style="display: flex; align-items: center; justify-content: space-between;">
-                            <span class="queue-card-status-badge ${job.status}">${job.status === 'pending' ? 'Antrean' : 'Proses'}</span>
+                            <span class="queue-card-status-badge ${job.status}">${job.status === 'pending' ? 'Antrean' : (job.status === 'analyzing' ? 'Analisis' : 'Render')}</span>
                         </div>
                         <div class="queue-card-progress" style="margin: 4px 0;">
                             <div class="queue-card-progress-bar-container">
@@ -2060,92 +2182,11 @@
                     </div>
                 `;
 
-                if (job.status === 'pending') {
-                    let thumbnailPickerHtml = '';
-                    if (job.selectedThumbnailFile) {
-                        thumbnailPickerHtml = `
-                            <div style="position: relative; display: inline-flex; align-items: center; gap: 8px;">
-                                <img src="${job.selectedThumbnailUrl}" style="height: 44px; width: 44px; object-fit: cover; border-radius: var(--radius-sm); border: 1px solid var(--border-subtle);">
-                                <button type="button" class="btn-remove-job-thumbnail" data-id="${job.id}" style="position: absolute; top: -6px; right: -6px; width: 18px; height: 18px; border-radius: 50%; background: #EF4444; color: white; border: none; font-size: 11px; cursor: pointer; display: flex; align-items: center; justify-content: center; line-height: 1;">&times;</button>
-                            </div>
-                        `;
-                    } else {
-                        thumbnailPickerHtml = `
-                            <button type="button" class="btn-select-job-thumbnail" data-id="${job.id}" style="padding: 6px 10px; background: rgba(255,255,255,0.05); border: 1px solid var(--border-subtle); border-radius: var(--radius-sm); color: var(--text-primary); font-size: 0.75rem; font-weight: 600; cursor: pointer; display: flex; align-items: center; gap: 4px;">
-                                🖼️ Cover Video
-                            </button>
-                            <input type="file" class="input-job-thumb" id="input_thumb_${job.id}" data-id="${job.id}" accept=".png,.jpg,.jpeg" style="display: none;">
-                        `;
-                    }
-
-                    const isCustom = job.backsoundMode === 'custom';
-                    const isNone = job.backsoundMode === 'none';
-                    
-                    let customAudioPickerHtml = '';
-                    if (isCustom) {
-                        if (job.selectedBacksoundFile) {
-                            customAudioPickerHtml = `
-                                <div style="position: relative; display: inline-flex; align-items: center; gap: 6px; background: rgba(255,255,255,0.03); border: 1px solid var(--border-subtle); padding: 4px 8px; border-radius: 4px; max-width: 140px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-size: 0.72rem; color: var(--text-primary);">
-                                    🎵 ${job.selectedBacksoundFile.name}
-                                    <button type="button" class="btn-remove-job-audio" data-id="${job.id}" style="margin-left: 4px; width: 14px; height: 14px; border-radius: 50%; background: #EF4444; color: white; border: none; font-size: 9px; cursor: pointer; display: flex; align-items: center; justify-content: center; line-height: 1;">&times;</button>
-                                </div>
-                            `;
-                        } else {
-                            customAudioPickerHtml = `
-                                <button type="button" class="btn-select-job-audio" data-id="${job.id}" style="padding: 4px 8px; background: rgba(255,255,255,0.05); border: 1px dashed var(--border-subtle); border-radius: var(--radius-sm); color: var(--text-secondary); font-size: 0.72rem; cursor: pointer;">
-                                    📤 Upload
-                                </button>
-                                <input type="file" class="input-job-audio" id="input_audio_${job.id}" data-id="${job.id}" accept=".mp3,.wav" style="display: none;">
-                            `;
-                        }
-                    }
-
-                    const volumeHtml = !isNone ? `
-                        <div style="display: flex; align-items: center; gap: 8px; margin-top: 4px; width: 100%;">
-                            <span style="font-size: 0.7rem; color: var(--text-secondary); flex-shrink: 0;">Vol:</span>
-                            <input type="range" class="job-backsound-volume" data-id="${job.id}" min="0.0" max="0.5" step="0.01" value="${job.backsoundVolume}" style="flex: 1; height: 4px; accent-color: var(--text-accent); cursor: pointer;">
-                            <span class="job-backsound-volume-val" style="font-size: 0.72rem; font-weight: 600; color: var(--text-accent); flex-shrink: 0; min-width: 24px;">${Math.round(job.backsoundVolume * 100)}%</span>
-                        </div>
-                    ` : '';
-
-                    settingsHtml = `
-                        <div class="job-settings-panel" style="flex: 1.2; min-width: 250px; display: flex; flex-direction: column; gap: 6px; padding-left: 16px; border-left: 1px solid rgba(255,255,255,0.06);">
-                            <!-- Thumbnail Selection -->
-                            <div style="display: flex; align-items: center; justify-content: space-between; gap: 8px;">
-                                <span style="font-size: 0.75rem; font-weight: 600; color: var(--text-secondary);">🖼️ Cover/Thumbnail:</span>
-                                <div style="display: flex; align-items: center;">
-                                    ${thumbnailPickerHtml}
-                                </div>
-                            </div>
-
-                            <!-- Backsound Selection -->
-                            <div style="display: flex; flex-direction: column; gap: 4px; margin-top: 4px; border-top: 1px dashed rgba(255,255,255,0.04); padding-top: 4px;">
-                                <div style="display: flex; align-items: center; justify-content: space-between; gap: 8px;">
-                                    <span style="font-size: 0.75rem; font-weight: 600; color: var(--text-secondary);">🎵 Backsound:</span>
-                                    <div style="display: flex; align-items: center; gap: 4px;">
-                                        <div class="select-wrapper" style="margin-bottom: 0;">
-                                            <select class="job-backsound-select" data-id="${job.id}" style="padding: 2px 16px 2px 4px; font-size: 0.7rem; border-radius: 4px; background: var(--bg-input); border: 1px solid var(--border-subtle); color: var(--text-primary); cursor: pointer;">
-                                                <option value="backsound1" ${job.backsoundMode === 'backsound1' ? 'selected' : ''}>Bawaan 1</option>
-                                                <option value="backsound2" ${job.backsoundMode === 'backsound2' ? 'selected' : ''}>Bawaan 2</option>
-                                                <option value="backsound3" ${job.backsoundMode === 'backsound3' ? 'selected' : ''}>Bawaan 3</option>
-                                                <option value="custom" ${job.backsoundMode === 'custom' ? 'selected' : ''}>Kustom</option>
-                                                <option value="none" ${job.backsoundMode === 'none' ? 'selected' : ''}>Mute</option>
-                                            </select>
-                                        </div>
-                                        ${customAudioPickerHtml}
-                                    </div>
-                                </div>
-                                ${volumeHtml}
-                            </div>
-                        </div>
-                    `;
-                } else {
-                    settingsHtml = `
-                        <div style="flex: 1.2; display: flex; align-items: center; justify-content: center; color: var(--text-secondary); font-size: 0.78rem; padding-left: 16px; border-left: 1px solid rgba(255,255,255,0.06);">
-                            ⏳ Sedang diproses...
-                        </div>
-                    `;
-                }
+                const settingsHtml = `
+                    <div style="flex: 1.2; display: flex; align-items: center; justify-content: center; color: var(--text-secondary); font-size: 0.78rem; padding-left: 16px; border-left: 1px solid rgba(255,255,255,0.06);">
+                        ${job.status === 'pending' ? '⏳ Menunggu Analisis AI...' : '⏳ Sedang diproses...'}
+                    </div>
+                `;
 
                 card.innerHTML = `
                     <button class="queue-card-remove" data-id="${job.id}">&times;</button>
@@ -2167,8 +2208,27 @@
                 btnRetry.addEventListener('click', () => retryJob(job.id));
             }
 
-            // Attach dynamic settings events
-            if (job.status === 'pending') {
+            // Attach dynamic settings events if analyzed
+            if (job.status === 'analyzed') {
+                const titleInput = card.querySelector('.job-title-input');
+                if (titleInput) {
+                    titleInput.addEventListener('input', (e) => {
+                        job.title = e.target.value;
+                    });
+                }
+                const narrationInput = card.querySelector('.job-narration-input');
+                if (narrationInput) {
+                    narrationInput.addEventListener('input', (e) => {
+                        job.narration = e.target.value;
+                    });
+                }
+                const hashtagsInput = card.querySelector('.job-hashtags-input');
+                if (hashtagsInput) {
+                    hashtagsInput.addEventListener('input', (e) => {
+                        job.hashtags = e.target.value;
+                    });
+                }
+
                 // Thumbnail Picker triggers
                 const btnSelectThumb = card.querySelector('.btn-select-job-thumbnail');
                 const fileInputThumb = card.querySelector('.input-job-thumb');
@@ -2251,6 +2311,14 @@
                         const val = parseFloat(e.target.value);
                         job.backsoundVolume = val;
                         labelVolume.textContent = Math.round(val * 100) + '%';
+                    });
+                }
+
+                // Individual Render trigger
+                const btnRenderIndiv = card.querySelector('.btn-render-individual');
+                if (btnRenderIndiv) {
+                    btnRenderIndiv.addEventListener('click', () => {
+                        renderBulkJob(job);
                     });
                 }
             }
@@ -2345,7 +2413,7 @@
         const index = bulkQueue.findIndex(j => j.id === id);
         if (index !== -1) {
             const job = bulkQueue[index];
-            if (job.status === 'processing') {
+            if (job.status === 'analyzing' || job.status === 'rendering') {
                 if (confirm('Apakah Anda yakin ingin membatalkan dan menghapus proses video ini?')) {
                     if (job.backendJobId) {
                         await cancelJob(job.backendJobId);
@@ -2356,7 +2424,11 @@
                     bulkQueue.splice(index, 1);
                     updateBulkStats();
                     renderBulkQueue();
-                    processBulkQueue(); // Pull next item
+                    if (job.status === 'analyzing') {
+                        processBulkAnalyzeQueue();
+                    } else {
+                        processBulkRenderQueue();
+                    }
                 }
                 return;
             }
@@ -2366,9 +2438,9 @@
         }
     }
 
-    // Scheduler: concurrent worker execution
-    async function processBulkQueue() {
-        const activeJobs = bulkQueue.filter(j => j.status === 'processing');
+    // Scheduler for Analyze phase
+    async function processBulkAnalyzeQueue() {
+        const activeJobs = bulkQueue.filter(j => j.status === 'analyzing');
         const pendingJobs = bulkQueue.filter(j => j.status === 'pending');
 
         if (activeJobs.length >= MAX_CONCURRENT || pendingJobs.length === 0) {
@@ -2376,29 +2448,46 @@
             return;
         }
 
-        // Trigger up to MAX_CONCURRENT jobs concurrently
         const vacantSlots = MAX_CONCURRENT - activeJobs.length;
         const jobsToStart = pendingJobs.slice(0, vacantSlots);
 
         jobsToStart.forEach(job => {
-            startBulkJob(job);
+            analyzeBulkJob(job);
         });
 
         updateBulkStats();
     }
 
-    // Start single job pipeline
-    async function startBulkJob(job) {
-        // Force Login Check per job execution (just in case they logged out mid-run)
+    // Scheduler for Render phase
+    async function processBulkRenderQueue() {
+        const activeJobs = bulkQueue.filter(j => j.status === 'rendering');
+        const analyzedJobs = bulkQueue.filter(j => j.status === 'analyzed');
+
+        if (activeJobs.length >= MAX_CONCURRENT || analyzedJobs.length === 0) {
+            updateBulkStats();
+            return;
+        }
+
+        const vacantSlots = MAX_CONCURRENT - activeJobs.length;
+        const jobsToStart = analyzedJobs.slice(0, vacantSlots);
+
+        jobsToStart.forEach(job => {
+            renderBulkJob(job);
+        });
+
+        updateBulkStats();
+    }
+
+    // Phase 1 execution: Qwen Video Understanding
+    async function analyzeBulkJob(job) {
         const token = localStorage.getItem('token');
         if (!token) {
             authOverlay.style.display = 'flex';
             loginForm.style.display = 'block';
             registerForm.style.display = 'none';
             authTitle.textContent = 'Login dahulu';
-            showToast('⚠️ Silakan login terlebih dahulu untuk melakukan generate massal!');
+            showToast('⚠️ Silakan login terlebih dahulu untuk melakukan analisis!');
 
-            // Revert job back to pending
             job.status = 'pending';
             job.progress = 0;
             job.statusText = 'Menunggu Antrean...';
@@ -2407,17 +2496,80 @@
             return;
         }
 
-        job.status = 'processing';
-        job.progress = 5;
-        job.statusText = 'Menghubungkan ke server...';
+        job.status = 'analyzing';
+        job.progress = 10;
+        job.statusText = 'Menganalisis video dengan AI...';
         updateBulkStats();
         renderBulkQueue();
 
         const formData = new FormData();
         formData.append('video', job.file);
+
+        try {
+            const headers = { 'Authorization': `Bearer ${token}` };
+            const response = await fetch('/api/generate/analyze', {
+                method: 'POST',
+                body: formData,
+                headers: headers
+            });
+
+            if (!response.ok) {
+                const errData = await response.json().catch(() => ({}));
+                const errMsg = errData.detail || errData.error || `HTTP ${response.status}`;
+                if (response.status === 401) {
+                    localStorage.removeItem('token');
+                    showToast('⚠️ Sesi Anda telah berakhir. Silakan login ulang!');
+                }
+                throw new Error(errMsg);
+            }
+
+            const result = await response.json();
+
+            // Set state to analyzed
+            job.status = 'analyzed';
+            job.progress = 100;
+            job.statusText = '✓ AI Selesai Menganalisis';
+            job.backendJobId = result.job_id;
+            job.video_filename = result.video_filename;
+            job.title = result.title || '';
+            job.narration = result.narration || '';
+            job.hashtags = result.hashtags || '';
+
+        } catch (err) {
+            console.error('Analyze job error:', err);
+            job.status = 'error';
+            job.progress = 0;
+            job.statusText = '❌ Gagal Analisis: ' + err.message;
+        } finally {
+            updateBulkStats();
+            renderBulkQueue();
+            processBulkAnalyzeQueue(); // Trigger next analyze
+        }
+    }
+
+    // Phase 2 execution: Render Audio (TTS) & blended video
+    async function renderBulkJob(job) {
+        const token = localStorage.getItem('token');
+        if (!token) {
+            showToast('⚠️ Silakan login kembali untuk melanjutkan rendering.');
+            return;
+        }
+
+        job.status = 'rendering';
+        job.progress = 5;
+        job.statusText = 'Mulai render...';
+        updateBulkStats();
+        renderBulkQueue();
+
+        const formData = new FormData();
+        formData.append('job_id', job.backendJobId);
+        formData.append('video_filename', job.video_filename);
+        formData.append('title', job.title || '');
+        formData.append('narration', job.narration || '');
+        formData.append('hashtags', job.hashtags || '');
+
         formData.append('voice', bulkVoiceSelect.value);
         formData.append('watermark_mode', bulkWatermarkMode.value);
-
         if (bulkWatermarkMode.value === 'text') {
             formData.append('watermark_text', bulkWatermarkText.value.trim());
             formData.append('watermark_position', bulkWatermarkPosition.value);
@@ -2425,13 +2577,13 @@
             formData.append('watermark_logo', selectedBulkLogoFile);
         }
 
-        // Subtitle customization settings for bulk video generation
+        // Subtitle customization
         const bulkSubFont = document.getElementById('bulkSubFont')?.value || 'Impact';
         const bulkSubSize = document.getElementById('bulkSubSize')?.value || 45;
         const bulkSubColor = document.getElementById('bulkSubColor')?.value || '#F5CC00';
         const bulkSubSecColor = document.getElementById('bulkSubSecColor')?.value || '#FFFFFF';
         const bulkSubOpacity = document.getElementById('bulkSubOpacity')?.value || 1.0;
-        const wmOpacity = document.getElementById('wmOpacity')?.value || 0.65; // fallback to single or default
+        const wmOpacity = document.getElementById('wmOpacity')?.value || 0.65;
 
         formData.append('sub_font', bulkSubFont);
         formData.append('sub_size', bulkSubSize);
@@ -2443,7 +2595,7 @@
         const bulkUseSubtitle = document.getElementById('bulkSubUse')?.value || 'true';
         formData.append('use_subtitle', bulkUseSubtitle);
 
-        // Thumbnail & Backsound settings for bulk video generation (per-video settings)
+        // Thumbnail & Backsound settings
         if (job.selectedThumbnailFile) {
             formData.append('thumbnail', job.selectedThumbnailFile);
         }
@@ -2457,13 +2609,8 @@
         }
 
         try {
-            // Register a task ID
-            const taskId = Date.now().toString() + '_' + Math.random().toString(36).substr(2, 5);
-            formData.append('task_id', taskId);
-
             const headers = { 'Authorization': `Bearer ${token}` };
-
-            const response = await fetch('/api/generate', {
+            const response = await fetch('/api/generate/render', {
                 method: 'POST',
                 body: formData,
                 headers: headers
@@ -2472,20 +2619,6 @@
             if (!response.ok) {
                 const errData = await response.json().catch(() => ({}));
                 const errMsg = errData.detail || errData.error || `HTTP ${response.status}`;
-                if (response.status === 401) {
-                    localStorage.removeItem('token');
-                    showToast('⚠️ Sesi Anda telah berakhir. Silakan login ulang!');
-                    const authOverlay = document.getElementById('authOverlay');
-                    const loginForm = document.getElementById('loginForm');
-                    const registerForm = document.getElementById('registerForm');
-                    const authTitle = document.getElementById('authTitle');
-                    if (authOverlay && loginForm) {
-                        authOverlay.style.display = 'flex';
-                        loginForm.style.display = 'block';
-                        if (registerForm) registerForm.style.display = 'none';
-                        if (authTitle) authTitle.textContent = 'Login Ulang';
-                    }
-                }
                 throw new Error(errMsg);
             }
 
@@ -2494,11 +2627,6 @@
             const decoder = new TextDecoder();
             let buffer = '';
             let finalResult = null;
-
-            job.progress = 10;
-            job.statusText = 'Menganalisis video dengan AI...';
-            updateBulkStats();
-            renderBulkQueue();
 
             while (true) {
                 const { done, value } = await reader.read();
@@ -2553,16 +2681,15 @@
             }
 
         } catch (err) {
-            console.error('Job error:', err);
+            console.error('Render job error:', err);
             job.status = 'error';
             job.progress = 0;
-            job.statusText = '❌ Gagal: ' + err.message;
+            job.statusText = '❌ Gagal Render: ' + err.message;
         } finally {
             job.reader = null;
             updateBulkStats();
             renderBulkQueue();
-            // Pull the next pending job instantly
-            processBulkQueue();
+            processBulkRenderQueue(); // Trigger next render
         }
     }
 
@@ -2641,7 +2768,7 @@
             job.statusText = 'Menunggu Antrean...';
             updateBulkStats();
             renderBulkQueue();
-            processBulkQueue();
+            processBulkAnalyzeQueue();
         }
     }
 
@@ -2654,7 +2781,7 @@
                 loginForm.style.display = 'block';
                 registerForm.style.display = 'none';
                 authTitle.textContent = 'Login dahulu';
-                showToast('⚠️ Silakan login terlebih dahulu untuk memulai generate massal!');
+                showToast('⚠️ Silakan login terlebih dahulu!');
                 return;
             }
 
@@ -2663,8 +2790,18 @@
                 return;
             }
 
-            showToast('⚡ Memulai pemrosesan massal paralel...', false);
-            processBulkQueue();
+            const hasPending = bulkQueue.some(j => j.status === 'pending');
+            const hasAnalyzed = bulkQueue.some(j => j.status === 'analyzed');
+
+            if (hasPending) {
+                showToast('🔍 Memulai analisis video massal...', false);
+                processBulkAnalyzeQueue();
+            } else if (hasAnalyzed) {
+                showToast('⚡ Memulai rendering video massal...', false);
+                processBulkRenderQueue();
+            } else {
+                showToast('⚠️ Tidak ada video dalam antrean yang siap diproses.');
+            }
         });
     }
 
