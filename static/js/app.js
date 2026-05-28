@@ -2673,9 +2673,9 @@
                 job.outputUrl = finalResult.video_url;
                 job.filename = finalResult.friendly_filename || finalResult.filename;
                 job.caption = finalResult.caption;
-                job.title = finalResult.title || 'Video Affiliate UGC';
-                job.hashtags = finalResult.hashtags || '#produkviral #racunshopee';
-                job.narration = finalResult.narration || finalResult.caption || '';
+                job.title = finalResult.title || job.title || 'Video Affiliate UGC';
+                job.hashtags = finalResult.hashtags || job.hashtags || '#produkviral #racunshopee';
+                job.narration = finalResult.narration || job.narration || finalResult.caption || '';
             } else {
                 throw new Error('Proses selesai tanpa hasil output');
             }
