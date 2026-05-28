@@ -528,7 +528,23 @@ Format: Layer, Start, End, Style, Name, MarginL, MarginR, MarginV, Effect, Text
             start_str = format_ass_time(start_time)
             end_str = format_ass_time(end_time)
             
-            ass_content += f"Dialogue: 0,{start_str},{end_str},Default,,0,0,0,,{segment}\n"
+            # Dynamic karaoke timing approximation for local / non-EdgeTTS voices
+            words = segment.split()
+            if words:
+                seg_chars = sum(len(w) for w in words)
+                if seg_chars == 0:
+                    seg_chars = 1
+                seg_dur = end_time - start_time
+                dialogue_text = ""
+                for idx, w in enumerate(words):
+                    w_dur = seg_dur * (len(w) / seg_chars)
+                    w_dur_cs = max(1, int(round(w_dur * 100)))
+                    dialogue_text += f"{{\\kf{w_dur_cs}}}{w} "
+                dialogue_text = dialogue_text.strip()
+            else:
+                dialogue_text = segment
+                
+            ass_content += f"Dialogue: 0,{start_str},{end_str},Default,,0,0,0,,{dialogue_text}\n"
             current_time = end_time
             
         with open(output_srt_path, 'w', encoding='utf-8') as f:
