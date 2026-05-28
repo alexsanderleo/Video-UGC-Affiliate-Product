@@ -500,9 +500,11 @@
         // Collapse settings cards & caption card to keep workspace clean
         const watermarkCard = document.getElementById('watermarkSettingsCard');
         const subtitleCard = document.getElementById('subtitleSettingsCard');
+        const antiCopyrightCard = document.getElementById('antiCopyrightSettingsCard');
         const captionCard = document.getElementById('captionOutputCard');
         if (watermarkCard) watermarkCard.classList.add('collapsed');
         if (subtitleCard) subtitleCard.classList.add('collapsed');
+        if (antiCopyrightCard) antiCopyrightCard.classList.add('collapsed');
         if (captionCard) captionCard.classList.add('collapsed');
 
         // Reset output section to placeholder state during new analyze
@@ -629,9 +631,11 @@
         // Collapse settings cards & caption card to keep workspace clean
         const watermarkCard = document.getElementById('watermarkSettingsCard');
         const subtitleCard = document.getElementById('subtitleSettingsCard');
+        const antiCopyrightCard = document.getElementById('antiCopyrightSettingsCard');
         const captionCard = document.getElementById('captionOutputCard');
         if (watermarkCard) watermarkCard.classList.add('collapsed');
         if (subtitleCard) subtitleCard.classList.add('collapsed');
+        if (antiCopyrightCard) antiCopyrightCard.classList.add('collapsed');
         if (captionCard) captionCard.classList.add('collapsed');
         
         // UI states
@@ -683,6 +687,11 @@
 
         const singleUseSubtitle = document.getElementById('subUse')?.value || 'true';
         formData.append('use_subtitle', singleUseSubtitle);
+
+        const useSpeedRamping = document.getElementById('useSpeedRamping')?.value || 'true';
+        const useCameraShake = document.getElementById('useCameraShake')?.value || 'true';
+        formData.append('use_speed_ramping', useSpeedRamping);
+        formData.append('use_camera_shake', useCameraShake);
 
         const headers = {
             'Authorization': `Bearer ${token}`

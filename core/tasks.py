@@ -113,6 +113,8 @@ def render_video_task(
     sub_opacity: float = 1.0,
     wm_opacity: float = 0.65,
     use_subtitle: str = "true",
+    use_speed_ramping: str = "true",
+    use_camera_shake: str = "true",
 ):
     """Celery task to run the video generation pipeline in a background worker."""
     return asyncio.run(
@@ -120,7 +122,7 @@ def render_video_task(
             job_id, video_path, voice, watermark_mode,
             watermark_text, watermark_position, logo_path, user_id,
             sub_font, sub_size, sub_color, sub_sec_color, sub_opacity, wm_opacity,
-            use_subtitle
+            use_subtitle, use_speed_ramping, use_camera_shake
         )
     )
 
@@ -145,6 +147,8 @@ def render_video_from_script_task(
     sub_opacity: float = 1.0,
     wm_opacity: float = 0.65,
     use_subtitle: str = "true",
+    use_speed_ramping: str = "true",
+    use_camera_shake: str = "true",
 ):
     """Celery task to run the video generation pipeline with an already generated/edited narration script."""
     return asyncio.run(
@@ -152,7 +156,7 @@ def render_video_from_script_task(
             job_id, video_path, narration, title, hashtags, voice, watermark_mode,
             watermark_text, watermark_position, logo_path, user_id,
             sub_font, sub_size, sub_color, sub_sec_color, sub_opacity, wm_opacity,
-            use_subtitle
+            use_subtitle, use_speed_ramping, use_camera_shake
         )
     )
 
@@ -176,6 +180,8 @@ async def async_render_video_from_script(
     sub_opacity: float = 1.0,
     wm_opacity: float = 0.65,
     use_subtitle: str = "true",
+    use_speed_ramping: str = "true",
+    use_camera_shake: str = "true",
 ):
     """Async pipeline implementation called inside Celery worker using edited narration script."""
     from sqlalchemy.ext.asyncio import create_async_engine, async_sessionmaker, AsyncSession
@@ -282,6 +288,8 @@ async def async_render_video_from_script(
             sub_sec_color=sub_sec_color,
             sub_opacity=sub_opacity,
             wm_opacity=wm_opacity,
+            use_speed_ramping=use_speed_ramping,
+            use_camera_shake=use_camera_shake,
         )
 
         publish_progress(job_id, {'step': 'C_done', 'status': 'done'})
@@ -366,6 +374,8 @@ async def async_render_video(
     sub_opacity: float = 1.0,
     wm_opacity: float = 0.65,
     use_subtitle: str = "true",
+    use_speed_ramping: str = "true",
+    use_camera_shake: str = "true",
 ):
     """Async pipeline implementation called inside the Celery worker."""
     # Construct a local engine bound to the current task's event loop to prevent "attached to a different loop" errors
@@ -509,6 +519,8 @@ async def async_render_video(
             sub_sec_color=sub_sec_color,
             sub_opacity=sub_opacity,
             wm_opacity=wm_opacity,
+            use_speed_ramping=use_speed_ramping,
+            use_camera_shake=use_camera_shake,
         )
 
         publish_progress(job_id, {'step': 'C_done', 'status': 'done'})

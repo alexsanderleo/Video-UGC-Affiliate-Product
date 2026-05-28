@@ -134,6 +134,8 @@ async def render_video_endpoint(
     sub_opacity: float = Form(1.0),
     wm_opacity: float = Form(0.65),
     use_subtitle: str = Form("true"),
+    use_speed_ramping: str = Form("true"),
+    use_camera_shake: str = Form("true"),
     current_user: User = Depends(get_current_user),
     db: AsyncSession = Depends(get_db),
 ):
@@ -221,6 +223,8 @@ async def render_video_endpoint(
                 'sub_opacity': sub_opacity,
                 'wm_opacity': wm_opacity,
                 'use_subtitle': use_subtitle,
+                'use_speed_ramping': use_speed_ramping,
+                'use_camera_shake': use_camera_shake,
             },
             task_id=job_id
         )
@@ -331,6 +335,8 @@ async def generate_video(
     sub_opacity: float = Form(1.0),
     wm_opacity: float = Form(0.65),
     use_subtitle: str = Form("true"),
+    use_speed_ramping: str = Form("true"),
+    use_camera_shake: str = Form("true"),
     current_user: User = Depends(get_current_user),
     db: AsyncSession = Depends(get_db),
 ):
@@ -420,6 +426,8 @@ async def generate_video(
                 'sub_opacity': sub_opacity,
                 'wm_opacity': wm_opacity,
                 'use_subtitle': use_subtitle,
+                'use_speed_ramping': use_speed_ramping,
+                'use_camera_shake': use_camera_shake,
             },
             task_id=job_id
         )

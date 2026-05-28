@@ -783,6 +783,8 @@ def step_c_ffmpeg(
     sub_sec_color: str = "#FFFFFF",
     sub_opacity: float = 1.0,
     wm_opacity: float = 0.65,
+    use_speed_ramping: str = "true",
+    use_camera_shake: str = "true",
 ):
     """
     Process video with FFmpeg:
@@ -849,12 +851,61 @@ def step_c_ffmpeg(
         logo_index = next_index
         next_index += 1
 
-    # Base background and video blending filter
-    filter_complex = (
-        f"[0:v]scale=720:1280,boxblur=20:5[bg];"
-        f"[0:v]scale=640:1136[main];"
-        f"[bg][main]overlay=(W-w)/2:(H-h)/2[vid_with_bg]"
-    )
+    # Base background and video blending filter (Anti-Copyright & Speed Ramping Engine)
+    video_dur = get_video_duration(input_video)
+    import random
+    import math
+    
+    pre_filter = ""
+    last_v = "[0:v]"
+    
+    # Check speed ramping setting
+    if str(use_speed_ramping).lower() == 'true':
+        seg_dur = 3.0
+        num_segments = int(video_dur // seg_dur)
+        if num_segments >= 2:
+            segment_tags = []
+            for i in range(num_segments):
+                start = i * seg_dur
+                end = (i + 1) * seg_dur if i < num_segments - 1 else video_dur
+                speed = random.uniform(0.85, 1.15)
+                tag = f"[v_seg{i}]"
+                pre_filter += f"[0:v]trim=start={start:.2f}:end={end:.2f},setpts={speed:.3f}*(PTS-STARTPTS){tag};"
+                segment_tags.append(tag)
+            
+            concat_inputs = "".join(segment_tags)
+            pre_filter += f"{concat_inputs}concat=n={num_segments}:v=1:a=0[v_ramped];"
+            last_v = "[v_ramped]"
+        else:
+            speed = random.uniform(0.85, 1.15)
+            pre_filter += f"[0:v]setpts={speed:.3f}*PTS[v_ramped];"
+            last_v = "[v_ramped]"
+            
+    # Check camera shake setting
+    if str(use_camera_shake).lower() == 'true':
+        pre_filter += f"{last_v}crop=w=iw-16:h=ih-16:x='8+8*sin(2*PI*t*3)':y='8+8*cos(2*PI*t*3)'[v_processed]"
+        last_v_processed = "[v_processed]"
+    else:
+        if pre_filter:
+            pre_filter += f"{last_v}null[v_processed]"
+            last_v_processed = "[v_processed]"
+        else:
+            last_v_processed = "[0:v]"
+
+    # Base background and video blending filter using last_v_processed
+    if pre_filter:
+        filter_complex = (
+            pre_filter + ";"
+            f"{last_v_processed}scale=720:1280,boxblur=20:5[bg];"
+            f"{last_v_processed}scale=640:1136[main];"
+            f"[bg][main]overlay=(W-w)/2:(H-h)/2[vid_with_bg]"
+        )
+    else:
+        filter_complex = (
+            f"[0:v]scale=720:1280,boxblur=20:5[bg];"
+            f"[0:v]scale=640:1136[main];"
+            f"[bg][main]overlay=(W-w)/2:(H-h)/2[vid_with_bg]"
+        )
     last_vid = "[vid_with_bg]"
     
     # 1. Overlay logo watermark if present
@@ -1051,6 +1102,8 @@ def generate_render():
         sub_opacity = float(request.form.get('sub_opacity', 1.0))
         wm_opacity = float(request.form.get('wm_opacity', 0.65))
         use_subtitle = request.form.get('use_subtitle', 'true') == 'true'
+        use_speed_ramping = request.form.get('use_speed_ramping', 'true')
+        use_camera_shake = request.form.get('use_camera_shake', 'true')
 
         video_path = str(UPLOAD_DIR / video_filename)
         tts_path = None
@@ -1135,6 +1188,8 @@ def generate_render():
                     sub_sec_color=sub_sec_color,
                     sub_opacity=sub_opacity,
                     wm_opacity=wm_opacity,
+                    use_speed_ramping=use_speed_ramping,
+                    use_camera_shake=use_camera_shake,
                 )
             except Exception as e:
                 print(f"[Step C local] Error: {e}")

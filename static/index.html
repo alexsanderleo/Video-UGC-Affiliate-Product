@@ -584,6 +584,62 @@
                                         </div> <!-- Close subtitleCustomizationGroup -->
                                     </div> <!-- Close card-content -->
                                 </div>
+
+                                <!-- Anti-Copyright & Video Effects -->
+                                <div id="antiCopyrightSettingsCard" class="card glass-card settings-card collapsible collapsed">
+                                    <div class="card-header">
+                                        <div class="card-icon anti-copyright-icon"
+                                            style="background: rgba(16, 185, 129, 0.1); color: rgb(16, 185, 129); display: flex; align-items: center; justify-content: center; width: 32px; height: 32px; border-radius: 8px; font-size: 16px; box-shadow: var(--shadow-sm);">🛡️</div>
+                                        <h2 class="card-title">Setelan Anti-Copyright & Efek</h2>
+                                    </div>
+                                    <div class="card-content">
+                                        <p style="font-size: 0.8rem; color: var(--text-secondary); margin-bottom: 16px; margin-top: -4px;">
+                                            Terapkan algoritma video dinamis untuk mengecoh sensor hak cipta TikTok/Reels/Shorts.
+                                        </p>
+
+                                        <!-- Speed Ramping Toggle -->
+                                        <div style="margin-bottom: 16px;">
+                                            <label for="useSpeedRamping" class="input-label">Speed Ramping (Variasi Kecepatan)</label>
+                                            <div class="select-wrapper">
+                                                <select id="useSpeedRamping" class="select-input">
+                                                    <option value="true" selected>🚀 Aktif (Random 0.85x - 1.15x)</option>
+                                                    <option value="false">❌ Nonaktif (Normal 1.0x)</option>
+                                                </select>
+                                                <div class="select-arrow">
+                                                    <svg width="14" height="14" viewBox="0 0 24 24" fill="none"
+                                                        stroke="currentColor" stroke-width="2">
+                                                        <polyline points="6 9 12 15 18 9" />
+                                                    </svg>
+                                                </div>
+                                            </div>
+                                            <p style="font-size: 0.7rem; color: var(--text-muted); margin-top: 4px; line-height: 1.4;">
+                                                Membagi video menjadi beberapa segmen dengan kecepatan berbeda agar pergerakan video lebih dinamis dan natural.
+                                            </p>
+                                        </div>
+
+                                        <div style="border-top: 1px solid rgba(255,255,255,0.06); margin: 16px 0;"></div>
+
+                                        <!-- Camera Shake Toggle -->
+                                        <div style="margin-bottom: 16px;">
+                                            <label for="useCameraShake" class="input-label">Camera Shake (Efek Kamera Getar)</label>
+                                            <div class="select-wrapper">
+                                                <select id="useCameraShake" class="select-input">
+                                                    <option value="true" selected>📳 Aktif (Getar Halus Otomatis)</option>
+                                                    <option value="false">❌ Nonaktif</option>
+                                                </select>
+                                                <div class="select-arrow">
+                                                    <svg width="14" height="14" viewBox="0 0 24 24" fill="none"
+                                                        stroke="currentColor" stroke-width="2">
+                                                        <polyline points="6 9 12 15 18 9" />
+                                                    </svg>
+                                                </div>
+                                            </div>
+                                            <p style="font-size: 0.7rem; color: var(--text-muted); margin-top: 4px; line-height: 1.4;">
+                                                Menggunakan filter pergeseran koordinat viewport dinamis berkecepatan tinggi untuk menghasilkan efek rekaman manual (anti-duplikasi).
+                                            </p>
+                                        </div>
+                                    </div>
+                                </div>
                             </div>
 
                             <!-- Generate Button -->
