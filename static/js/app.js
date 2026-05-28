@@ -753,7 +753,7 @@
             progressBar.style.width = '35%';
 
             // Populate the interactive script edit panel
-            editTitle.value = result.title || '';
+            editTitle.value = (result.title || '').trim().replace(/^["']|["']$/g, '');
             editNarration.value = result.narration || '';
             editHashtags.value = result.hashtags || '';
 
@@ -1986,7 +1986,7 @@
                         <div class="queue-card-caption-panel" style="display: none; flex: 1.2; min-width: 280px; border-left: 1px solid rgba(255,255,255,0.06); padding-left: 16px; flex-direction: column; gap: 6px;">
                             <div style="margin-bottom: 4px;">
                                 <label class="input-label" style="font-size: 0.65rem; margin-bottom: 1px;">Judul Video</label>
-                                <input type="text" class="text-input bulk-card-title-input" value="${job.title || 'Video Affiliate UGC'}" style="padding: 4px 8px; font-size: 0.75rem;">
+                                <input type="text" class="text-input bulk-card-title-input" value="${(job.title || 'Video Affiliate UGC').replace(/"/g, '&quot;')}" style="padding: 4px 8px; font-size: 0.75rem;">
                             </div>
                             
                             <div style="margin-bottom: 4px;">
@@ -2058,7 +2058,7 @@
                         </div>
                         <div style="margin-bottom: 4px;">
                             <label class="input-label" style="font-size: 0.65rem; margin-bottom: 1px;">Judul Video</label>
-                            <input type="text" class="text-input job-title-input" data-id="${job.id}" value="${job.title || ''}" style="padding: 4px 8px; font-size: 0.75rem;">
+                            <input type="text" class="text-input job-title-input" data-id="${job.id}" value="${(job.title || '').replace(/"/g, '&quot;')}" style="padding: 4px 8px; font-size: 0.75rem;">
                         </div>
                         <div style="margin-bottom: 4px;">
                             <label class="input-label" style="font-size: 0.65rem; margin-bottom: 1px;">Narasi / Script (Bisa Edit)</label>
@@ -2531,7 +2531,7 @@
             job.statusText = '✓ AI Selesai Menganalisis';
             job.backendJobId = result.job_id;
             job.video_filename = result.video_filename;
-            job.title = result.title || '';
+            job.title = (result.title || '').trim().replace(/^["']|["']$/g, '');
             job.narration = result.narration || '';
             job.hashtags = result.hashtags || '';
 
@@ -2684,7 +2684,7 @@
                 job.outputUrl = finalResult.video_url;
                 job.filename = finalResult.friendly_filename || finalResult.filename;
                 job.caption = finalResult.caption;
-                job.title = finalResult.title || job.title || 'Video Affiliate UGC';
+                job.title = (finalResult.title || '').trim().replace(/^["']|["']$/g, '') || job.title || 'Video Affiliate UGC';
                 job.hashtags = finalResult.hashtags || job.hashtags || '#produkviral #racunshopee';
                 job.narration = finalResult.narration || job.narration || finalResult.caption || '';
             } else {
