@@ -606,3 +606,131 @@ async def cancel_generation(
                 print(f"[CANCEL] Error deleting file {filepath.name}: {fe}")
 
     return {"status": "success", "message": "Proses rendering dan konversi berhasil dibatalkan."}
+
+
+@router.post("/banana/generate", summary="Generate image with Nano Banana Pro")
+async def generate_banana_image(
+    prompt: str = Form(...),
+    aspect_ratio: str = Form(...),
+    token: Optional[str] = Form(None),
+    current_user: User = Depends(get_current_user),
+):
+    """
+    Generate an image based on prompt and aspect ratio using Imagen 3.5 on Google Labs API.
+    Bypasses SSL globally to prevent VPS HTTPS handshake errors.
+    """
+    import os
+    import json
+    import httpx
+    import random
+    
+    if not prompt or not prompt.strip():
+        raise HTTPException(status_code=400, detail="Prompt tidak boleh kosong!")
+        
+    final_token = token
+    if not final_token or not final_token.strip():
+        final_token = os.getenv("VEO_BEARER_TOKEN") or os.getenv("GEMINI_BEARER_TOKEN")
+        
+    if not final_token or not final_token.strip():
+        raise HTTPException(
+            status_code=400,
+            detail="Authorization Bearer Token is missing. Silakan masukkan token di pengaturan opsional atau konfigurasi .env server!"
+        )
+        
+    clean_token = final_token.replace("Bearer ", "").replace("bearer ", "").strip()
+    
+    def map_aspect_ratio(ratio: str) -> str:
+        r = ratio.upper()
+        if "PORTRAIT" in r or "9:16" in r:
+            return "IMAGE_ASPECT_RATIO_PORTRAIT"
+        elif "SQUARE" in r or "1:1" in r:
+            return "IMAGE_ASPECT_RATIO_SQUARE"
+        else:
+            return "IMAGE_ASPECT_RATIO_LANDSCAPE"
+            
+    image_aspect_enum = map_aspect_ratio(aspect_ratio)
+    seed = random.randint(0, 2147483647)
+    
+    payload = {
+        "clientContext": {
+            "workflowId": str(uuid.uuid4()),
+            "tool": "BACKBONE",
+            "sessionId": str(int(datetime.utcnow().timestamp() * 1000)),
+        },
+        "imageModelSettings": {
+            "imageModel": "IMAGEN_3_5",
+            "aspectRatio": image_aspect_enum,
+        },
+        "seed": seed,
+        "prompt": prompt.strip(),
+        "mediaCategory": "MEDIA_CATEGORY_BOARD",
+    }
+    
+    headers = {
+        "Authorization": f"Bearer {clean_token}",
+        "Content-Type": "text/plain;charset=UTF-8",
+        "Accept": "*/*",
+    }
+    
+    try:
+        async with httpx.AsyncClient(verify=False) as client:
+            resp = await client.post(
+                "https://aisandbox-pa.googleapis.com/v1/whisk:generateImage",
+                headers=headers,
+                content=json.dumps(payload),
+                timeout=120.0
+            )
+            
+            if resp.status_code != 200:
+                error_msg = resp.text
+                try:
+                    error_json = resp.json()
+                    if "error" in error_json and "message" in error_json["error"]:
+                        error_msg = error_json["error"]["message"]
+                except:
+                    pass
+                raise HTTPException(
+                    status_code=resp.status_code,
+                    detail=f"Engine N Pro generation failed: {error_msg}"
+                )
+                
+            data = resp.json()
+            
+            # 1. Try base64 inline first (most secure & fast)
+            try:
+                image_panels = data.get("imagePanels", [])
+                if image_panels:
+                    generated_images = image_panels[0].get("generatedImages", [])
+                    if generated_images:
+                        encoded = generated_images[0].get("encodedImage")
+                        if encoded and isinstance(encoded, str) and len(encoded) > 100:
+                            cleaned = encoded.replace(" ", "").replace("\n", "").replace("\r", "")
+                            data_url = cleaned if cleaned.startswith("data:") else f"data:image/png;base64,{cleaned}"
+                            return {"status": "success", "image_url": data_url}
+            except Exception as be:
+                print(f"[BANANA] Base64 parsing failed: {be}")
+                
+            # 2. Try URL candidates
+            url_candidates = [
+                data.get("image", {}).get("fifeUrl"),
+                data.get("result", {}).get("imageUrl"),
+                data.get("generatedMedia", [{}])[0].get("fifeUrl") if data.get("generatedMedia") else None,
+                data.get("generatedMedia", [{}])[0].get("image", {}).get("fifeUrl") if data.get("generatedMedia") else None,
+                data.get("assets", [{}])[0].get("fifeUrl") if data.get("assets") else None,
+                data.get("result", {}).get("assets", [{}])[0].get("fifeUrl") if data.get("result", {}).get("assets") else None,
+            ]
+            
+            image_url = next((u for u in url_candidates if isinstance(u, str) and u.startswith("http")), None)
+            if image_url:
+                return {"status": "success", "image_url": image_url}
+                
+            raise HTTPException(
+                status_code=500,
+                detail="Tidak mendapatkan data gambar atau URL dari Engine N Pro. Harap periksa apakah token valid atau limit kuota Google Labs."
+            )
+            
+    except httpx.HTTPError as he:
+        raise HTTPException(
+            status_code=500,
+            detail=f"Koneksi jaringan ke Google Labs gagal: {he}"
+        )

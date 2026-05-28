@@ -1105,9 +1105,11 @@
     const menuBtnGenerator = document.getElementById('menuBtnGenerator');
     const menuBtnBulkGenerator = document.getElementById('menuBtnBulkGenerator');
     const menuBtnConverter = document.getElementById('menuBtnConverter');
+    const menuBtnNanoBanana = document.getElementById('menuBtnNanoBanana');
     const videoGeneratorPage = document.getElementById('videoGeneratorPage');
     const bulkGeneratorPage = document.getElementById('bulkGeneratorPage');
     const convertVideoPage = document.getElementById('convertVideoPage');
+    const nanoBananaPage = document.getElementById('nanoBananaPage');
 
     function resetToDefaultSettings() {
         // 1. AI Voice -> Supertonic F3 Indah
@@ -1200,10 +1202,10 @@
             return;
         }
 
-        [menuBtnGenerator, menuBtnBulkGenerator, menuBtnConverter].forEach(btn => {
+        [menuBtnGenerator, menuBtnBulkGenerator, menuBtnConverter, menuBtnNanoBanana].forEach(btn => {
             if (btn) btn.classList.remove('active');
         });
-        [videoGeneratorPage, bulkGeneratorPage, convertVideoPage].forEach(page => {
+        [videoGeneratorPage, bulkGeneratorPage, convertVideoPage, nanoBananaPage].forEach(page => {
             if (page) {
                 page.classList.remove('active');
                 page.style.display = 'none';
@@ -1230,6 +1232,9 @@
     }
     if (menuBtnConverter) {
         menuBtnConverter.addEventListener('click', () => switchTab(menuBtnConverter, convertVideoPage));
+    }
+    if (menuBtnNanoBanana) {
+        menuBtnNanoBanana.addEventListener('click', () => switchTab(menuBtnNanoBanana, nanoBananaPage));
     }
 
     // === Convert Video Size Logic ===
@@ -2533,6 +2538,121 @@
                     closeMenu();
                 }
             });
+        });
+    }
+
+    // === Nano Banana Image Generation ===
+    const btnGenerateBanana = document.getElementById('btnGenerateBanana');
+    const bananaPrompt = document.getElementById('bananaPrompt');
+    const bananaAspectRatio = document.getElementById('bananaAspectRatio');
+    const bananaToken = document.getElementById('bananaToken');
+    const bananaBtnContent = document.getElementById('bananaBtnContent');
+    const bananaBtnLoading = document.getElementById('bananaBtnLoading');
+    const bananaBtnLoadingText = document.getElementById('bananaBtnLoadingText');
+    const bananaOutputPlaceholder = document.getElementById('bananaOutputPlaceholder');
+    const bananaResultCard = document.getElementById('bananaResultCard');
+    const bananaResultImage = document.getElementById('bananaResultImage');
+    const btnDownloadBanana = document.getElementById('btnDownloadBanana');
+    const bananaImageWrapper = document.getElementById('bananaImageWrapper');
+    const bananaZoomModal = document.getElementById('bananaZoomModal');
+    const btnCloseBananaZoom = document.getElementById('btnCloseBananaZoom');
+    const bananaZoomImage = document.getElementById('bananaZoomImage');
+
+    if (btnGenerateBanana) {
+        btnGenerateBanana.addEventListener('click', async () => {
+            const token = localStorage.getItem('token');
+            if (!token) {
+                authOverlay.style.display = 'flex';
+                loginForm.style.display = 'block';
+                registerForm.style.display = 'none';
+                authTitle.textContent = 'Login dahulu';
+                showToast('⚠️ Silakan login terlebih dahulu untuk menggunakan Nano Banana!');
+                return;
+            }
+
+            const promptText = bananaPrompt.value.trim();
+            if (!promptText) {
+                showToast('⚠️ Prompt deskripsi gambar tidak boleh kosong!');
+                return;
+            }
+
+            // Show loading state
+            bananaBtnContent.style.display = 'none';
+            bananaBtnLoading.style.display = 'flex';
+            btnGenerateBanana.disabled = true;
+
+            const formData = new FormData();
+            formData.append('prompt', promptText);
+            formData.append('aspect_ratio', bananaAspectRatio.value);
+            
+            const customToken = bananaToken.value.trim();
+            if (customToken) {
+                formData.append('token', customToken);
+            }
+
+            const headers = {};
+            headers['Authorization'] = `Bearer ${token}`;
+
+            try {
+                const response = await fetch('/api/generate/banana/generate', {
+                    method: 'POST',
+                    headers: headers,
+                    body: formData
+                });
+
+                if (!response.ok) {
+                    let errMsg = 'Proses pembuatan gambar gagal.';
+                    try {
+                        const errData = await response.json();
+                        errMsg = errData.detail || errMsg;
+                    } catch (e) {}
+                    throw new Error(errMsg);
+                }
+
+                const result = await response.json();
+                
+                if (result.status === 'success' && result.image_url) {
+                    showToast('✨ Gambar berhasil dibuat!');
+                    
+                    // Display result
+                    bananaOutputPlaceholder.style.display = 'none';
+                    bananaResultCard.style.display = 'flex';
+                    bananaResultImage.src = result.image_url;
+                    btnDownloadBanana.href = result.image_url;
+                } else {
+                    throw new Error('Tidak ada data gambar yang diterima.');
+                }
+            } catch (err) {
+                console.error('Banana generate error:', err);
+                showToast('❌ ' + err.message);
+            } finally {
+                bananaBtnContent.style.display = 'flex';
+                bananaBtnLoading.style.display = 'none';
+                btnGenerateBanana.disabled = false;
+            }
+        });
+    }
+
+    // Lightbox zoom handlers
+    if (bananaImageWrapper && bananaZoomModal && bananaZoomImage) {
+        bananaImageWrapper.addEventListener('click', () => {
+            if (bananaResultImage.src) {
+                bananaZoomImage.src = bananaResultImage.src;
+                bananaZoomModal.style.display = 'flex';
+            }
+        });
+    }
+
+    if (bananaZoomModal) {
+        bananaZoomModal.addEventListener('click', () => {
+            bananaZoomModal.style.display = 'none';
+        });
+    }
+
+    if (btnCloseBananaZoom) {
+        btnCloseBananaZoom.addEventListener('click', (e) => {
+            e.stopPropagation();
+            bananaZoomModal.style.display = 'none';
         });
     }
 
