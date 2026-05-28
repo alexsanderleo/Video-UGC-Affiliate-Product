@@ -382,9 +382,9 @@ def step_b_tts(
     voice: str,
     output_path: str,
     srt_path: Optional[str] = None,
-    sub_font: str = "Arial",
-    sub_size: int = 40,
-    sub_color: str = "#00FF4C",
+    sub_font: str = "Poppins",
+    sub_size: int = 45,
+    sub_color: str = "#F5CC00",
     sub_sec_color: str = "#FFFFFF",
     sub_opacity: float = 1.0,
 ):
@@ -593,9 +593,9 @@ def generate_srt(
     narration_text: str,
     audio_duration: float,
     output_srt_path: str,
-    sub_font: str = "Arial",
-    sub_size: int = 40,
-    sub_color: str = "#00FF4C",
+    sub_font: str = "Poppins",
+    sub_size: int = 45,
+    sub_color: str = "#F5CC00",
     sub_sec_color: str = "#FFFFFF",
     sub_opacity: float = 1.0,
 ) -> str:
@@ -737,9 +737,9 @@ def convert_to_ass_color(hex_color: str, opacity: float) -> str:
 def generate_ass(
     word_events,
     ass_path,
-    sub_font: str = "Arial",
-    sub_size: int = 40,
-    sub_color: str = "#00FF4C",
+    sub_font: str = "Poppins",
+    sub_size: int = 45,
+    sub_color: str = "#F5CC00",
     sub_sec_color: str = "#FFFFFF",
     sub_opacity: float = 1.0,
 ):
@@ -836,9 +836,9 @@ def step_c_ffmpeg(
     output_path: str,
     watermark_position: str = 'top-right',
     subtitle_path: str = None,
-    sub_font: str = "Arial",
-    sub_size: int = 40,
-    sub_color: str = "#00FF4C",
+    sub_font: str = "Poppins",
+    sub_size: int = 45,
+    sub_color: str = "#F5CC00",
     sub_sec_color: str = "#FFFFFF",
     sub_opacity: float = 1.0,
     wm_opacity: float = 0.65,
@@ -1192,9 +1192,9 @@ def generate_render():
         wm_text = request.form.get('watermark_text', '')
         wm_position = request.form.get('watermark_position', 'top-right')
 
-        sub_font = request.form.get('sub_font', 'Arial')
-        sub_size = int(request.form.get('sub_size', 40))
-        sub_color = request.form.get('sub_color', '#00FF4C')
+        sub_font = request.form.get('sub_font', 'Poppins')
+        sub_size = int(request.form.get('sub_size', 45))
+        sub_color = request.form.get('sub_color', '#F5CC00')
         sub_sec_color = request.form.get('sub_sec_color', '#FFFFFF')
         sub_opacity = float(request.form.get('sub_opacity', 1.0))
         wm_opacity = float(request.form.get('wm_opacity', 0.65))
@@ -1409,9 +1409,9 @@ def generate():
             wm_position = request.form.get('watermark_position', 'top-right')
 
             # Dynamic subtitle styling and watermark opacity inputs
-            sub_font = request.form.get('sub_font', 'Arial')
-            sub_size = int(request.form.get('sub_size', 40))
-            sub_color = request.form.get('sub_color', '#00FF4C')
+            sub_font = request.form.get('sub_font', 'Poppins')
+            sub_size = int(request.form.get('sub_size', 45))
+            sub_color = request.form.get('sub_color', '#F5CC00')
             sub_sec_color = request.form.get('sub_sec_color', '#FFFFFF')
             sub_opacity = float(request.form.get('sub_opacity', 1.0))
             wm_opacity = float(request.form.get('wm_opacity', 0.65))
