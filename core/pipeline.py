@@ -760,7 +760,7 @@ def step_c_ffmpeg(
     
     backsound_index = -1
     if has_backsound:
-        input_args += ['-t', t_arg, '-i', backsound]
+        input_args += ['-i', backsound]
         backsound_index = next_index
         next_index += 1
         
