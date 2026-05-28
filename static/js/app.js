@@ -395,7 +395,7 @@
             voiceSelect.value = 'piper-id-gadis';
         } else if (currentVal.startsWith('supertonic')) {
             if (!currentVal.includes('-F')) {
-                voiceSelect.value = 'supertonic-id-F1';
+                voiceSelect.value = 'supertonic-id-F3';
             }
         } else if (currentVal.startsWith('gtts')) {
             voiceSelect.value = 'gtts-id';
@@ -466,6 +466,12 @@
         btnGenerate.classList.add('processing');
         btnLoadingText.textContent = 'Menganalisis video...';
 
+        // Collapse settings cards to keep workspace clean
+        const watermarkCard = document.getElementById('watermarkSettingsCard');
+        const subtitleCard = document.getElementById('subtitleSettingsCard');
+        if (watermarkCard) watermarkCard.classList.add('collapsed');
+        if (subtitleCard) subtitleCard.classList.add('collapsed');
+
         // Hide output and script panel, show progress panel
         outputSection.style.display = 'none';
         scriptEditPanel.style.display = 'none';
@@ -526,9 +532,13 @@
 
             // Display script edit panel
             scriptEditPanel.style.display = 'block';
-            setTimeout(() => {
-                scriptEditPanel.scrollIntoView({ behavior: 'smooth', block: 'center' });
-            }, 100);
+            
+            // Scroll to edit panel only on mobile to prevent jumpy desktop layouts
+            if (window.innerWidth <= 820) {
+                setTimeout(() => {
+                    scriptEditPanel.scrollIntoView({ behavior: 'smooth', block: 'center' });
+                }, 100);
+            }
 
             showToast('✨ Analisis AI selesai! Silakan edit naskah Anda di bawah.', false);
 
@@ -564,6 +574,12 @@
         }
 
         isProcessing = true;
+        
+        // Collapse settings cards to keep workspace clean
+        const watermarkCard = document.getElementById('watermarkSettingsCard');
+        const subtitleCard = document.getElementById('subtitleSettingsCard');
+        if (watermarkCard) watermarkCard.classList.add('collapsed');
+        if (subtitleCard) subtitleCard.classList.add('collapsed');
         
         // UI states
         btnRenderContent.style.display = 'none';
@@ -806,10 +822,12 @@
         // Live preview combined
         updateCombinedCaption();
 
-        // Scroll to output
-        setTimeout(() => {
-            outputSection.scrollIntoView({ behavior: 'smooth', block: 'start' });
-        }, 300);
+        // Scroll to output only on mobile to keep desktop layout static and clean
+        if (window.innerWidth <= 820) {
+            setTimeout(() => {
+                outputSection.scrollIntoView({ behavior: 'smooth', block: 'start' });
+            }, 300);
+        }
 
         showToast('✅ Video berhasil di-generate!', false);
     }
