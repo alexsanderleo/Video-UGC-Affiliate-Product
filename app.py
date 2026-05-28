@@ -1395,6 +1395,8 @@ def generate():
         job_id = str(uuid.uuid4())[:8]
         tts_path = None
         output_path = None
+        logo_path = None
+        thumbnail_path = None
 
         try:
             # --- Receive and validate inputs ---
@@ -1433,12 +1435,19 @@ def generate():
             print(f"{'='*60}")
 
             # Save logo if uploaded
-            logo_path = None
             logo_file = request.files.get('watermark_logo')
             if logo_file:
                 logo_filename = f"{job_id}_logo.png"
                 logo_path = str(UPLOAD_DIR / logo_filename)
                 logo_file.save(logo_path)
+
+            # Save thumbnail cover if uploaded
+            thumbnail_file = request.files.get('thumbnail')
+            if thumbnail_file:
+                thumbnail_filename = f"{job_id}_thumbnail.png"
+                thumbnail_path = str(UPLOAD_DIR / thumbnail_filename)
+                thumbnail_file.save(thumbnail_path)
+                print(f"[Pipeline] Thumbnail: {thumbnail_filename}")
 
             # --- Get video duration via ffprobe ---
             video_duration = get_video_duration(video_path)
@@ -1556,6 +1565,7 @@ def generate():
                     sub_opacity=sub_opacity,
                     wm_opacity=wm_opacity,
                     backsound_volume=backsound_volume,
+                    thumbnail_path=thumbnail_path,
                 )
             except Exception as e:
                 print(f"[Step C] Error: {e}")
@@ -1600,6 +1610,16 @@ def generate():
             try:
                 if backsound_path and Path(backsound_path).exists() and f"{job_id}_" in Path(backsound_path).name:
                     Path(backsound_path).unlink()
+            except Exception:
+                pass
+            try:
+                if logo_path and Path(logo_path).exists():
+                    Path(logo_path).unlink()
+            except Exception:
+                pass
+            try:
+                if thumbnail_path and Path(thumbnail_path).exists():
+                    Path(thumbnail_path).unlink()
             except Exception:
                 pass
 
