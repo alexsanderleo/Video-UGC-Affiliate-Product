@@ -1738,6 +1738,35 @@ body, .app-sidebar, .glass-card, .text-input, .select-input, .user-profile-sideb
     margin-bottom: 30px;
 }
 
+.queue-list-layout {
+    display: flex;
+    flex-direction: column;
+    gap: 12px;
+    margin-bottom: 30px;
+}
+
+.queue-list-row {
+    position: relative;
+    display: flex;
+    flex-direction: row;
+    flex-wrap: wrap;
+    gap: 16px;
+    align-items: stretch;
+    background: var(--bg-card);
+    border: 1px solid var(--border-subtle);
+    border-radius: var(--radius-md);
+    padding: 16px;
+    transition: all 0.3s cubic-bezier(0.16, 1, 0.3, 1);
+    box-shadow: 0 4px 20px rgba(0, 0, 0, 0.1);
+    overflow: hidden;
+}
+
+.queue-list-row:hover {
+    transform: translateY(-1px);
+    background: var(--bg-card-hover);
+    border-color: var(--border-active);
+}
+
 .queue-card {
     position: relative;
     display: flex;
@@ -2010,13 +2039,28 @@ body, .app-sidebar, .glass-card, .text-input, .select-input, .user-profile-sideb
     }
     
     .dashboard-actions {
+        display: grid !important;
+        grid-template-columns: 1fr 1fr !important;
+        gap: 8px !important;
         width: 100% !important;
-        margin-top: 4px !important;
+        margin-top: 12px !important;
     }
     
-    .dashboard-actions button {
-        flex: 1;
-        text-align: center;
+    #btnBulkStart {
+        grid-column: span 2 !important;
+        width: 100% !important;
+        padding: 12px !important;
+        font-size: 0.95rem !important;
+    }
+    
+    #btnBulkDownloadAll, #btnBulkClear {
+        grid-column: span 1 !important;
+        width: 100% !important;
+        padding: 10px 6px !important;
+        font-size: 0.8rem !important;
+        display: flex !important;
+        justify-content: center !important;
+        align-items: center !important;
     }
 
     /* Bulk video selector drop zone (Pilih Video Produk) compact on mobile */
@@ -2041,8 +2085,20 @@ body, .app-sidebar, .glass-card, .text-input, .select-input, .user-profile-sideb
     }
 
     /* Compact video queue list items on mobile to prevent taking up full viewport */
-    .queue-card {
+    .queue-card, .queue-list-row {
         padding: 12px !important;
+    }
+    
+    .queue-list-row {
+        flex-direction: column !important;
+        gap: 12px !important;
+    }
+    
+    .queue-list-row .job-settings-panel {
+        border-left: none !important;
+        padding-left: 0 !important;
+        border-top: 1px solid rgba(255,255,255,0.06) !important;
+        padding-top: 12px !important;
     }
     
     .queue-card-video {

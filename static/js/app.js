@@ -1345,24 +1345,6 @@
             if (bulkSubSecColorHex) bulkSubSecColorHex.textContent = '#FFFFFF';
         }
 
-        // Resets for bulk cover/thumbnail
-        selectedBulkThumbnailFile = null;
-        if (bulkThumbnailPreviewImg) bulkThumbnailPreviewImg.src = '';
-        if (bulkThumbnailInput) bulkThumbnailInput.value = '';
-        if (bulkThumbnailUploadContent) bulkThumbnailUploadContent.style.display = 'flex';
-        if (bulkThumbnailPreview) bulkThumbnailPreview.style.display = 'none';
-
-        // Resets for bulk backsound
-        selectedBulkBacksoundFile = null;
-        if (bulkBacksoundSelect) bulkBacksoundSelect.value = 'backsound3';
-        if (bulkBacksoundInput) bulkBacksoundInput.value = '';
-        if (bulkBacksoundUploadZone) bulkBacksoundUploadZone.style.display = 'none';
-        if (bulkBacksoundUploadContent) bulkBacksoundUploadContent.style.display = 'flex';
-        if (bulkBacksoundPreview) bulkBacksoundPreview.style.display = 'none';
-        if (bulkBacksoundVolume) bulkBacksoundVolume.value = 0.12;
-        if (bulkBacksoundVolumeVal) bulkBacksoundVolumeVal.textContent = '12%';
-        if (bulkBacksoundVolumeGroup) bulkBacksoundVolumeGroup.style.display = 'block';
-
         // 2. Subtitle Font -> Impact Bold
         const subFont = document.getElementById('subFont');
         if (subFont) {
@@ -1781,28 +1763,6 @@
     let bulkQueue = [];
     const MAX_CONCURRENT = 3;
 
-    // Bulk Thumbnail and Backsound DOM elements
-    const bulkThumbnailInput = document.getElementById('bulkThumbnailInput');
-    const bulkThumbnailUploadZone = document.getElementById('bulkThumbnailUploadZone');
-    const bulkThumbnailUploadContent = document.getElementById('bulkThumbnailUploadContent');
-    const bulkThumbnailPreview = document.getElementById('bulkThumbnailPreview');
-    const bulkThumbnailPreviewImg = document.getElementById('bulkThumbnailPreviewImg');
-    const btnRemoveBulkThumbnail = document.getElementById('btnRemoveBulkThumbnail');
-
-    const bulkBacksoundSelect = document.getElementById('bulkBacksoundSelect');
-    const bulkBacksoundUploadZone = document.getElementById('bulkBacksoundUploadZone');
-    const bulkBacksoundInput = document.getElementById('bulkBacksoundInput');
-    const bulkBacksoundUploadContent = document.getElementById('bulkBacksoundUploadContent');
-    const bulkBacksoundPreview = document.getElementById('bulkBacksoundPreview');
-    const bulkBacksoundPreviewName = document.getElementById('bulkBacksoundPreviewName');
-    const btnRemoveBulkBacksound = document.getElementById('btnRemoveBulkBacksound');
-    const bulkBacksoundVolume = document.getElementById('bulkBacksoundVolume');
-    const bulkBacksoundVolumeVal = document.getElementById('bulkBacksoundVolumeVal');
-    const bulkBacksoundVolumeGroup = document.getElementById('bulkBacksoundVolumeGroup');
-
-    let selectedBulkThumbnailFile = null;
-    let selectedBulkBacksoundFile = null;
-
     // Toggle Watermark Group for Bulk Settings
     if (bulkWatermarkMode) {
         bulkWatermarkMode.addEventListener('change', () => {
@@ -1847,119 +1807,6 @@
             bulkLogoInput.value = '';
             bulkLogoUploadContent.style.display = 'flex';
             bulkLogoPreview.style.display = 'none';
-        });
-    }
-
-    // === Bulk Cover/Thumbnail Upload ===
-    if (bulkThumbnailUploadZone) {
-        bulkThumbnailUploadZone.addEventListener('click', () => bulkThumbnailInput.click());
-    }
-
-    if (bulkThumbnailInput) {
-        bulkThumbnailInput.addEventListener('change', (e) => {
-            if (e.target.files.length > 0) {
-                const file = e.target.files[0];
-                if (!file.type.match(/image\/(png|jpeg|jpg)/)) {
-                    showToast('❌ Hanya file gambar (.png, .jpg, .jpeg) yang diterima!');
-                    return;
-                }
-                selectedBulkThumbnailFile = file;
-                const url = URL.createObjectURL(file);
-                if (bulkThumbnailPreviewImg) bulkThumbnailPreviewImg.src = url;
-                if (bulkThumbnailUploadContent) bulkThumbnailUploadContent.style.display = 'none';
-                if (bulkThumbnailPreview) bulkThumbnailPreview.style.display = 'flex';
-            }
-        });
-    }
-
-    if (btnRemoveBulkThumbnail) {
-        btnRemoveBulkThumbnail.addEventListener('click', (e) => {
-            e.stopPropagation();
-            selectedBulkThumbnailFile = null;
-            if (bulkThumbnailPreviewImg) bulkThumbnailPreviewImg.src = '';
-            if (bulkThumbnailInput) bulkThumbnailInput.value = '';
-            if (bulkThumbnailUploadContent) bulkThumbnailUploadContent.style.display = 'flex';
-            if (bulkThumbnailPreview) bulkThumbnailPreview.style.display = 'none';
-        });
-    }
-
-    // === Bulk Musik Backsound & Volume Slider ===
-    if (bulkBacksoundSelect) {
-        bulkBacksoundSelect.addEventListener('change', () => {
-            const val = bulkBacksoundSelect.value;
-            if (val === 'custom') {
-                if (bulkBacksoundUploadZone) bulkBacksoundUploadZone.style.display = 'block';
-                if (bulkBacksoundVolumeGroup) bulkBacksoundVolumeGroup.style.display = 'block';
-            } else if (val === 'none') {
-                if (bulkBacksoundUploadZone) bulkBacksoundUploadZone.style.display = 'none';
-                if (bulkBacksoundVolumeGroup) bulkBacksoundVolumeGroup.style.display = 'none';
-            } else {
-                if (bulkBacksoundUploadZone) bulkBacksoundUploadZone.style.display = 'none';
-                if (bulkBacksoundVolumeGroup) bulkBacksoundVolumeGroup.style.display = 'block';
-            }
-        });
-    }
-
-    if (bulkBacksoundVolume) {
-        bulkBacksoundVolume.addEventListener('input', (e) => {
-            const pct = Math.round(parseFloat(e.target.value) * 100);
-            if (bulkBacksoundVolumeVal) bulkBacksoundVolumeVal.textContent = pct + '%';
-        });
-    }
-
-    if (bulkBacksoundUploadZone) {
-        bulkBacksoundUploadZone.addEventListener('click', () => bulkBacksoundInput.click());
-
-        bulkBacksoundUploadZone.addEventListener('dragover', (e) => {
-            e.preventDefault();
-            bulkBacksoundUploadZone.style.borderColor = 'var(--text-accent)';
-            bulkBacksoundUploadZone.style.background = 'rgba(255,255,255,0.02)';
-        });
-
-        bulkBacksoundUploadZone.addEventListener('dragleave', () => {
-            bulkBacksoundUploadZone.style.borderColor = 'var(--border-subtle)';
-            bulkBacksoundUploadZone.style.background = 'var(--bg-input)';
-        });
-
-        bulkBacksoundUploadZone.addEventListener('drop', (e) => {
-            e.preventDefault();
-            bulkBacksoundUploadZone.style.borderColor = 'var(--border-subtle)';
-            bulkBacksoundUploadZone.style.background = 'var(--bg-input)';
-            
-            if (e.dataTransfer.files.length > 0) {
-                const file = e.dataTransfer.files[0];
-                handleBulkBacksoundUpload(file);
-            }
-        });
-    }
-
-    if (bulkBacksoundInput) {
-        bulkBacksoundInput.addEventListener('change', (e) => {
-            if (e.target.files.length > 0) {
-                const file = e.target.files[0];
-                handleBulkBacksoundUpload(file);
-            }
-        });
-    }
-
-    function handleBulkBacksoundUpload(file) {
-        if (!file.name.match(/\.(mp3|wav)$/i) && !file.type.match(/audio\/(mpeg|mp3|x-wav|wav)/)) {
-            showToast('❌ Hanya file audio (.mp3, .wav) yang diterima!');
-            return;
-        }
-        selectedBulkBacksoundFile = file;
-        if (bulkBacksoundPreviewName) bulkBacksoundPreviewName.textContent = file.name + ' (' + formatSize(file.size) + ')';
-        if (bulkBacksoundUploadContent) bulkBacksoundUploadContent.style.display = 'none';
-        if (bulkBacksoundPreview) bulkBacksoundPreview.style.display = 'flex';
-    }
-
-    if (btnRemoveBulkBacksound) {
-        btnRemoveBulkBacksound.addEventListener('click', (e) => {
-            e.stopPropagation();
-            selectedBulkBacksoundFile = null;
-            if (bulkBacksoundInput) bulkBacksoundInput.value = '';
-            if (bulkBacksoundUploadContent) bulkBacksoundUploadContent.style.display = 'flex';
-            if (bulkBacksoundPreview) bulkBacksoundPreview.style.display = 'none';
         });
     }
 
@@ -2082,7 +1929,7 @@
         }
     }
 
-    // Render Queue Items in Grid
+    // Render Queue Items in List View
     function renderBulkQueue() {
         bulkQueueList.innerHTML = '';
         if (bulkQueue.length === 0) {
@@ -2092,102 +1939,214 @@
 
         bulkQueue.forEach(job => {
             const card = document.createElement('div');
-            card.className = `queue-card status-${job.status}`;
+            card.className = `queue-list-row status-${job.status}`;
             card.id = `card_${job.id}`;
 
+            // Initialize default job settings if not set
+            if (job.selectedThumbnailFile === undefined) job.selectedThumbnailFile = null;
+            if (job.selectedThumbnailUrl === undefined) job.selectedThumbnailUrl = '';
+            if (job.backsoundMode === undefined) job.backsoundMode = 'backsound3';
+            if (job.backsoundVolume === undefined) job.backsoundVolume = 0.12;
+            if (job.selectedBacksoundFile === undefined) job.selectedBacksoundFile = null;
+
             let outputHtml = '';
+            let settingsHtml = '';
+
             if (job.status === 'success') {
                 outputHtml = `
-                    <div class="queue-card-output">
-                        <div class="queue-card-video-wrapper">
-                            <video class="queue-card-video" src="${job.outputUrl}" controls></video>
+                    <div style="display: flex; flex-direction: row; flex-wrap: wrap; gap: 16px; width: 100%;">
+                        <!-- Left Success: Video Details & Player -->
+                        <div style="flex: 1; min-width: 250px; display: flex; flex-direction: column; gap: 6px;">
+                            <div class="queue-card-header" style="margin-bottom: 2px;">
+                                <span class="queue-card-title" title="${job.file.name}" style="font-size: 0.85rem; font-weight: 700;">✅ ${job.file.name}</span>
+                            </div>
+                            <div class="queue-card-video-wrapper" style="margin-bottom: 8px;">
+                                <video class="queue-card-video" src="${job.outputUrl}" controls style="max-height: 120px; width: 100%; border-radius: var(--radius-sm); border: 1px solid var(--border-subtle);"></video>
+                            </div>
+                            <div class="queue-card-btn-container" style="display: flex; gap: 8px;">
+                                <a href="${job.outputUrl}" download="${job.filename || 'video.mp4'}" class="queue-card-btn-download" style="flex: 1; display: flex; align-items: center; justify-content: center; gap: 6px; padding: 6px 10px; font-size: 0.78rem; text-decoration: none; border-radius: var(--radius-sm); background: var(--gradient-success); color: white; font-weight: 600;">
+                                    Download
+                                </a>
+                                <button type="button" class="btn-copy-caption-toggle" style="flex: 1; padding: 6px 10px; font-size: 0.78rem; font-weight: 600; cursor: pointer; border-radius: var(--radius-sm); background: rgba(6, 182, 212, 0.12); border: 1px solid rgba(6, 182, 212, 0.25); color: var(--accent-secondary);">
+                                    📝 Caption Kit
+                                </button>
+                            </div>
                         </div>
-                        <div class="queue-card-btn-container" style="margin-bottom: 12px;">
-                            <a href="${job.outputUrl}" download="${job.filename || 'video.mp4'}" class="queue-card-btn-download" style="flex: 1;">
-                                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                                    <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/>
-                                    <polyline points="7 10 12 15 17 10"/>
-                                    <line x1="12" y1="15" x2="12" y2="3"/>
-                                </svg>
-                                Download
-                            </a>
-                            <button type="button" class="btn-copy-caption-toggle" style="flex: 1; display: flex; align-items: center; justify-content: center; gap: 6px; padding: 8px; background: rgba(6, 182, 212, 0.12); border: 1px solid rgba(6, 182, 212, 0.25); color: var(--accent-secondary); border-radius: var(--radius-sm); font-size: 0.8rem; font-weight: 600; cursor: pointer; transition: all 0.2s;">
-                                📝 Caption Kit
-                            </button>
-                        </div>
-                        
-                        <!-- Collapsible Caption Kit Box -->
-                        <div class="queue-card-caption-panel" style="display: none; border-top: 1px solid rgba(255,255,255,0.06); padding-top: 12px; margin-top: 10px;">
-                            <div style="margin-bottom: 8px;">
-                                <label class="input-label" style="font-size: 0.7rem; margin-bottom: 2px;">Judul Video (Bisa Diedit)</label>
-                                <input type="text" class="text-input bulk-card-title-input" value="${job.title || 'Video Affiliate UGC'}" style="padding: 6px 10px; font-size: 0.78rem;">
+
+                        <!-- Right Success: Caption Kit -->
+                        <div class="queue-card-caption-panel" style="display: none; flex: 1.2; min-width: 280px; border-left: 1px solid rgba(255,255,255,0.06); padding-left: 16px; flex-direction: column; gap: 6px;">
+                            <div style="margin-bottom: 4px;">
+                                <label class="input-label" style="font-size: 0.65rem; margin-bottom: 1px;">Judul Video</label>
+                                <input type="text" class="text-input bulk-card-title-input" value="${job.title || 'Video Affiliate UGC'}" style="padding: 4px 8px; font-size: 0.75rem;">
                             </div>
                             
-                            <div style="margin-bottom: 8px;">
-                                <label class="input-label" style="font-size: 0.7rem; margin-bottom: 2px;">Link Promosi Afiliasi</label>
-                                <input type="text" class="text-input bulk-card-link-input" value="s.shopee.co.id/xxxx" style="padding: 6px 10px; font-size: 0.78rem;">
+                            <div style="margin-bottom: 4px;">
+                                <label class="input-label" style="font-size: 0.65rem; margin-bottom: 1px;">Link Promosi</label>
+                                <input type="text" class="text-input bulk-card-link-input" value="s.shopee.co.id/xxxx" style="padding: 4px 8px; font-size: 0.75rem;">
                             </div>
                             
-                            <div style="display: grid; grid-template-columns: 1fr; gap: 8px; margin-bottom: 8px;">
+                            <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 6px; margin-bottom: 4px;">
                                 <div>
-                                    <label class="input-label" style="font-size: 0.7rem; margin-bottom: 2px;">Teks CTA</label>
-                                    <div class="select-wrapper">
-                                        <select class="select-input bulk-card-cta-select" style="padding: 6px 10px; font-size: 0.78rem; width: 100%;">
+                                    <label class="input-label" style="font-size: 0.65rem; margin-bottom: 1px;">CTA</label>
+                                    <div class="select-wrapper" style="margin-bottom: 0;">
+                                        <select class="select-input bulk-card-cta-select" style="padding: 4px 8px; font-size: 0.75rem; width: 100%;">
                                             <option value="Ambil Promo / Pesan Sekarang Klik Di Sini" selected>👉 Pesan Sekarang</option>
                                             <option value="Checkout Sekarang Di Sini">👉 Checkout Sekarang</option>
                                             <option value="Beli Di Sini">👉 Beli Di Sini</option>
-                                            <option value="Dapatkan Promo Spesial Di Sini">👉 Dapatkan Promo</option>
-                                            <option value="Klik Di Sini Untuk Berbelanja">👉 Klik Di Sini</option>
                                         </select>
                                     </div>
                                 </div>
                                 <div>
-                                    <label class="input-label" style="font-size: 0.7rem; margin-bottom: 2px;">Hashtags</label>
-                                    <input type="text" class="text-input bulk-card-hashtags-input" value="${job.hashtags || '#produkviral #racunshopee'}" style="padding: 6px 10px; font-size: 0.78rem;">
+                                    <label class="input-label" style="font-size: 0.65rem; margin-bottom: 1px;">Hashtags</label>
+                                    <input type="text" class="text-input bulk-card-hashtags-input" value="${job.hashtags || '#produkviral #racunshopee'}" style="padding: 4px 8px; font-size: 0.75rem;">
                                 </div>
                             </div>
                             
-                            <div style="margin-bottom: 8px;">
-                                <label class="input-label" style="font-size: 0.7rem; margin-bottom: 2px;">Preview Caption Akhir (Siap Post)</label>
-                                <textarea class="caption-textarea bulk-card-combined-textarea" readonly style="min-height: 110px; padding: 8px; font-size: 0.75rem; line-height: 1.4; margin-bottom: 8px;"></textarea>
+                            <div style="margin-bottom: 4px;">
+                                <textarea class="caption-textarea bulk-card-combined-textarea" readonly style="min-height: 60px; padding: 6px; font-size: 0.72rem; line-height: 1.3; margin-bottom: 6px; width: 100%; border-radius: 4px; background: rgba(0,0,0,0.2); border: 1px solid var(--border-subtle); color: var(--text-primary); resize: vertical;"></textarea>
                             </div>
                             
-                            <button type="button" class="btn-copy bulk-card-btn-copy" style="width: 100%; padding: 8px; font-size: 0.8rem;">
-                                Salin Semua Caption
+                            <button type="button" class="btn-copy bulk-card-btn-copy" style="width: 100%; padding: 6px; font-size: 0.75rem; background: var(--gradient-primary); border: none; border-radius: 4px; color: white; cursor: pointer; font-weight: 600;">
+                                Salin Caption
                             </button>
                         </div>
                     </div>
                 `;
             } else if (job.status === 'error') {
                 outputHtml = `
-                    <div style="margin-top: 12px;">
-                        <button class="btn-retry" data-id="${job.id}">
-                            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-                                <path d="M21.5 2v6h-6M21.34 15.57a10 10 0 1 1-.57-8.38l5.67-5.67"/>
-                            </svg>
-                            Ulangi (Retry)
-                        </button>
+                    <div style="display: flex; flex-direction: row; flex-wrap: wrap; gap: 16px; width: 100%; align-items: center;">
+                        <div style="flex: 1;">
+                            <div class="queue-card-header" style="margin-bottom: 2px;">
+                                <span class="queue-card-title" title="${job.file.name}" style="font-size: 0.85rem; font-weight: 700; color: #EF4444;">❌ ${job.file.name}</span>
+                            </div>
+                            <span class="queue-card-status-badge error">Gagal</span>
+                            <span class="queue-card-progress-text" style="font-size: 0.72rem; color: #F87171; display: block; margin-top: 4px;">${job.errorMsg || 'Terjadi kesalahan sistem.'}</span>
+                        </div>
+                        <div style="flex: 1.2; min-width: 250px; display: flex; align-items: center; justify-content: flex-end;">
+                            <button class="btn-retry" data-id="${job.id}">
+                                <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                                    <path d="M21.5 2v6h-6M21.34 15.57a10 10 0 1 1-.57-8.38l5.67-5.67"/>
+                                </svg>
+                                Ulangi (Retry)
+                            </button>
+                        </div>
+                    </div>
+                `;
+            } else {
+                // job.status === 'pending' or 'processing'
+                const leftHtml = `
+                    <div style="flex: 1; min-width: 200px; display: flex; flex-direction: column; gap: 6px;">
+                        <div class="queue-card-header" style="margin-bottom: 2px; display: flex; align-items: center; justify-content: space-between; width: 100%;">
+                            <span class="queue-card-title" title="${job.file.name}" style="font-size: 0.88rem; font-weight: 700; max-width: 75%; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;">🎬 ${job.file.name}</span>
+                            <span class="queue-card-size" style="font-size: 0.72rem; color: var(--text-secondary); background: rgba(255, 255, 255, 0.05); padding: 2px 6px; border-radius: 4px;">${formatSize(job.file.size)}</span>
+                        </div>
+                        <div style="display: flex; align-items: center; justify-content: space-between;">
+                            <span class="queue-card-status-badge ${job.status}">${job.status === 'pending' ? 'Antrean' : 'Proses'}</span>
+                        </div>
+                        <div class="queue-card-progress" style="margin: 4px 0;">
+                            <div class="queue-card-progress-bar-container">
+                                <div class="queue-card-progress-bar" style="width: ${job.progress}%"></div>
+                            </div>
+                            <span class="queue-card-progress-text" title="${job.statusText}" style="font-size: 0.72rem; margin-top: 4px;">${job.statusText}</span>
+                        </div>
+                    </div>
+                `;
+
+                if (job.status === 'pending') {
+                    let thumbnailPickerHtml = '';
+                    if (job.selectedThumbnailFile) {
+                        thumbnailPickerHtml = `
+                            <div style="position: relative; display: inline-flex; align-items: center; gap: 8px;">
+                                <img src="${job.selectedThumbnailUrl}" style="height: 44px; width: 44px; object-fit: cover; border-radius: var(--radius-sm); border: 1px solid var(--border-subtle);">
+                                <button type="button" class="btn-remove-job-thumbnail" data-id="${job.id}" style="position: absolute; top: -6px; right: -6px; width: 18px; height: 18px; border-radius: 50%; background: #EF4444; color: white; border: none; font-size: 11px; cursor: pointer; display: flex; align-items: center; justify-content: center; line-height: 1;">&times;</button>
+                            </div>
+                        `;
+                    } else {
+                        thumbnailPickerHtml = `
+                            <button type="button" class="btn-select-job-thumbnail" data-id="${job.id}" style="padding: 6px 10px; background: rgba(255,255,255,0.05); border: 1px solid var(--border-subtle); border-radius: var(--radius-sm); color: var(--text-primary); font-size: 0.75rem; font-weight: 600; cursor: pointer; display: flex; align-items: center; gap: 4px;">
+                                🖼️ Cover Video
+                            </button>
+                            <input type="file" class="input-job-thumb" id="input_thumb_${job.id}" data-id="${job.id}" accept=".png,.jpg,.jpeg" style="display: none;">
+                        `;
+                    }
+
+                    const isCustom = job.backsoundMode === 'custom';
+                    const isNone = job.backsoundMode === 'none';
+                    
+                    let customAudioPickerHtml = '';
+                    if (isCustom) {
+                        if (job.selectedBacksoundFile) {
+                            customAudioPickerHtml = `
+                                <div style="position: relative; display: inline-flex; align-items: center; gap: 6px; background: rgba(255,255,255,0.03); border: 1px solid var(--border-subtle); padding: 4px 8px; border-radius: 4px; max-width: 140px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-size: 0.72rem; color: var(--text-primary);">
+                                    🎵 ${job.selectedBacksoundFile.name}
+                                    <button type="button" class="btn-remove-job-audio" data-id="${job.id}" style="margin-left: 4px; width: 14px; height: 14px; border-radius: 50%; background: #EF4444; color: white; border: none; font-size: 9px; cursor: pointer; display: flex; align-items: center; justify-content: center; line-height: 1;">&times;</button>
+                                </div>
+                            `;
+                        } else {
+                            customAudioPickerHtml = `
+                                <button type="button" class="btn-select-job-audio" data-id="${job.id}" style="padding: 4px 8px; background: rgba(255,255,255,0.05); border: 1px dashed var(--border-subtle); border-radius: var(--radius-sm); color: var(--text-secondary); font-size: 0.72rem; cursor: pointer;">
+                                    📤 Upload
+                                </button>
+                                <input type="file" class="input-job-audio" id="input_audio_${job.id}" data-id="${job.id}" accept=".mp3,.wav" style="display: none;">
+                            `;
+                        }
+                    }
+
+                    const volumeHtml = !isNone ? `
+                        <div style="display: flex; align-items: center; gap: 8px; margin-top: 4px; width: 100%;">
+                            <span style="font-size: 0.7rem; color: var(--text-secondary); flex-shrink: 0;">Vol:</span>
+                            <input type="range" class="job-backsound-volume" data-id="${job.id}" min="0.0" max="0.5" step="0.01" value="${job.backsoundVolume}" style="flex: 1; height: 4px; accent-color: var(--text-accent); cursor: pointer;">
+                            <span class="job-backsound-volume-val" style="font-size: 0.72rem; font-weight: 600; color: var(--text-accent); flex-shrink: 0; min-width: 24px;">${Math.round(job.backsoundVolume * 100)}%</span>
+                        </div>
+                    ` : '';
+
+                    settingsHtml = `
+                        <div class="job-settings-panel" style="flex: 1.2; min-width: 250px; display: flex; flex-direction: column; gap: 6px; padding-left: 16px; border-left: 1px solid rgba(255,255,255,0.06);">
+                            <!-- Thumbnail Selection -->
+                            <div style="display: flex; align-items: center; justify-content: space-between; gap: 8px;">
+                                <span style="font-size: 0.75rem; font-weight: 600; color: var(--text-secondary);">🖼️ Cover/Thumbnail:</span>
+                                <div style="display: flex; align-items: center;">
+                                    ${thumbnailPickerHtml}
+                                </div>
+                            </div>
+
+                            <!-- Backsound Selection -->
+                            <div style="display: flex; flex-direction: column; gap: 4px; margin-top: 4px; border-top: 1px dashed rgba(255,255,255,0.04); padding-top: 4px;">
+                                <div style="display: flex; align-items: center; justify-content: space-between; gap: 8px;">
+                                    <span style="font-size: 0.75rem; font-weight: 600; color: var(--text-secondary);">🎵 Backsound:</span>
+                                    <div style="display: flex; align-items: center; gap: 4px;">
+                                        <div class="select-wrapper" style="margin-bottom: 0;">
+                                            <select class="job-backsound-select" data-id="${job.id}" style="padding: 2px 16px 2px 4px; font-size: 0.7rem; border-radius: 4px; background: var(--bg-input); border: 1px solid var(--border-subtle); color: var(--text-primary); cursor: pointer;">
+                                                <option value="backsound1" ${job.backsoundMode === 'backsound1' ? 'selected' : ''}>Bawaan 1</option>
+                                                <option value="backsound2" ${job.backsoundMode === 'backsound2' ? 'selected' : ''}>Bawaan 2</option>
+                                                <option value="backsound3" ${job.backsoundMode === 'backsound3' ? 'selected' : ''}>Bawaan 3</option>
+                                                <option value="custom" ${job.backsoundMode === 'custom' ? 'selected' : ''}>Kustom</option>
+                                                <option value="none" ${job.backsoundMode === 'none' ? 'selected' : ''}>Mute</option>
+                                            </select>
+                                        </div>
+                                        ${customAudioPickerHtml}
+                                    </div>
+                                </div>
+                                ${volumeHtml}
+                            </div>
+                        </div>
+                    `;
+                } else {
+                    settingsHtml = `
+                        <div style="flex: 1.2; display: flex; align-items: center; justify-content: center; color: var(--text-secondary); font-size: 0.78rem; padding-left: 16px; border-left: 1px solid rgba(255,255,255,0.06);">
+                            ⏳ Sedang diproses...
+                        </div>
+                    `;
+                }
+
+                card.innerHTML = `
+                    <button class="queue-card-remove" data-id="${job.id}">&times;</button>
+                    <div style="display: flex; flex-direction: row; flex-wrap: wrap; gap: 16px; width: 100%;">
+                        ${leftHtml}
+                        ${settingsHtml}
                     </div>
                 `;
             }
-
-            card.innerHTML = `
-                <button class="queue-card-remove" data-id="${job.id}">&times;</button>
-                <div class="queue-card-header">
-                    <span class="queue-card-title" title="${job.file.name}">${job.file.name}</span>
-                    <span class="queue-card-size">${formatSize(job.file.size)}</span>
-                </div>
-                <div style="display: flex; justify-content: space-between; align-items: center;">
-                    <span class="queue-card-status-badge ${job.status}">${job.status === 'pending' ? 'Antrean' : job.status === 'processing' ? 'Proses' : job.status === 'success' ? 'Sukses' : 'Gagal'}</span>
-                </div>
-                <div class="queue-card-progress">
-                    <div class="queue-card-progress-bar-container">
-                        <div class="queue-card-progress-bar" style="width: ${job.progress}%"></div>
-                    </div>
-                    <span class="queue-card-progress-text" title="${job.statusText}">${job.statusText}</span>
-                </div>
-                ${outputHtml}
-            `;
 
             // Attach card events
             const btnRemove = card.querySelector('.queue-card-remove');
@@ -2200,7 +2159,95 @@
                 btnRetry.addEventListener('click', () => retryJob(job.id));
             }
 
-            // Attach copywriting & caption kit event handlers for successful bulk jobs
+            // Attach dynamic settings events
+            if (job.status === 'pending') {
+                // Thumbnail Picker triggers
+                const btnSelectThumb = card.querySelector('.btn-select-job-thumbnail');
+                const fileInputThumb = card.querySelector('.input-job-thumb');
+                if (btnSelectThumb && fileInputThumb) {
+                    btnSelectThumb.addEventListener('click', () => fileInputThumb.click());
+                }
+
+                if (fileInputThumb) {
+                    fileInputThumb.addEventListener('change', (e) => {
+                        if (e.target.files.length > 0) {
+                            const file = e.target.files[0];
+                            if (!file.type.match(/image\/(png|jpeg|jpg)/)) {
+                                showToast('❌ Hanya file gambar (.png, .jpg, .jpeg) yang diterima!');
+                                return;
+                            }
+                            job.selectedThumbnailFile = file;
+                            job.selectedThumbnailUrl = URL.createObjectURL(file);
+                            renderBulkQueue();
+                        }
+                    });
+                }
+
+                const btnRemoveThumb = card.querySelector('.btn-remove-job-thumbnail');
+                if (btnRemoveThumb) {
+                    btnRemoveThumb.addEventListener('click', (e) => {
+                        e.stopPropagation();
+                        job.selectedThumbnailFile = null;
+                        job.selectedThumbnailUrl = '';
+                        renderBulkQueue();
+                    });
+                }
+
+                // Backsound Dropdown Select
+                const selectBacksound = card.querySelector('.job-backsound-select');
+                if (selectBacksound) {
+                    selectBacksound.addEventListener('change', (e) => {
+                        job.backsoundMode = e.target.value;
+                        if (job.backsoundMode !== 'custom') {
+                            job.selectedBacksoundFile = null;
+                        }
+                        renderBulkQueue();
+                    });
+                }
+
+                // Backsound Custom Audio Trigger
+                const btnSelectAudio = card.querySelector('.btn-select-job-audio');
+                const fileInputAudio = card.querySelector('.input-job-audio');
+                if (btnSelectAudio && fileInputAudio) {
+                    btnSelectAudio.addEventListener('click', () => fileInputAudio.click());
+                }
+
+                if (fileInputAudio) {
+                    fileInputAudio.addEventListener('change', (e) => {
+                        if (e.target.files.length > 0) {
+                            const file = e.target.files[0];
+                            if (!file.name.match(/\.(mp3|wav)$/i) && !file.type.match(/audio\/(mpeg|mp3|x-wav|wav)/)) {
+                                showToast('❌ Hanya file audio (.mp3, .wav) yang diterima!');
+                                return;
+                            }
+                            job.selectedBacksoundFile = file;
+                            renderBulkQueue();
+                        }
+                    });
+                }
+
+                const btnRemoveAudio = card.querySelector('.btn-remove-job-audio');
+                if (btnRemoveAudio) {
+                    btnRemoveAudio.addEventListener('click', (e) => {
+                        e.stopPropagation();
+                        job.selectedBacksoundFile = null;
+                        renderBulkQueue();
+                    });
+                }
+
+                // Volume slider
+                const sliderVolume = card.querySelector('.job-backsound-volume');
+                const labelVolume = card.querySelector('.job-backsound-volume-val');
+                if (sliderVolume && labelVolume) {
+                    sliderVolume.addEventListener('input', (e) => {
+                        const val = parseFloat(e.target.value);
+                        job.backsoundVolume = val;
+                        labelVolume.textContent = Math.round(val * 100) + '%';
+                    });
+                }
+            }
+
+            // Copywriting handlers for success bulk jobs
             if (job.status === 'success') {
                 const btnToggle = card.querySelector('.btn-copy-caption-toggle');
                 const panel = card.querySelector('.queue-card-caption-panel');
@@ -2209,7 +2256,7 @@
                     btnToggle.addEventListener('click', (e) => {
                         e.stopPropagation();
                         const isHidden = panel.style.display === 'none';
-                        panel.style.display = isHidden ? 'block' : 'none';
+                        panel.style.display = isHidden ? 'flex' : 'none';
                     });
                 }
                 
@@ -2266,7 +2313,7 @@
                             btnCopyAll.textContent = '✓ Tersalin!';
                             btnCopyAll.style.background = '#10B981';
                             setTimeout(() => {
-                                btnCopyAll.textContent = 'Salin Semua Caption';
+                                btnCopyAll.textContent = 'Salin Caption';
                                 btnCopyAll.style.background = '';
                             }, 2000);
                         } catch (err) {
@@ -2274,7 +2321,7 @@
                             document.execCommand('copy');
                             btnCopyAll.textContent = '✓ Tersalin!';
                             setTimeout(() => {
-                                btnCopyAll.textContent = 'Salin Semua Caption';
+                                btnCopyAll.textContent = 'Salin Caption';
                             }, 2000);
                         }
                     });
@@ -2388,17 +2435,17 @@
         const bulkUseSubtitle = document.getElementById('bulkSubUse')?.value || 'true';
         formData.append('use_subtitle', bulkUseSubtitle);
 
-        // Thumbnail & Backsound settings for bulk video generation
-        if (selectedBulkThumbnailFile) {
-            formData.append('thumbnail', selectedBulkThumbnailFile);
+        // Thumbnail & Backsound settings for bulk video generation (per-video settings)
+        if (job.selectedThumbnailFile) {
+            formData.append('thumbnail', job.selectedThumbnailFile);
         }
 
-        const bulkBsMode = bulkBacksoundSelect?.value || 'backsound3';
-        const bulkBsVol = bulkBacksoundVolume?.value || 0.12;
+        const bulkBsMode = job.backsoundMode || 'backsound3';
+        const bulkBsVol = job.backsoundVolume !== undefined ? job.backsoundVolume : 0.12;
         formData.append('backsound_mode', bulkBsMode);
         formData.append('backsound_volume', bulkBsVol);
-        if (bulkBsMode === 'custom' && selectedBulkBacksoundFile) {
-            formData.append('backsound_file', selectedBulkBacksoundFile);
+        if (bulkBsMode === 'custom' && job.selectedBacksoundFile) {
+            formData.append('backsound_file', job.selectedBacksoundFile);
         }
 
         try {
@@ -2625,31 +2672,12 @@
             bulkQueue = [];
             bulkFileInput.value = '';
             selectedBulkLogoFile = null;
-            selectedBulkThumbnailFile = null;
-            selectedBulkBacksoundFile = null;
 
             if (bulkLogoPreview) {
                 bulkLogoPreviewImg.src = '';
                 bulkLogoInput.value = '';
                 bulkLogoUploadContent.style.display = 'flex';
                 bulkLogoPreview.style.display = 'none';
-            }
-
-            if (bulkThumbnailPreview) {
-                bulkThumbnailPreviewImg.src = '';
-                bulkThumbnailInput.value = '';
-                bulkThumbnailUploadContent.style.display = 'flex';
-                bulkThumbnailPreview.style.display = 'none';
-            }
-
-            if (bulkBacksoundSelect) {
-                bulkBacksoundSelect.value = 'backsound3';
-                bulkBacksoundInput.value = '';
-                bulkBacksoundUploadZone.style.display = 'none';
-                bulkBacksoundUploadContent.style.display = 'flex';
-                bulkBacksoundPreview.style.display = 'none';
-                bulkBacksoundVolume.value = 0.12;
-                if (bulkBacksoundVolumeVal) bulkBacksoundVolumeVal.textContent = '12%';
             }
 
             updateBulkStats();
