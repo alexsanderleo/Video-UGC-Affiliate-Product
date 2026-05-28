@@ -1787,23 +1787,23 @@ body, .app-sidebar, .glass-card, .text-input, .select-input, .user-profile-sideb
 }
 
 /* Status colors and glow */
-.queue-card.status-pending {
+.queue-card.status-pending, .queue-list-row.status-pending {
     border-left: 4px solid var(--text-secondary);
 }
 
-.queue-card.status-processing {
+.queue-card.status-processing, .queue-list-row.status-processing {
     border-left: 4px solid #06B6D4;
     box-shadow: 0 0 15px rgba(6, 182, 212, 0.15);
     border-color: rgba(6, 182, 212, 0.3) rgba(255,255,255,0.06) rgba(255,255,255,0.06) #06B6D4;
 }
 
-.queue-card.status-success {
+.queue-card.status-success, .queue-list-row.status-success {
     border-left: 4px solid #10B981;
     box-shadow: 0 0 15px rgba(16, 185, 129, 0.15);
     border-color: rgba(16, 185, 129, 0.3) rgba(255,255,255,0.06) rgba(255,255,255,0.06) #10B981;
 }
 
-.queue-card.status-error {
+.queue-card.status-error, .queue-list-row.status-error {
     border-left: 4px solid #EF4444;
     box-shadow: 0 0 15px rgba(239, 68, 68, 0.15);
     border-color: rgba(239, 68, 68, 0.3) rgba(255,255,255,0.06) rgba(255,255,255,0.06) #EF4444;

@@ -2012,6 +2012,10 @@
                         </div>
                     </div>
                 `;
+                card.innerHTML = `
+                    <button class="queue-card-remove" data-id="${job.id}">&times;</button>
+                    ${outputHtml}
+                `;
             } else if (job.status === 'error') {
                 outputHtml = `
                     <div style="display: flex; flex-direction: row; flex-wrap: wrap; gap: 16px; width: 100%; align-items: center;">
@@ -2031,6 +2035,10 @@
                             </button>
                         </div>
                     </div>
+                `;
+                card.innerHTML = `
+                    <button class="queue-card-remove" data-id="${job.id}">&times;</button>
+                    ${outputHtml}
                 `;
             } else {
                 // job.status === 'pending' or 'processing'
