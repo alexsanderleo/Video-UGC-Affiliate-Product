@@ -127,6 +127,7 @@ async def render_video_endpoint(
     watermark_text: str = Form(""),
     watermark_position: str = Form("top-right"),
     watermark_logo: Optional[UploadFile] = File(None),
+    thumbnail: Optional[UploadFile] = File(None),
     sub_font: str = Form("Arial"),
     sub_size: int = Form(26),
     sub_color: str = Form("#FFFF00"),
@@ -175,10 +176,20 @@ async def render_video_endpoint(
         with open(logo_path, "wb") as buffer:
             shutil.copyfileobj(watermark_logo.file, buffer)
 
+    # Save thumbnail file if uploaded
+    thumbnail_path = None
+    if thumbnail:
+        thumbnail_filename = f"{job_id}_thumbnail.png"
+        thumbnail_path = str(UPLOAD_DIR / thumbnail_filename)
+        with open(thumbnail_path, "wb") as buffer:
+            shutil.copyfileobj(thumbnail.file, buffer)
+
     # Calculate uploaded file sizes (ingress bandwidth)
     ingress_bytes = Path(video_path).stat().st_size if Path(video_path).exists() else 0
     if logo_path and Path(logo_path).exists():
         ingress_bytes += Path(logo_path).stat().st_size
+    if thumbnail_path and Path(thumbnail_path).exists():
+        ingress_bytes += Path(thumbnail_path).stat().st_size
 
     # Register in DB with "pending"
     log = GenerationLog(
@@ -225,6 +236,7 @@ async def render_video_endpoint(
                 'use_subtitle': use_subtitle,
                 'use_speed_ramping': use_speed_ramping,
                 'use_camera_shake': use_camera_shake,
+                'thumbnail_path': thumbnail_path,
             },
             task_id=job_id
         )

@@ -15,6 +15,13 @@
     const fileInput = document.getElementById('fileInput');
     const btnRemoveVideo = document.getElementById('btnRemoveVideo');
 
+    const thumbnailInput = document.getElementById('thumbnailInput');
+    const thumbnailUploadZone = document.getElementById('thumbnailUploadZone');
+    const thumbnailUploadContent = document.getElementById('thumbnailUploadContent');
+    const thumbnailPreview = document.getElementById('thumbnailPreview');
+    const thumbnailPreviewImg = document.getElementById('thumbnailPreviewImg');
+    const btnRemoveThumbnail = document.getElementById('btnRemoveThumbnail');
+
     const toggleText = document.getElementById('toggleText');
     const toggleLogo = document.getElementById('toggleLogo');
     const watermarkTextGroup = document.getElementById('watermarkTextGroup');
@@ -68,6 +75,7 @@
     // === State ===
     let selectedVideoFile = null;
     let selectedLogoFile = null;
+    let selectedThumbnailFile = null;
     let watermarkMode = 'text'; // 'text' or 'logo'
     let isProcessing = false;
     let activeGenerateJobId = null;
@@ -235,6 +243,13 @@
         dropZone.classList.remove('has-file');
         fileInput.value = '';
         
+        // Clear thumbnail
+        selectedThumbnailFile = null;
+        if (thumbnailPreviewImg) thumbnailPreviewImg.src = '';
+        if (thumbnailInput) thumbnailInput.value = '';
+        if (thumbnailUploadContent) thumbnailUploadContent.style.display = 'flex';
+        if (thumbnailPreview) thumbnailPreview.style.display = 'none';
+        
         // Hide edit panel and reset progress steps since video is removed
         if (scriptEditPanel) scriptEditPanel.style.display = 'none';
         resetProgress();
@@ -333,6 +348,39 @@
         logoPreview.style.display = 'none';
         updateGenerateBtn();
     });
+
+    // === Custom Thumbnail Upload ===
+    if (thumbnailUploadZone) {
+        thumbnailUploadZone.addEventListener('click', () => thumbnailInput.click());
+    }
+
+    if (thumbnailInput) {
+        thumbnailInput.addEventListener('change', (e) => {
+            if (e.target.files.length > 0) {
+                const file = e.target.files[0];
+                if (!file.type.match(/image\/(png|jpeg|jpg)/)) {
+                    showToast('❌ Hanya file gambar (.png, .jpg, .jpeg) yang diterima!');
+                    return;
+                }
+                selectedThumbnailFile = file;
+                const url = URL.createObjectURL(file);
+                if (thumbnailPreviewImg) thumbnailPreviewImg.src = url;
+                if (thumbnailUploadContent) thumbnailUploadContent.style.display = 'none';
+                if (thumbnailPreview) thumbnailPreview.style.display = 'flex';
+            }
+        });
+    }
+
+    if (btnRemoveThumbnail) {
+        btnRemoveThumbnail.addEventListener('click', (e) => {
+            e.stopPropagation();
+            selectedThumbnailFile = null;
+            if (thumbnailPreviewImg) thumbnailPreviewImg.src = '';
+            if (thumbnailInput) thumbnailInput.value = '';
+            if (thumbnailUploadContent) thumbnailUploadContent.style.display = 'flex';
+            if (thumbnailPreview) thumbnailPreview.style.display = 'none';
+        });
+    }
 
     // === Voice Selector ===
     function updateVoiceCards() {
@@ -692,6 +740,10 @@
         const useCameraShake = document.getElementById('useCameraShake')?.value || 'true';
         formData.append('use_speed_ramping', useSpeedRamping);
         formData.append('use_camera_shake', useCameraShake);
+
+        if (selectedThumbnailFile) {
+            formData.append('thumbnail', selectedThumbnailFile);
+        }
 
         const headers = {
             'Authorization': `Bearer ${token}`

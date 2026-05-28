@@ -689,6 +689,29 @@
                                         <input type="text" id="editHashtags" class="text-input" placeholder="Masukkan hashtags..." style="width: 100%;">
                                     </div>
 
+                                    <!-- Custom Thumbnail Upload (Optional) -->
+                                    <div style="margin-bottom: 20px; border-top: 1px solid rgba(255,255,255,0.06); padding-top: 16px;">
+                                        <label class="input-label" style="font-weight: 600; color: var(--text-primary); margin-bottom: 6px; display: block;">Cover / Thumbnail Video <span style="font-size: 0.72rem; color: var(--text-muted); font-weight: normal; margin-left: 6px;">(Opsional)</span></label>
+                                        <p style="font-size: 0.75rem; color: var(--text-secondary); margin-bottom: 10px; margin-top: -4px;">
+                                            Upload gambar untuk dijadikan cover/thumbnail di bagian awal video (membantu lolos duplikasi & terlihat menarik di feed).
+                                        </p>
+                                        <div class="logo-upload-zone" id="thumbnailUploadZone" style="border: 1px dashed var(--border-subtle); border-radius: var(--radius-md); padding: 14px; text-align: center; cursor: pointer; background: var(--bg-input); transition: all 0.2s;">
+                                            <div class="logo-upload-content" id="thumbnailUploadContent" style="display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 8px; color: var(--text-muted);">
+                                                <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5">
+                                                    <rect x="3" y="3" width="18" height="18" rx="2" ry="2" />
+                                                    <circle cx="8.5" cy="8.5" r="1.5" />
+                                                    <polyline points="21 15 16 10 5 21" />
+                                                </svg>
+                                                <span style="font-size: 0.8rem; font-weight: 500;">Pilih gambar thumbnail (.jpg, .jpeg, .png)</span>
+                                            </div>
+                                            <div class="logo-preview" id="thumbnailPreview" style="display:none; position: relative; align-items: center; justify-content: center; width: 100%;">
+                                                <img id="thumbnailPreviewImg" alt="Thumbnail preview" style="max-height: 120px; object-fit: contain; border-radius: var(--radius-sm); border: 1px solid var(--border-subtle);">
+                                                <button type="button" class="btn-remove-sm" id="btnRemoveThumbnail" style="position: absolute; top: -8px; right: -8px; width: 20px; height: 20px; border-radius: 50%; background: #EF4444; color: white; border: none; font-size: 14px; cursor: pointer; display: flex; align-items: center; justify-content: center; line-height: 1;">&times;</button>
+                                            </div>
+                                        </div>
+                                        <input type="file" id="thumbnailInput" accept=".png,.jpg,.jpeg,image/png,image/jpeg" hidden>
+                                    </div>
+
                                     <!-- Render Final Button -->
                                     <button class="btn-generate" id="btnRenderVideo" style="background: linear-gradient(135deg, #8B5CF6, #06B6D4); font-weight: 700; width: 100%; box-shadow: 0 4px 20px rgba(139, 92, 246, 0.4); margin: 0; min-height: unset; padding: 12px 24px; border: none; cursor: pointer;">
                                         <span class="btn-content" id="btnRenderContent" style="display: flex; align-items: center; justify-content: center; gap: 8px;">

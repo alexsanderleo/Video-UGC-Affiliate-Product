@@ -647,8 +647,9 @@ def step_c_ffmpeg(
     wm_opacity: float = 0.65,
     use_speed_ramping: str = "true",
     use_camera_shake: str = "true",
+    thumbnail_path: Optional[str] = None,
 ):
-    """Process video using FFmpeg with anti-copyright, customized subtitles, and adjustable watermark opacity."""
+    """Process video using FFmpeg with anti-copyright, customized subtitles, adjustable watermark opacity, and optional thumbnail cover."""
     # Get original input video duration
     video_dur = get_video_duration(input_video)
     
@@ -721,6 +722,13 @@ def step_c_ffmpeg(
         logo_index = next_index
         next_index += 1
 
+    thumbnail_index = -1
+    has_thumbnail = thumbnail_path and Path(thumbnail_path).exists()
+    if has_thumbnail:
+        input_args += ['-loop', '1', '-i', thumbnail_path]
+        thumbnail_index = next_index
+        next_index += 1
+
     # Base background and video blending filter (Anti-Copyright & Speed Ramping Engine)
     import random
     import math
@@ -779,7 +787,7 @@ def step_c_ffmpeg(
     
     # 1. Overlay logo watermark if present
     if logo_index != -1:
-        logo_out = "[vid_logo]" if watermark_text or (subtitle_path and Path(subtitle_path).exists()) else "[vid_final]"
+        logo_out = "[vid_logo]"
         filter_complex += (
             f";[{logo_index}:v]scale=100:-1,format=rgba,colorchannelmixer=aa={wm_opacity}[logo];"
             f"{last_vid}[logo]overlay={logo_x}:{logo_y}{logo_out}"
@@ -788,7 +796,7 @@ def step_c_ffmpeg(
         
     # 2. Draw text watermark if present
     if watermark_text:
-        text_out = "[vid_text]" if (subtitle_path and Path(subtitle_path).exists()) else "[vid_final]"
+        text_out = "[vid_text]"
         filter_complex += (
             f";{last_vid}drawtext=text='{safe_text}':"
             f"fontfile={font_path}:"
@@ -802,7 +810,7 @@ def step_c_ffmpeg(
         srt_escaped = subtitle_path.replace('\\', '/').replace(':', '\\:')
         if subtitle_path.endswith('.ass'):
             filter_complex += (
-                f";{last_vid}subtitles='{srt_escaped}'[vid_final]"
+                f";{last_vid}subtitles='{srt_escaped}'[vid_subs]"
             )
         else:
             ass_primary = convert_to_ass_color(sub_color, sub_opacity)
@@ -812,12 +820,24 @@ def step_c_ffmpeg(
                 f"force_style='FontName={sub_font},FontSize={sub_size},"
                 f"PrimaryColour={ass_primary},SecondaryColour={ass_secondary},"
                 f"OutlineColour=&H00000000,Outline=2,Shadow=0,Alignment=2,"
-                f"MarginV=280'[vid_final]"
+                f"MarginV=280'[vid_subs]"
             )
-            
-    # If neither logo, text watermark, nor subtitles are present, route the blended bg directly
-    if last_vid == "[vid_with_bg]":
-        filter_complex = filter_complex.replace("[vid_with_bg]", "[vid_final]")
+        last_vid = "[vid_subs]"
+
+    # 4. Overlay thumbnail cover if present
+    if thumbnail_index != -1:
+        thumb_out = "[vid_thumb]"
+        filter_complex += (
+            f";[{thumbnail_index}:v]scale=720:1280:force_original_aspect_ratio=decrease,"
+            f"pad=720:1280:(720-iw)/2:(1280-ih)/2:color=black,format=rgba,"
+            f"fade=out:st=0.8:d=0.2:alpha=1[thumb];"
+            f"{last_vid}[thumb]overlay=0:0:enable='lt(t,1.0)'{thumb_out}"
+        )
+        last_vid = thumb_out
+        
+    # Final routing to [vid_final]
+    if last_vid != "[vid_final]":
+        filter_complex += f";{last_vid}null[vid_final]"
 
     # Audio mixing mapping using the tracked backsound index
     if backsound_index != -1:
