@@ -1345,6 +1345,24 @@
             if (bulkSubSecColorHex) bulkSubSecColorHex.textContent = '#FFFFFF';
         }
 
+        // Resets for bulk cover/thumbnail
+        selectedBulkThumbnailFile = null;
+        if (bulkThumbnailPreviewImg) bulkThumbnailPreviewImg.src = '';
+        if (bulkThumbnailInput) bulkThumbnailInput.value = '';
+        if (bulkThumbnailUploadContent) bulkThumbnailUploadContent.style.display = 'flex';
+        if (bulkThumbnailPreview) bulkThumbnailPreview.style.display = 'none';
+
+        // Resets for bulk backsound
+        selectedBulkBacksoundFile = null;
+        if (bulkBacksoundSelect) bulkBacksoundSelect.value = 'backsound3';
+        if (bulkBacksoundInput) bulkBacksoundInput.value = '';
+        if (bulkBacksoundUploadZone) bulkBacksoundUploadZone.style.display = 'none';
+        if (bulkBacksoundUploadContent) bulkBacksoundUploadContent.style.display = 'flex';
+        if (bulkBacksoundPreview) bulkBacksoundPreview.style.display = 'none';
+        if (bulkBacksoundVolume) bulkBacksoundVolume.value = 0.12;
+        if (bulkBacksoundVolumeVal) bulkBacksoundVolumeVal.textContent = '12%';
+        if (bulkBacksoundVolumeGroup) bulkBacksoundVolumeGroup.style.display = 'block';
+
         // 2. Subtitle Font -> Impact Bold
         const subFont = document.getElementById('subFont');
         if (subFont) {
@@ -1763,6 +1781,28 @@
     let bulkQueue = [];
     const MAX_CONCURRENT = 3;
 
+    // Bulk Thumbnail and Backsound DOM elements
+    const bulkThumbnailInput = document.getElementById('bulkThumbnailInput');
+    const bulkThumbnailUploadZone = document.getElementById('bulkThumbnailUploadZone');
+    const bulkThumbnailUploadContent = document.getElementById('bulkThumbnailUploadContent');
+    const bulkThumbnailPreview = document.getElementById('bulkThumbnailPreview');
+    const bulkThumbnailPreviewImg = document.getElementById('bulkThumbnailPreviewImg');
+    const btnRemoveBulkThumbnail = document.getElementById('btnRemoveBulkThumbnail');
+
+    const bulkBacksoundSelect = document.getElementById('bulkBacksoundSelect');
+    const bulkBacksoundUploadZone = document.getElementById('bulkBacksoundUploadZone');
+    const bulkBacksoundInput = document.getElementById('bulkBacksoundInput');
+    const bulkBacksoundUploadContent = document.getElementById('bulkBacksoundUploadContent');
+    const bulkBacksoundPreview = document.getElementById('bulkBacksoundPreview');
+    const bulkBacksoundPreviewName = document.getElementById('bulkBacksoundPreviewName');
+    const btnRemoveBulkBacksound = document.getElementById('btnRemoveBulkBacksound');
+    const bulkBacksoundVolume = document.getElementById('bulkBacksoundVolume');
+    const bulkBacksoundVolumeVal = document.getElementById('bulkBacksoundVolumeVal');
+    const bulkBacksoundVolumeGroup = document.getElementById('bulkBacksoundVolumeGroup');
+
+    let selectedBulkThumbnailFile = null;
+    let selectedBulkBacksoundFile = null;
+
     // Toggle Watermark Group for Bulk Settings
     if (bulkWatermarkMode) {
         bulkWatermarkMode.addEventListener('change', () => {
@@ -1807,6 +1847,119 @@
             bulkLogoInput.value = '';
             bulkLogoUploadContent.style.display = 'flex';
             bulkLogoPreview.style.display = 'none';
+        });
+    }
+
+    // === Bulk Cover/Thumbnail Upload ===
+    if (bulkThumbnailUploadZone) {
+        bulkThumbnailUploadZone.addEventListener('click', () => bulkThumbnailInput.click());
+    }
+
+    if (bulkThumbnailInput) {
+        bulkThumbnailInput.addEventListener('change', (e) => {
+            if (e.target.files.length > 0) {
+                const file = e.target.files[0];
+                if (!file.type.match(/image\/(png|jpeg|jpg)/)) {
+                    showToast('❌ Hanya file gambar (.png, .jpg, .jpeg) yang diterima!');
+                    return;
+                }
+                selectedBulkThumbnailFile = file;
+                const url = URL.createObjectURL(file);
+                if (bulkThumbnailPreviewImg) bulkThumbnailPreviewImg.src = url;
+                if (bulkThumbnailUploadContent) bulkThumbnailUploadContent.style.display = 'none';
+                if (bulkThumbnailPreview) bulkThumbnailPreview.style.display = 'flex';
+            }
+        });
+    }
+
+    if (btnRemoveBulkThumbnail) {
+        btnRemoveBulkThumbnail.addEventListener('click', (e) => {
+            e.stopPropagation();
+            selectedBulkThumbnailFile = null;
+            if (bulkThumbnailPreviewImg) bulkThumbnailPreviewImg.src = '';
+            if (bulkThumbnailInput) bulkThumbnailInput.value = '';
+            if (bulkThumbnailUploadContent) bulkThumbnailUploadContent.style.display = 'flex';
+            if (bulkThumbnailPreview) bulkThumbnailPreview.style.display = 'none';
+        });
+    }
+
+    // === Bulk Musik Backsound & Volume Slider ===
+    if (bulkBacksoundSelect) {
+        bulkBacksoundSelect.addEventListener('change', () => {
+            const val = bulkBacksoundSelect.value;
+            if (val === 'custom') {
+                if (bulkBacksoundUploadZone) bulkBacksoundUploadZone.style.display = 'block';
+                if (bulkBacksoundVolumeGroup) bulkBacksoundVolumeGroup.style.display = 'block';
+            } else if (val === 'none') {
+                if (bulkBacksoundUploadZone) bulkBacksoundUploadZone.style.display = 'none';
+                if (bulkBacksoundVolumeGroup) bulkBacksoundVolumeGroup.style.display = 'none';
+            } else {
+                if (bulkBacksoundUploadZone) bulkBacksoundUploadZone.style.display = 'none';
+                if (bulkBacksoundVolumeGroup) bulkBacksoundVolumeGroup.style.display = 'block';
+            }
+        });
+    }
+
+    if (bulkBacksoundVolume) {
+        bulkBacksoundVolume.addEventListener('input', (e) => {
+            const pct = Math.round(parseFloat(e.target.value) * 100);
+            if (bulkBacksoundVolumeVal) bulkBacksoundVolumeVal.textContent = pct + '%';
+        });
+    }
+
+    if (bulkBacksoundUploadZone) {
+        bulkBacksoundUploadZone.addEventListener('click', () => bulkBacksoundInput.click());
+
+        bulkBacksoundUploadZone.addEventListener('dragover', (e) => {
+            e.preventDefault();
+            bulkBacksoundUploadZone.style.borderColor = 'var(--text-accent)';
+            bulkBacksoundUploadZone.style.background = 'rgba(255,255,255,0.02)';
+        });
+
+        bulkBacksoundUploadZone.addEventListener('dragleave', () => {
+            bulkBacksoundUploadZone.style.borderColor = 'var(--border-subtle)';
+            bulkBacksoundUploadZone.style.background = 'var(--bg-input)';
+        });
+
+        bulkBacksoundUploadZone.addEventListener('drop', (e) => {
+            e.preventDefault();
+            bulkBacksoundUploadZone.style.borderColor = 'var(--border-subtle)';
+            bulkBacksoundUploadZone.style.background = 'var(--bg-input)';
+            
+            if (e.dataTransfer.files.length > 0) {
+                const file = e.dataTransfer.files[0];
+                handleBulkBacksoundUpload(file);
+            }
+        });
+    }
+
+    if (bulkBacksoundInput) {
+        bulkBacksoundInput.addEventListener('change', (e) => {
+            if (e.target.files.length > 0) {
+                const file = e.target.files[0];
+                handleBulkBacksoundUpload(file);
+            }
+        });
+    }
+
+    function handleBulkBacksoundUpload(file) {
+        if (!file.name.match(/\.(mp3|wav)$/i) && !file.type.match(/audio\/(mpeg|mp3|x-wav|wav)/)) {
+            showToast('❌ Hanya file audio (.mp3, .wav) yang diterima!');
+            return;
+        }
+        selectedBulkBacksoundFile = file;
+        if (bulkBacksoundPreviewName) bulkBacksoundPreviewName.textContent = file.name + ' (' + formatSize(file.size) + ')';
+        if (bulkBacksoundUploadContent) bulkBacksoundUploadContent.style.display = 'none';
+        if (bulkBacksoundPreview) bulkBacksoundPreview.style.display = 'flex';
+    }
+
+    if (btnRemoveBulkBacksound) {
+        btnRemoveBulkBacksound.addEventListener('click', (e) => {
+            e.stopPropagation();
+            selectedBulkBacksoundFile = null;
+            if (bulkBacksoundInput) bulkBacksoundInput.value = '';
+            if (bulkBacksoundUploadContent) bulkBacksoundUploadContent.style.display = 'flex';
+            if (bulkBacksoundPreview) bulkBacksoundPreview.style.display = 'none';
         });
     }
 
@@ -2235,6 +2388,19 @@
         const bulkUseSubtitle = document.getElementById('bulkSubUse')?.value || 'true';
         formData.append('use_subtitle', bulkUseSubtitle);
 
+        // Thumbnail & Backsound settings for bulk video generation
+        if (selectedBulkThumbnailFile) {
+            formData.append('thumbnail', selectedBulkThumbnailFile);
+        }
+
+        const bulkBsMode = bulkBacksoundSelect?.value || 'backsound3';
+        const bulkBsVol = bulkBacksoundVolume?.value || 0.12;
+        formData.append('backsound_mode', bulkBsMode);
+        formData.append('backsound_volume', bulkBsVol);
+        if (bulkBsMode === 'custom' && selectedBulkBacksoundFile) {
+            formData.append('backsound_file', selectedBulkBacksoundFile);
+        }
+
         try {
             // Register a task ID
             const taskId = Date.now().toString() + '_' + Math.random().toString(36).substr(2, 5);
@@ -2459,12 +2625,31 @@
             bulkQueue = [];
             bulkFileInput.value = '';
             selectedBulkLogoFile = null;
+            selectedBulkThumbnailFile = null;
+            selectedBulkBacksoundFile = null;
 
             if (bulkLogoPreview) {
                 bulkLogoPreviewImg.src = '';
                 bulkLogoInput.value = '';
                 bulkLogoUploadContent.style.display = 'flex';
                 bulkLogoPreview.style.display = 'none';
+            }
+
+            if (bulkThumbnailPreview) {
+                bulkThumbnailPreviewImg.src = '';
+                bulkThumbnailInput.value = '';
+                bulkThumbnailUploadContent.style.display = 'flex';
+                bulkThumbnailPreview.style.display = 'none';
+            }
+
+            if (bulkBacksoundSelect) {
+                bulkBacksoundSelect.value = 'backsound3';
+                bulkBacksoundInput.value = '';
+                bulkBacksoundUploadZone.style.display = 'none';
+                bulkBacksoundUploadContent.style.display = 'flex';
+                bulkBacksoundPreview.style.display = 'none';
+                bulkBacksoundVolume.value = 0.12;
+                if (bulkBacksoundVolumeVal) bulkBacksoundVolumeVal.textContent = '12%';
             }
 
             updateBulkStats();
