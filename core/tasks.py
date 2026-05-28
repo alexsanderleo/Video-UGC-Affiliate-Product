@@ -361,13 +361,13 @@ async def async_render_video_from_script(
         except Exception:
             pass
 
-        # Secure cleanups of intermediate media files
-        for p in [video_path, tts_path, srt_path]:
-            if p and Path(p).exists():
-                try:
-                    Path(p).unlink()
-                except Exception:
-                    pass
+        # Secure cleanups of intermediate media files (disabled temporarily for debugging)
+        # for p in [video_path, tts_path, srt_path]:
+        #     if p and Path(p).exists():
+        #         try:
+        #             Path(p).unlink()
+        #         except Exception:
+        #             pass
 
         # Clean up logo if upload was present
         if logo_path and Path(logo_path).exists():
@@ -617,13 +617,13 @@ async def async_render_video(
         except Exception:
             pass
 
-        # Secure cleanups of intermediate media files
-        for p in [video_path, tts_path, srt_path]:
-            if p and Path(p).exists():
-                try:
-                    Path(p).unlink()
-                except Exception:
-                    pass
+        # Secure cleanups of intermediate media files (disabled temporarily for debugging)
+        # for p in [video_path, tts_path, srt_path]:
+        #     if p and Path(p).exists():
+        #         try:
+        #             Path(p).unlink()
+        #         except Exception:
+        #             pass
 
         # Clean up logo if upload was present
         if logo_path and Path(logo_path).exists():

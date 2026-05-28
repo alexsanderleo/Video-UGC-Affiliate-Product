@@ -934,9 +934,9 @@ def step_c_ffmpeg(
             unregister_task_pid(job_id)
             
     if process.returncode != 0:
-        stderr_last = stderr[-2000:] if stderr else 'No stderr'
+        stderr_last = stderr if stderr else 'No stderr'
         cmd_str = " ".join(cmd)
-        raise RuntimeError(f"FFmpeg render failed. Command run: {cmd_str}. Error: {stderr_last[-600:]}")
+        raise RuntimeError(f"FFmpeg render failed. Command run: {cmd_str}. Error: {stderr_last}")
         
     if not Path(output_path).exists():
         raise RuntimeError("FFmpeg completed but output file was not found.")
