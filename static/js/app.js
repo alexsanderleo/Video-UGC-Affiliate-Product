@@ -2549,6 +2549,17 @@
 
     // Phase 2 execution: Render Audio (TTS) & blended video
     async function renderBulkJob(job) {
+        // Sync values directly from DOM inputs before changing job status and re-rendering list
+        const cardEl = document.getElementById(`card_${job.id}`);
+        if (cardEl) {
+            const titleInput = cardEl.querySelector('.job-title-input');
+            const narrationInput = cardEl.querySelector('.job-narration-input');
+            const hashtagsInput = cardEl.querySelector('.job-hashtags-input');
+            if (titleInput) job.title = titleInput.value.trim();
+            if (narrationInput) job.narration = narrationInput.value.trim();
+            if (hashtagsInput) job.hashtags = hashtagsInput.value.trim();
+        }
+
         const token = localStorage.getItem('token');
         if (!token) {
             showToast('⚠️ Silakan login kembali untuk melanjutkan rendering.');
