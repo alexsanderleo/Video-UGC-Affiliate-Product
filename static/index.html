@@ -983,6 +983,16 @@
                     <main class="main-content">
                         <!-- Universal Batch Settings Card -->
                         <section class="input-section">
+                            <!-- Bulk Video Drop Zone (Direct, Borderless, Top-prominent) -->
+                            <div class="drop-zone" id="bulkDropZone" style="padding: 30px 20px; background: rgba(255,255,255,0.02); border: 2px dashed rgba(148, 163, 184, 0.15); border-radius: var(--radius-md); margin-bottom: 20px;">
+                                <div class="drop-zone-content" id="bulkDropZoneContent">
+                                    <div class="drop-icon" style="font-size: 2.5rem; margin-bottom: 12px;">📂</div>
+                                    <p class="drop-text" style="font-size: 1.1rem; font-weight:700; color:var(--text-primary);">Pilih Video Produk Anda (Bisa Banyak)</p>
+                                    <p class="drop-subtext" style="font-size: 0.85rem; color: var(--text-muted); margin-top: 4px;">Sentuh di sini untuk upload semua video sekaligus (Maksimal 20 Video)</p>
+                                </div>
+                                <input type="file" id="bulkFileInput" accept=".mp4,video/mp4" multiple hidden>
+                            </div>
+
                             <div class="card glass-card">
                                 <div class="card-header">
                                     <div class="card-icon settings-icon"
@@ -1209,27 +1219,6 @@
                                 </div>
                                 </div> <!-- Close group-content -->
                                 </div> <!-- Close collapsible-group -->
-
-                            <!-- Bulk Drag Drop Video Card -->
-                            <div class="card glass-card" style="margin-top: 16px;">
-                                <div class="card-header">
-                                    <div class="card-icon upload-icon"
-                                        style="background: linear-gradient(135deg, #06B6D4, #0891B2); display: flex; align-items: center; justify-content: center; width: 32px; height: 32px; border-radius: 8px; font-size: 16px; box-shadow: var(--shadow-sm);">
-                                        🎬</div>
-                                    <h2 class="card-title">Pilih Video Produk <span
-                                            style="font-size:0.75rem; color:var(--text-secondary); font-weight:normal;">(Maksimal
-                                            20 Video)</span></h2>
-                                </div>
-                                <div class="drop-zone" id="bulkDropZone" style="padding: 40px 20px;">
-                                    <div class="drop-zone-content" id="bulkDropZoneContent">
-                                        <div class="drop-icon" style="font-size: 2.5rem; margin-bottom: 12px;">📂</div>
-                                        <p class="drop-text"
-                                            style="font-size: 1.1rem; font-weight:700; color:var(--text-primary);">Pilih Video Produk Anda (Bisa Banyak)</p>
-                                        <p class="drop-subtext" style="font-size: 0.85rem; color: var(--text-muted); margin-top: 4px;">Sentuh di sini untuk upload semua video sekaligus</p>
-                                    </div>
-                                    <input type="file" id="bulkFileInput" accept=".mp4,video/mp4" multiple hidden>
-                                </div>
-                            </div>
 
                             <!-- Queue Controls and Status Pill -->
                             <div class="bulk-dashboard card glass-card" id="bulkDashboard"
