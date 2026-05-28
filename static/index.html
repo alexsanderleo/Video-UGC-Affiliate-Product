@@ -696,7 +696,7 @@
                         </section>
 
                         <!-- Output Section (hidden by default) -->
-                        <section class="output-section" id="outputSection" style="display:none;">
+                        <section class="output-section" id="outputSection">
                             <div class="section-divider">
                                 <div class="divider-line"></div>
                                 <span class="divider-text">✨ Hasil Generate</span>
@@ -717,10 +717,15 @@
                                         </div>
                                         <h2 class="card-title">Video Final</h2>
                                     </div>
-                                    <div class="video-player-wrapper">
-                                        <video id="outputVideo" controls class="output-video"></video>
+                                    <div class="video-player-wrapper" style="position: relative; aspect-ratio: 9/16; background: rgba(0,0,0,0.25); border-radius: var(--radius-md); display: flex; align-items: center; justify-content: center; overflow: hidden; border: 1px dashed var(--border-subtle);">
+                                        <div id="outputVideoPlaceholder" style="text-align: center; color: var(--text-muted); z-index: 2; padding: 20px;">
+                                            <div style="font-size: 3rem; margin-bottom: 12px; filter: drop-shadow(0 0 10px rgba(139,92,246,0.25));">🎬</div>
+                                            <p style="font-weight: 700; font-size: 1rem; color: var(--text-primary); margin: 0;">Belum Ada Video</p>
+                                            <p style="font-size: 0.8rem; margin-top: 4px; max-width: 220px; margin-left: auto; margin-right: auto; color: var(--text-secondary); line-height: 1.4;">Upload video produk dan klik render untuk melihat hasilnya di sini.</p>
+                                        </div>
+                                        <video id="outputVideo" controls class="output-video" style="display:none; width:100%; height:100%; object-fit:contain;"></video>
                                     </div>
-                                    <a class="btn-download" id="btnDownload" download>
+                                    <a class="btn-download disabled" id="btnDownload" download style="opacity: 0.6; pointer-events: none; background: rgba(255,255,255,0.05); border: 1px solid var(--border-subtle); color: var(--text-muted); box-shadow: none;">
                                         <svg width="18" height="18" viewBox="0 0 24 24" fill="none"
                                             stroke="currentColor" stroke-width="2" stroke-linecap="round"
                                             stroke-linejoin="round">
@@ -790,7 +795,7 @@
                                     <div style="border-top: 1px solid rgba(255,255,255,0.06); margin: 12px 0;"></div>
                                     
                                     <label for="outputCaption" class="input-label">Teks Caption (Siap Salin)</label>
-                                    <textarea id="outputCaption" class="caption-textarea" readonly style="min-height: 180px; font-size: 0.85rem; line-height: 1.5; margin-bottom: 12px;"></textarea>
+                                    <textarea id="outputCaption" class="caption-textarea" readonly placeholder="Hasil caption promosi Anda akan muncul di sini setelah video berhasil dirender..." style="min-height: 180px; font-size: 0.85rem; line-height: 1.5; margin-bottom: 12px;"></textarea>
                                     
                                     <button class="btn-copy" id="btnCopy" style="width: 100%; display: flex; justify-content: center; align-items: center; gap: 8px;">
                                         <svg width="18" height="18" viewBox="0 0 24 24" fill="none"

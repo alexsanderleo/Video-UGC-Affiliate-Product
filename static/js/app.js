@@ -472,8 +472,26 @@
         if (watermarkCard) watermarkCard.classList.add('collapsed');
         if (subtitleCard) subtitleCard.classList.add('collapsed');
 
-        // Hide output and script panel, show progress panel
-        outputSection.style.display = 'none';
+        // Reset output section to placeholder state during new analyze
+        const placeholder = document.getElementById('outputVideoPlaceholder');
+        if (placeholder) placeholder.style.display = 'block';
+        if (outputVideo) {
+            outputVideo.style.display = 'none';
+            outputVideo.src = '';
+        }
+        if (btnDownload) {
+            btnDownload.classList.add('disabled');
+            btnDownload.removeAttribute('href');
+            btnDownload.style.opacity = '0.6';
+            btnDownload.style.pointerEvents = 'none';
+            btnDownload.style.background = 'rgba(255,255,255,0.05)';
+            btnDownload.style.color = 'var(--text-muted)';
+            btnDownload.style.boxShadow = 'none';
+        }
+        if (outputTitleInput) outputTitleInput.value = '';
+        if (outputHashtagsInput) outputHashtagsInput.value = '';
+        if (outputCaption) outputCaption.value = 'Hasil caption promosi Anda akan muncul di sini setelah render...';
+
         scriptEditPanel.style.display = 'none';
         progressPanel.style.display = 'block';
         resetProgress();
@@ -796,16 +814,30 @@
     });
 
     function showOutput(result) {
-        // Show output section
+        // Show output section (always visible, but ensure displayed)
         outputSection.style.display = 'block';
 
-        // Set video source
-        outputVideo.src = result.video_url;
-        outputVideo.load();
+        // Hide placeholder and show video
+        const placeholder = document.getElementById('outputVideoPlaceholder');
+        if (placeholder) placeholder.style.display = 'none';
+        if (outputVideo) {
+            outputVideo.style.display = 'block';
+            outputVideo.src = result.video_url;
+            outputVideo.load();
+        }
 
-        // Set download link
-        btnDownload.href = result.video_url;
-        btnDownload.download = result.friendly_filename || result.filename || 'video_affiliate_ai.mp4';
+        // Enable download button styling
+        if (btnDownload) {
+            btnDownload.classList.remove('disabled');
+            btnDownload.href = result.video_url;
+            btnDownload.download = result.friendly_filename || result.filename || 'video_affiliate_ai.mp4';
+            btnDownload.style.opacity = '1';
+            btnDownload.style.pointerEvents = 'auto';
+            btnDownload.style.background = 'linear-gradient(135deg, #10B981, #059669)';
+            btnDownload.style.color = 'white';
+            btnDownload.style.border = 'none';
+            btnDownload.style.boxShadow = '0 4px 15px rgba(16, 185, 129, 0.3)';
+        }
 
         // Set state & inputs
         currentNarration = result.narration || result.caption || '';
