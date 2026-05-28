@@ -1202,7 +1202,7 @@ def generate_render():
         use_speed_ramping = request.form.get('use_speed_ramping', 'true')
         use_camera_shake = request.form.get('use_camera_shake', 'false')
 
-        backsound_mode = request.form.get('backsound_mode', 'backsound1')
+        backsound_mode = request.form.get('backsound_mode', 'backsound3')
         backsound_volume = float(request.form.get('backsound_volume', 0.12))
 
         video_path = str(UPLOAD_DIR / video_filename)
@@ -1417,7 +1417,7 @@ def generate():
             wm_opacity = float(request.form.get('wm_opacity', 0.65))
             use_subtitle = request.form.get('use_subtitle', 'true') == 'true'
             
-            backsound_mode = request.form.get('backsound_mode', 'backsound1')
+            backsound_mode = request.form.get('backsound_mode', 'backsound3')
             backsound_volume = float(request.form.get('backsound_volume', 0.12))
             
             # Save uploaded video

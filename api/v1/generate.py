@@ -128,7 +128,7 @@ async def render_video_endpoint(
     watermark_position: str = Form("top-right"),
     watermark_logo: Optional[UploadFile] = File(None),
     thumbnail: Optional[UploadFile] = File(None),
-    backsound_mode: str = Form("backsound1"),
+    backsound_mode: str = Form("backsound3"),
     backsound_file: Optional[UploadFile] = File(None),
     backsound_volume: float = Form(0.12),
     sub_font: str = Form("Arial"),

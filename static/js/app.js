@@ -286,7 +286,7 @@
         
         // Clear backsound
         selectedBacksoundFile = null;
-        if (backsoundSelect) backsoundSelect.value = 'backsound1';
+        if (backsoundSelect) backsoundSelect.value = 'backsound3';
         if (backsoundInput) backsoundInput.value = '';
         if (backsoundUploadZone) backsoundUploadZone.style.display = 'none';
         if (backsoundUploadContent) backsoundUploadContent.style.display = 'flex';
@@ -872,7 +872,7 @@
         }
 
         // Backsound parameters
-        const bsMode = backsoundSelect?.value || 'backsound1';
+        const bsMode = backsoundSelect?.value || 'backsound3';
         const bsVol = backsoundVolume?.value || 0.12;
         formData.append('backsound_mode', bsMode);
         formData.append('backsound_volume', bsVol);
