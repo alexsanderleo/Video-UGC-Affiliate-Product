@@ -197,6 +197,8 @@ async def render_video_endpoint(
     await db.commit()
 
     # Offload execution to Celery Queue using the NEW task render_video_from_script
+    celery_dispatch_failed = False
+    celery_error_msg = ""
     try:
         from core.tasks import render_video_from_script_task
         render_video_from_script_task.apply_async(
@@ -223,7 +225,19 @@ async def render_video_endpoint(
             task_id=job_id
         )
     except Exception as e:
-        print(f"[WARNING] Celery worker could not be triggered: {e}")
+        print(f"[CRITICAL] Celery dispatch FAILED for render job {job_id}: {e}")
+        celery_dispatch_failed = True
+        celery_error_msg = str(e)
+        # Publish error immediately to Redis so SSE doesn't hang forever
+        try:
+            import redis as sync_redis
+            r_sync = sync_redis.from_url(settings.REDIS_URL)
+            error_data = json.dumps({'step': 'error', 'status': 'error', 'job_id': job_id, 'message': f'Celery worker tidak dapat memproses task. Error: {celery_error_msg}'}, ensure_ascii=False)
+            r_sync.setex(f"task_state:{job_id}", 3600, error_data)
+            r_sync.publish(f"task_progress:{job_id}", error_data)
+            r_sync.close()
+        except Exception:
+            pass
 
     async def pipeline_stream():
         """Subscribe to Redis Pub/Sub channel and yield updates in real-time."""
@@ -246,8 +260,15 @@ async def render_video_endpoint(
                 pass
 
         if not has_sent_complete:
+            import time as _time
+            _stream_start = _time.time()
+            _MAX_STREAM_SECONDS = 300  # 5 minute max to prevent infinite hang
             try:
                 while True:
+                    # Safety: abort SSE if streaming for more than 5 minutes
+                    if _time.time() - _stream_start > _MAX_STREAM_SECONDS:
+                        yield sse_event({'step': 'error', 'status': 'error', 'message': 'Timeout: proses rendering memakan waktu terlalu lama. Silakan coba lagi.'})
+                        break
                     message = await pubsub.get_message(ignore_subscribe_messages=True, timeout=5.0)
                     if message and message.get('type') == 'message':
                         try:
@@ -403,7 +424,17 @@ async def generate_video(
             task_id=job_id
         )
     except Exception as e:
-        print(f"[WARNING] Celery worker could not be triggered (Redis is probably down): {e}")
+        print(f"[CRITICAL] Celery dispatch FAILED for generate job {job_id}: {e}")
+        # Publish error immediately to Redis so SSE doesn't hang forever
+        try:
+            import redis as sync_redis
+            r_sync = sync_redis.from_url(settings.REDIS_URL)
+            error_data = json.dumps({'step': 'error', 'status': 'error', 'job_id': job_id, 'message': f'Celery worker tidak dapat memproses task. Error: {str(e)}'}, ensure_ascii=False)
+            r_sync.setex(f"task_state:{job_id}", 3600, error_data)
+            r_sync.publish(f"task_progress:{job_id}", error_data)
+            r_sync.close()
+        except Exception:
+            pass
 
     async def pipeline_stream():
         """Subscribe to Redis Pub/Sub channel and yield updates in real-time."""
@@ -428,8 +459,15 @@ async def generate_video(
                 pass
 
         if not has_sent_complete:
+            import time as _time
+            _stream_start = _time.time()
+            _MAX_STREAM_SECONDS = 300  # 5 minute max to prevent infinite hang
             try:
                 while True:
+                    # Safety: abort SSE if streaming for more than 5 minutes
+                    if _time.time() - _stream_start > _MAX_STREAM_SECONDS:
+                        yield sse_event({'step': 'error', 'status': 'error', 'message': 'Timeout: proses rendering memakan waktu terlalu lama. Silakan coba lagi.'})
+                        break
                     # Non-blocking get_message with timeout to support periodic keep-alive comments
                     message = await pubsub.get_message(ignore_subscribe_messages=True, timeout=5.0)
                     if message and message.get('type') == 'message':
