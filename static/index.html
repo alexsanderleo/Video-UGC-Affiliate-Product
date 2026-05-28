@@ -712,6 +712,61 @@
                                         <input type="file" id="thumbnailInput" accept=".png,.jpg,.jpeg,image/png,image/jpeg" hidden>
                                     </div>
 
+                                    <!-- Musik Backsound (Opsional) -->
+                                    <div style="margin-bottom: 20px; border-top: 1px solid rgba(255,255,255,0.06); padding-top: 16px;">
+                                        <label class="input-label" style="font-weight: 600; color: var(--text-primary); margin-bottom: 6px; display: block;">Musik Backsound Video <span style="font-size: 0.72rem; color: var(--text-muted); font-weight: normal; margin-left: 6px;">(Opsional)</span></label>
+                                        <p style="font-size: 0.75rem; color: var(--text-secondary); margin-bottom: 10px; margin-top: -4px;">
+                                            Pilih musik latar belakang bawaan server, unggah lagu kustom sendiri, atau matikan musik.
+                                        </p>
+                                        
+                                        <!-- Selector Dropdown -->
+                                        <div style="margin-bottom: 12px;">
+                                            <div class="select-wrapper">
+                                                <select id="backsoundSelect" class="select-input" style="width: 100%;">
+                                                    <option value="backsound1" selected>🎵 Musik Bawaan 1 (backsound1.mp3)</option>
+                                                    <option value="backsound2">🎵 Musik Bawaan 2 (backsound2.mp3)</option>
+                                                    <option value="backsound3">🎵 Musik Bawaan 3 (backsound3.mp3)</option>
+                                                    <option value="custom">📤 Upload Musik Sendiri (.mp3, .wav)</option>
+                                                    <option value="none">🔇 Tanpa Musik Backsound (Hening)</option>
+                                                </select>
+                                                <div class="select-arrow">
+                                                    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                                                        <polyline points="6 9 12 15 18 9" />
+                                                    </svg>
+                                                </div>
+                                            </div>
+                                        </div>
+
+                                        <!-- Custom Backsound Upload Zone (Initially Hidden) -->
+                                        <div class="logo-upload-zone" id="backsoundUploadZone" style="display: none; border: 1px dashed var(--border-subtle); border-radius: var(--radius-md); padding: 14px; text-align: center; cursor: pointer; background: var(--bg-input); transition: all 0.2s; margin-bottom: 12px;">
+                                            <div class="logo-upload-content" id="backsoundUploadContent" style="display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 8px; color: var(--text-muted);">
+                                                <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5">
+                                                    <path d="M9 18V5l12-2v13" />
+                                                    <circle cx="6.5" cy="18.5" r="2.5" />
+                                                    <circle cx="18.5" cy="16.5" r="2.5" />
+                                                </svg>
+                                                <span style="font-size: 0.8rem; font-weight: 500;">Pilih musik backsound (.mp3, .wav)</span>
+                                            </div>
+                                            <div class="logo-preview" id="backsoundPreview" style="display:none; position: relative; align-items: center; justify-content: center; width: 100%;">
+                                                <div style="background: rgba(255,255,255,0.03); border: 1px solid var(--border-subtle); border-radius: var(--radius-sm); padding: 8px 12px; font-size: 0.8rem; font-weight: 500; display: flex; align-items: center; gap: 8px; color: var(--text-primary); max-width: 90%; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;">
+                                                    🎵 <span id="backsoundPreviewName">backsound.mp3</span>
+                                                </div>
+                                                <button type="button" class="btn-remove-sm" id="btnRemoveBacksound" style="position: absolute; top: -8px; right: -8px; width: 20px; height: 20px; border-radius: 50%; background: #EF4444; color: white; border: none; font-size: 14px; cursor: pointer; display: flex; align-items: center; justify-content: center; line-height: 1;">&times;</button>
+                                            </div>
+                                        </div>
+                                        <input type="file" id="backsoundInput" accept=".mp3,.wav,audio/mpeg,audio/wav" hidden>
+
+                                        <!-- Volume Slider (Initially Visible, Hidden only when "none" selected) -->
+                                        <div id="backsoundVolumeGroup" style="margin-top: 12px; transition: all 0.3s ease;">
+                                            <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 6px;">
+                                                <label for="backsoundVolume" class="input-label" style="margin: 0; font-size: 0.78rem;">Volume Backsound</label>
+                                                <span id="backsoundVolumeVal" style="font-size: 0.8rem; font-weight: 600; color: var(--text-accent);">12%</span>
+                                            </div>
+                                            <input type="range" id="backsoundVolume" class="range-input" min="0.0" max="0.5" step="0.02" value="0.12"
+                                                style="width: 100%; height: 6px; border-radius: 4px; background: rgba(255,255,255,0.1); outline: none; -webkit-appearance: none; cursor: pointer; accent-color: var(--text-accent);">
+                                        </div>
+                                    </div>
+
                                     <!-- Render Final Button -->
                                     <button class="btn-generate" id="btnRenderVideo" style="background: linear-gradient(135deg, #8B5CF6, #06B6D4); font-weight: 700; width: 100%; box-shadow: 0 4px 20px rgba(139, 92, 246, 0.4); margin: 0; min-height: unset; padding: 12px 24px; border: none; cursor: pointer;">
                                         <span class="btn-content" id="btnRenderContent" style="display: flex; align-items: center; justify-content: center; gap: 8px;">

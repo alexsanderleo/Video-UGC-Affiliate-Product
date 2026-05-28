@@ -116,6 +116,8 @@ def render_video_task(
     use_speed_ramping: str = "true",
     use_camera_shake: str = "true",
     thumbnail_path: Optional[str] = None,
+    backsound_path: Optional[str] = None,
+    backsound_volume: float = 0.12,
 ):
     """Celery task to run the video generation pipeline in a background worker."""
     return asyncio.run(
@@ -123,7 +125,8 @@ def render_video_task(
             job_id, video_path, voice, watermark_mode,
             watermark_text, watermark_position, logo_path, user_id,
             sub_font, sub_size, sub_color, sub_sec_color, sub_opacity, wm_opacity,
-            use_subtitle, use_speed_ramping, use_camera_shake, thumbnail_path
+            use_subtitle, use_speed_ramping, use_camera_shake, thumbnail_path,
+            backsound_path, backsound_volume
         )
     )
 
@@ -151,6 +154,8 @@ def render_video_from_script_task(
     use_speed_ramping: str = "true",
     use_camera_shake: str = "true",
     thumbnail_path: Optional[str] = None,
+    backsound_path: Optional[str] = None,
+    backsound_volume: float = 0.12,
 ):
     """Celery task to run the video generation pipeline with an already generated/edited narration script."""
     return asyncio.run(
@@ -158,7 +163,8 @@ def render_video_from_script_task(
             job_id, video_path, narration, title, hashtags, voice, watermark_mode,
             watermark_text, watermark_position, logo_path, user_id,
             sub_font, sub_size, sub_color, sub_sec_color, sub_opacity, wm_opacity,
-            use_subtitle, use_speed_ramping, use_camera_shake, thumbnail_path
+            use_subtitle, use_speed_ramping, use_camera_shake, thumbnail_path,
+            backsound_path, backsound_volume
         )
     )
 
@@ -185,6 +191,8 @@ async def async_render_video_from_script(
     use_speed_ramping: str = "true",
     use_camera_shake: str = "true",
     thumbnail_path: Optional[str] = None,
+    backsound_path: Optional[str] = None,
+    backsound_volume: float = 0.12,
 ):
     """Async pipeline implementation called inside Celery worker using edited narration script."""
     from sqlalchemy.ext.asyncio import create_async_engine, async_sessionmaker, AsyncSession
@@ -268,7 +276,13 @@ async def async_render_video_from_script(
         # --- Step C: FFmpeg blend with anti-copyright ---
         publish_progress(job_id, {'step': 'C_start', 'status': 'processing'})
 
-        backsound = await asyncio.to_thread(ensure_backsound)
+        # Resolve backsound
+        backsound = None
+        if backsound_path == "default":
+            backsound = await asyncio.to_thread(ensure_backsound)
+        elif backsound_path and backsound_path != "none":
+            backsound = backsound_path
+
         output_filename = f"{job_id}_output_final.mp4"
         output_path = settings.OUTPUT_DIR / output_filename
 
@@ -294,6 +308,7 @@ async def async_render_video_from_script(
             use_speed_ramping=use_speed_ramping,
             use_camera_shake=use_camera_shake,
             thumbnail_path=thumbnail_path,
+            backsound_volume=backsound_volume,
         )
 
         publish_progress(job_id, {'step': 'C_done', 'status': 'done'})
@@ -368,6 +383,13 @@ async def async_render_video_from_script(
             except Exception:
                 pass
 
+        # Clean up custom backsound ONLY if it is job-specific (saved in uploads)
+        if backsound_path and Path(backsound_path).exists() and f"{job_id}_" in Path(backsound_path).name:
+            try:
+                Path(backsound_path).unlink()
+            except Exception:
+                pass
+
 
 async def async_render_video(
     job_id: str,
@@ -388,6 +410,8 @@ async def async_render_video(
     use_speed_ramping: str = "true",
     use_camera_shake: str = "true",
     thumbnail_path: Optional[str] = None,
+    backsound_path: Optional[str] = None,
+    backsound_volume: float = 0.12,
 ):
     """Async pipeline implementation called inside the Celery worker."""
     # Construct a local engine bound to the current task's event loop to prevent "attached to a different loop" errors
@@ -508,7 +532,13 @@ async def async_render_video(
         # --- Step C: FFmpeg blend with anti-copyright ---
         publish_progress(job_id, {'step': 'C_start', 'status': 'processing'})
 
-        backsound = await asyncio.to_thread(ensure_backsound)
+        # Resolve backsound
+        backsound = None
+        if backsound_path == "default":
+            backsound = await asyncio.to_thread(ensure_backsound)
+        elif backsound_path and backsound_path != "none":
+            backsound = backsound_path
+
         output_filename = f"{job_id}_output_final.mp4"
         output_path = settings.OUTPUT_DIR / output_filename
 
@@ -534,6 +564,7 @@ async def async_render_video(
             use_speed_ramping=use_speed_ramping,
             use_camera_shake=use_camera_shake,
             thumbnail_path=thumbnail_path,
+            backsound_volume=backsound_volume,
         )
 
         publish_progress(job_id, {'step': 'C_done', 'status': 'done'})
@@ -605,6 +636,13 @@ async def async_render_video(
         if thumbnail_path and Path(thumbnail_path).exists():
             try:
                 Path(thumbnail_path).unlink()
+            except Exception:
+                pass
+
+        # Clean up custom backsound ONLY if it is job-specific (saved in uploads)
+        if backsound_path and Path(backsound_path).exists() and f"{job_id}_" in Path(backsound_path).name:
+            try:
+                Path(backsound_path).unlink()
             except Exception:
                 pass
 

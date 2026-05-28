@@ -46,9 +46,30 @@ OUTPUT_DIR = BASE_DIR / 'outputs'
 TEMP_DIR = BASE_DIR / 'temp'
 BACKSOUND_PATH = BASE_DIR / 'musik_backsound.mp3'
 
+BACKSOUNDS_DIR = BASE_DIR / 'backsounds'
+
 # Ensure directories exist
-for d in [UPLOAD_DIR, OUTPUT_DIR, TEMP_DIR]:
+for d in [UPLOAD_DIR, OUTPUT_DIR, TEMP_DIR, BACKSOUNDS_DIR]:
     d.mkdir(exist_ok=True)
+
+def init_backsound_placeholders(ffmpeg_path, backsounds_dir):
+    backsounds_dir = Path(backsounds_dir)
+    for i in range(1, 4):
+        p = backsounds_dir / f"backsound{i}.mp3"
+        if not p.exists():
+            try:
+                # Generate 60s of silence
+                cmd = [
+                    ffmpeg_path, '-y',
+                    '-f', 'lavfi', '-i', 'anullsrc=r=44100:cl=stereo',
+                    '-t', '60',
+                    '-c:a', 'libmp3lame', '-b:a', '32k',
+                    str(p)
+                ]
+                subprocess.run(cmd, capture_output=True, timeout=10)
+                print(f"[INFO] Created silent placeholder: {p}")
+            except Exception as e:
+                print(f"[WARNING] Could not create placeholder {p}: {e}")
 
 # DashScope / Aliyun API Key
 from dotenv import load_dotenv
@@ -101,6 +122,9 @@ def find_ffmpeg():
 
 # Initialize paths
 find_ffmpeg()
+
+# Run placeholder initialization
+init_backsound_placeholders(FFMPEG_PATH, BACKSOUNDS_DIR)
 
 # ============================================================
 # Pipeline Core Logic Functions
@@ -648,6 +672,7 @@ def step_c_ffmpeg(
     use_speed_ramping: str = "true",
     use_camera_shake: str = "true",
     thumbnail_path: Optional[str] = None,
+    backsound_volume: float = 0.12,
 ):
     """Process video using FFmpeg with anti-copyright, customized subtitles, adjustable watermark opacity, and optional thumbnail cover."""
     # Get original input video duration
@@ -842,7 +867,7 @@ def step_c_ffmpeg(
     # Audio mixing mapping using the tracked backsound index
     if backsound_index != -1:
         filter_complex += (
-            f";[{backsound_index}:a]volume=0.12[bg_audio];"
+            f";[{backsound_index}:a]volume={backsound_volume:.2f}[bg_audio];"
             f"[1:a][bg_audio]amix=inputs=2:duration=first[aud_final]"
         )
         audio_map = '[aud_final]'

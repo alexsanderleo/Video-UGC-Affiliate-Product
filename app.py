@@ -33,9 +33,10 @@ UPLOAD_DIR = BASE_DIR / 'uploads'
 OUTPUT_DIR = BASE_DIR / 'outputs'
 TEMP_DIR = BASE_DIR / 'temp'
 BACKSOUND_PATH = BASE_DIR / 'musik_backsound.mp3'
+BACKSOUNDS_DIR = BASE_DIR / 'backsounds'
 
 # Ensure directories exist
-for d in [UPLOAD_DIR, OUTPUT_DIR, TEMP_DIR]:
+for d in [UPLOAD_DIR, OUTPUT_DIR, TEMP_DIR, BACKSOUNDS_DIR]:
     d.mkdir(exist_ok=True)
 
 # DashScope API configuration
@@ -105,7 +106,27 @@ def find_ffmpeg():
     print("[WARNING] Try restarting your terminal or add FFmpeg to your PATH.")
 
 
+def init_backsound_placeholders(ffmpeg_path, backsounds_dir):
+    backsounds_dir = Path(backsounds_dir)
+    for i in range(1, 4):
+        p = backsounds_dir / f"backsound{i}.mp3"
+        if not p.exists():
+            try:
+                # Generate 60s of silence
+                cmd = [
+                    ffmpeg_path, '-y',
+                    '-f', 'lavfi', '-i', 'anullsrc=r=44100:cl=stereo',
+                    '-t', '60',
+                    '-c:a', 'libmp3lame', '-b:a', '32k',
+                    str(p)
+                ]
+                subprocess.run(cmd, capture_output=True, timeout=10)
+                print(f"[INFO] Created silent placeholder: {p}")
+            except Exception as e:
+                print(f"[WARNING] Could not create placeholder {p}: {e}")
+
 find_ffmpeg()
+init_backsound_placeholders(FFMPEG_PATH, BACKSOUNDS_DIR)
 
 
 # ============================================================
@@ -786,6 +807,7 @@ def step_c_ffmpeg(
     use_speed_ramping: str = "true",
     use_camera_shake: str = "true",
     thumbnail_path: str = None,
+    backsound_volume: float = 0.12,
 ):
     """
     Process video with FFmpeg:
@@ -974,7 +996,7 @@ def step_c_ffmpeg(
     # Audio mixing mapping using the tracked backsound index
     if backsound_index != -1:
         filter_complex += (
-            f";[{backsound_index}:a]volume=0.12[bg_audio];"
+            f";[{backsound_index}:a]volume={backsound_volume:.2f}[bg_audio];"
             f"[1:a][bg_audio]amix=inputs=2:duration=first[aud_final]"
         )
         audio_map = '[aud_final]'
@@ -1126,6 +1148,9 @@ def generate_render():
         use_speed_ramping = request.form.get('use_speed_ramping', 'true')
         use_camera_shake = request.form.get('use_camera_shake', 'true')
 
+        backsound_mode = request.form.get('backsound_mode', 'backsound1')
+        backsound_volume = float(request.form.get('backsound_volume', 0.12))
+
         video_path = str(UPLOAD_DIR / video_filename)
         tts_path = None
         output_path = None
@@ -1196,7 +1221,23 @@ def generate_render():
             # --- Step C: FFmpeg ---
             yield sse_event({'step': 'C_start', 'status': 'processing'})
 
-            backsound = ensure_backsound()
+            # Resolve backsound_path based on backsound_mode
+            backsound_path = None
+            if backsound_mode in ['backsound1', 'backsound2', 'backsound3']:
+                backsound_path = str(BACKSOUNDS_DIR / f"{backsound_mode}.mp3")
+            elif backsound_mode == 'custom':
+                backsound_file = request.files.get('backsound_file')
+                if backsound_file:
+                    backsound_filename = f"{job_id}_backsound.mp3"
+                    backsound_path = str(UPLOAD_DIR / backsound_filename)
+                    backsound_file.save(backsound_path)
+                else:
+                    backsound_path = None
+            elif backsound_mode == 'none':
+                backsound_path = None
+            else:
+                backsound_path = ensure_backsound()
+
             output_filename = f"{job_id}_output_final.mp4"
             output_path = str(OUTPUT_DIR / output_filename)
 
@@ -1204,7 +1245,7 @@ def generate_render():
                 step_c_ffmpeg(
                     input_video=video_path,
                     tts_audio=tts_path,
-                    backsound=backsound,
+                    backsound=backsound_path,
                     watermark_text=wm_text,
                     watermark_mode=wm_mode,
                     watermark_logo=logo_path,
@@ -1220,6 +1261,7 @@ def generate_render():
                     use_speed_ramping=use_speed_ramping,
                     use_camera_shake=use_camera_shake,
                     thumbnail_path=thumbnail_path,
+                    backsound_volume=backsound_volume,
                 )
             except Exception as e:
                 print(f"[Step C local] Error: {e}")
@@ -1270,6 +1312,11 @@ def generate_render():
                     Path(thumbnail_path).unlink()
             except Exception:
                 pass
+            try:
+                if backsound_path and Path(backsound_path).exists() and f"{job_id}_" in Path(backsound_path).name:
+                    Path(backsound_path).unlink()
+            except Exception:
+                pass
 
     return Response(
         stream_with_context(pipeline_stream()),
@@ -1315,6 +1362,9 @@ def generate():
             sub_opacity = float(request.form.get('sub_opacity', 1.0))
             wm_opacity = float(request.form.get('wm_opacity', 0.65))
             use_subtitle = request.form.get('use_subtitle', 'true') == 'true'
+            
+            backsound_mode = request.form.get('backsound_mode', 'backsound1')
+            backsound_volume = float(request.form.get('backsound_volume', 0.12))
             
             # Save uploaded video
             video_ext = Path(video_file.filename).suffix or '.mp4'
@@ -1414,7 +1464,22 @@ def generate():
             # --- Step C: FFmpeg ---
             yield sse_event({'step': 'C_start', 'status': 'processing'})
 
-            backsound = ensure_backsound()
+            # Resolve backsound_path based on backsound_mode
+            backsound_path = None
+            if backsound_mode in ['backsound1', 'backsound2', 'backsound3']:
+                backsound_path = str(BACKSOUNDS_DIR / f"{backsound_mode}.mp3")
+            elif backsound_mode == 'custom':
+                backsound_file = request.files.get('backsound_file')
+                if backsound_file:
+                    backsound_filename = f"{job_id}_backsound.mp3"
+                    backsound_path = str(UPLOAD_DIR / backsound_filename)
+                    backsound_file.save(backsound_path)
+                else:
+                    backsound_path = None
+            elif backsound_mode == 'none':
+                backsound_path = None
+            else:
+                backsound_path = ensure_backsound()
             
             output_filename = f"{job_id}_output_final.mp4"
             output_path = str(OUTPUT_DIR / output_filename)
@@ -1423,7 +1488,7 @@ def generate():
                 step_c_ffmpeg(
                     input_video=video_path,
                     tts_audio=tts_path,
-                    backsound=backsound,
+                    backsound=backsound_path,
                     watermark_text=wm_text,
                     watermark_mode=wm_mode,
                     watermark_logo=logo_path,
@@ -1436,6 +1501,7 @@ def generate():
                     sub_sec_color=sub_sec_color,
                     sub_opacity=sub_opacity,
                     wm_opacity=wm_opacity,
+                    backsound_volume=backsound_volume,
                 )
             except Exception as e:
                 print(f"[Step C] Error: {e}")
@@ -1475,6 +1541,11 @@ def generate():
             try:
                 if tts_path and Path(tts_path).exists():
                     Path(tts_path).unlink()
+            except Exception:
+                pass
+            try:
+                if backsound_path and Path(backsound_path).exists() and f"{job_id}_" in Path(backsound_path).name:
+                    Path(backsound_path).unlink()
             except Exception:
                 pass
 

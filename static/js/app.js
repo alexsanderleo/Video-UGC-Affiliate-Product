@@ -22,6 +22,17 @@
     const thumbnailPreviewImg = document.getElementById('thumbnailPreviewImg');
     const btnRemoveThumbnail = document.getElementById('btnRemoveThumbnail');
 
+    const backsoundSelect = document.getElementById('backsoundSelect');
+    const backsoundInput = document.getElementById('backsoundInput');
+    const backsoundUploadZone = document.getElementById('backsoundUploadZone');
+    const backsoundUploadContent = document.getElementById('backsoundUploadContent');
+    const backsoundPreview = document.getElementById('backsoundPreview');
+    const backsoundPreviewName = document.getElementById('backsoundPreviewName');
+    const btnRemoveBacksound = document.getElementById('btnRemoveBacksound');
+    const backsoundVolume = document.getElementById('backsoundVolume');
+    const backsoundVolumeVal = document.getElementById('backsoundVolumeVal');
+    const backsoundVolumeGroup = document.getElementById('backsoundVolumeGroup');
+
     const toggleText = document.getElementById('toggleText');
     const toggleLogo = document.getElementById('toggleLogo');
     const watermarkTextGroup = document.getElementById('watermarkTextGroup');
@@ -250,6 +261,17 @@
         if (thumbnailUploadContent) thumbnailUploadContent.style.display = 'flex';
         if (thumbnailPreview) thumbnailPreview.style.display = 'none';
         
+        // Clear backsound
+        selectedBacksoundFile = null;
+        if (backsoundSelect) backsoundSelect.value = 'backsound1';
+        if (backsoundInput) backsoundInput.value = '';
+        if (backsoundUploadZone) backsoundUploadZone.style.display = 'none';
+        if (backsoundUploadContent) backsoundUploadContent.style.display = 'flex';
+        if (backsoundPreview) backsoundPreview.style.display = 'none';
+        if (backsoundVolume) backsoundVolume.value = 0.12;
+        if (backsoundVolumeVal) backsoundVolumeVal.textContent = '12%';
+        if (backsoundVolumeGroup) backsoundVolumeGroup.style.display = 'block';
+        
         // Hide edit panel and reset progress steps since video is removed
         if (scriptEditPanel) scriptEditPanel.style.display = 'none';
         resetProgress();
@@ -379,6 +401,87 @@
             if (thumbnailInput) thumbnailInput.value = '';
             if (thumbnailUploadContent) thumbnailUploadContent.style.display = 'flex';
             if (thumbnailPreview) thumbnailPreview.style.display = 'none';
+        });
+    }
+
+    // === Musik Backsound & Volume Slider ===
+    if (backsoundSelect) {
+        backsoundSelect.addEventListener('change', () => {
+            const val = backsoundSelect.value;
+            if (val === 'custom') {
+                if (backsoundUploadZone) backsoundUploadZone.style.display = 'block';
+                if (backsoundVolumeGroup) backsoundVolumeGroup.style.display = 'block';
+            } else if (val === 'none') {
+                if (backsoundUploadZone) backsoundUploadZone.style.display = 'none';
+                if (backsoundVolumeGroup) backsoundVolumeGroup.style.display = 'none';
+            } else {
+                if (backsoundUploadZone) backsoundUploadZone.style.display = 'none';
+                if (backsoundVolumeGroup) backsoundVolumeGroup.style.display = 'block';
+            }
+        });
+    }
+
+    if (backsoundVolume) {
+        backsoundVolume.addEventListener('input', (e) => {
+            const pct = Math.round(parseFloat(e.target.value) * 100);
+            if (backsoundVolumeVal) backsoundVolumeVal.textContent = pct + '%';
+        });
+    }
+
+    if (backsoundUploadZone) {
+        backsoundUploadZone.addEventListener('click', () => backsoundInput.click());
+
+        // Drag events for premium aesthetic micro-animations
+        backsoundUploadZone.addEventListener('dragover', (e) => {
+            e.preventDefault();
+            backsoundUploadZone.style.borderColor = 'var(--text-accent)';
+            backsoundUploadZone.style.background = 'rgba(255,255,255,0.02)';
+        });
+
+        backsoundUploadZone.addEventListener('dragleave', () => {
+            backsoundUploadZone.style.borderColor = 'var(--border-subtle)';
+            backsoundUploadZone.style.background = 'var(--bg-input)';
+        });
+
+        backsoundUploadZone.addEventListener('drop', (e) => {
+            e.preventDefault();
+            backsoundUploadZone.style.borderColor = 'var(--border-subtle)';
+            backsoundUploadZone.style.background = 'var(--bg-input)';
+            
+            if (e.dataTransfer.files.length > 0) {
+                const file = e.dataTransfer.files[0];
+                handleBacksoundUpload(file);
+            }
+        });
+    }
+
+    if (backsoundInput) {
+        backsoundInput.addEventListener('change', (e) => {
+            if (e.target.files.length > 0) {
+                const file = e.target.files[0];
+                handleBacksoundUpload(file);
+            }
+        });
+    }
+
+    function handleBacksoundUpload(file) {
+        if (!file.name.match(/\.(mp3|wav)$/i) && !file.type.match(/audio\/(mpeg|mp3|x-wav|wav)/)) {
+            showToast('❌ Hanya file audio (.mp3, .wav) yang diterima!');
+            return;
+        }
+        selectedBacksoundFile = file;
+        if (backsoundPreviewName) backsoundPreviewName.textContent = file.name + ' (' + formatSize(file.size) + ')';
+        if (backsoundUploadContent) backsoundUploadContent.style.display = 'none';
+        if (backsoundPreview) backsoundPreview.style.display = 'flex';
+    }
+
+    if (btnRemoveBacksound) {
+        btnRemoveBacksound.addEventListener('click', (e) => {
+            e.stopPropagation();
+            selectedBacksoundFile = null;
+            if (backsoundInput) backsoundInput.value = '';
+            if (backsoundUploadContent) backsoundUploadContent.style.display = 'flex';
+            if (backsoundPreview) backsoundPreview.style.display = 'none';
         });
     }
 
@@ -743,6 +846,15 @@
 
         if (selectedThumbnailFile) {
             formData.append('thumbnail', selectedThumbnailFile);
+        }
+
+        // Backsound parameters
+        const bsMode = backsoundSelect?.value || 'backsound1';
+        const bsVol = backsoundVolume?.value || 0.12;
+        formData.append('backsound_mode', bsMode);
+        formData.append('backsound_volume', bsVol);
+        if (bsMode === 'custom' && selectedBacksoundFile) {
+            formData.append('backsound_file', selectedBacksoundFile);
         }
 
         const headers = {

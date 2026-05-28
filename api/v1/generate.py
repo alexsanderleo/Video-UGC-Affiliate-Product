@@ -128,6 +128,9 @@ async def render_video_endpoint(
     watermark_position: str = Form("top-right"),
     watermark_logo: Optional[UploadFile] = File(None),
     thumbnail: Optional[UploadFile] = File(None),
+    backsound_mode: str = Form("backsound1"),
+    backsound_file: Optional[UploadFile] = File(None),
+    backsound_volume: float = Form(0.12),
     sub_font: str = Form("Arial"),
     sub_size: int = Form(26),
     sub_color: str = Form("#FFFF00"),
@@ -184,12 +187,27 @@ async def render_video_endpoint(
         with open(thumbnail_path, "wb") as buffer:
             shutil.copyfileobj(thumbnail.file, buffer)
 
+    # Resolve backsound_path based on backsound_mode
+    BACKSOUNDS_DIR = settings.BASE_DIR / "backsounds"
+    backsound_path = None
+
+    if backsound_mode in ["backsound1", "backsound2", "backsound3"]:
+        backsound_path = str(BACKSOUNDS_DIR / f"{backsound_mode}.mp3")
+    elif backsound_mode == "custom" and backsound_file:
+        # Save custom uploaded backsound
+        backsound_filename = f"{job_id}_backsound.mp3"
+        backsound_path = str(UPLOAD_DIR / backsound_filename)
+        with open(backsound_path, "wb") as buffer:
+            shutil.copyfileobj(backsound_file.file, buffer)
+
     # Calculate uploaded file sizes (ingress bandwidth)
     ingress_bytes = Path(video_path).stat().st_size if Path(video_path).exists() else 0
     if logo_path and Path(logo_path).exists():
         ingress_bytes += Path(logo_path).stat().st_size
     if thumbnail_path and Path(thumbnail_path).exists():
         ingress_bytes += Path(thumbnail_path).stat().st_size
+    if backsound_mode == "custom" and backsound_path and Path(backsound_path).exists():
+        ingress_bytes += Path(backsound_path).stat().st_size
 
     # Register in DB with "pending"
     log = GenerationLog(
@@ -237,6 +255,8 @@ async def render_video_endpoint(
                 'use_speed_ramping': use_speed_ramping,
                 'use_camera_shake': use_camera_shake,
                 'thumbnail_path': thumbnail_path,
+                'backsound_path': backsound_path,
+                'backsound_volume': backsound_volume,
             },
             task_id=job_id
         )
