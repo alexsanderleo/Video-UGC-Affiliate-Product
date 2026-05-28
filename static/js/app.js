@@ -845,7 +845,7 @@
         formData.append('watermark_mode', selectedLogoFile ? 'logo' : 'text');
 
         // Subtitle styles
-        const subFont = document.getElementById('subFont')?.value || 'Poppins';
+        const subFont = document.getElementById('subFont')?.value || 'Impact';
         const subSize = document.getElementById('subSize')?.value || 45;
         const subColor = document.getElementById('subColor')?.value || '#F5CC00';
         const subSecColor = document.getElementById('subSecColor')?.value || '#FFFFFF';
@@ -1309,18 +1309,18 @@
         // 1. AI Voice -> Supertonic F3 Indah
         const voiceSelect = document.getElementById('voiceSelect');
         if (voiceSelect) {
-            voiceSelect.value = 'supertonic-id-F3';
+            voiceSelect.value = 'supertonic-id-F5';
             voiceSelect.dispatchEvent(new Event('change'));
         }
         const bulkVoiceSelect = document.getElementById('bulkVoiceSelect');
         if (bulkVoiceSelect) {
-            bulkVoiceSelect.value = 'supertonic-id-F3';
+            bulkVoiceSelect.value = 'supertonic-id-F5';
         }
 
         // Resets for bulk subtitle settings
         const bulkSubFont = document.getElementById('bulkSubFont');
         if (bulkSubFont) {
-            bulkSubFont.value = 'Poppins';
+            bulkSubFont.value = 'Impact';
         }
         const bulkSubSize = document.getElementById('bulkSubSize');
         if (bulkSubSize) {
@@ -1345,10 +1345,10 @@
             if (bulkSubSecColorHex) bulkSubSecColorHex.textContent = '#FFFFFF';
         }
 
-        // 2. Subtitle Font -> Poppins Bold
+        // 2. Subtitle Font -> Impact Bold
         const subFont = document.getElementById('subFont');
         if (subFont) {
-            subFont.value = 'Poppins';
+            subFont.value = 'Impact';
         }
 
         // 3. Ukuran Font -> 45px
@@ -2218,7 +2218,7 @@
         }
 
         // Subtitle customization settings for bulk video generation
-        const bulkSubFont = document.getElementById('bulkSubFont')?.value || 'Poppins';
+        const bulkSubFont = document.getElementById('bulkSubFont')?.value || 'Impact';
         const bulkSubSize = document.getElementById('bulkSubSize')?.value || 45;
         const bulkSubColor = document.getElementById('bulkSubColor')?.value || '#F5CC00';
         const bulkSubSecColor = document.getElementById('bulkSubSecColor')?.value || '#FFFFFF';
