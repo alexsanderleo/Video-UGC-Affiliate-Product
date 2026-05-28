@@ -1761,7 +1761,8 @@
 
     let selectedBulkLogoFile = null;
     let bulkQueue = [];
-    const MAX_CONCURRENT = 3;
+    const MAX_CONCURRENT_ANALYZE = 3;
+    const MAX_CONCURRENT_RENDER = 1;
 
     // Toggle Watermark Group for Bulk Settings
     if (bulkWatermarkMode) {
@@ -1946,6 +1947,8 @@
             bulkDashboard.style.display = 'none';
             return;
         }
+
+        const isAnyActive = bulkQueue.some(j => j.status === 'analyzing' || j.status === 'rendering');
 
         bulkQueue.forEach(job => {
             const card = document.createElement('div');
@@ -2149,7 +2152,7 @@
                         </div>
                         
                         <!-- Individual Render Trigger -->
-                        <button type="button" class="btn-render-individual" data-id="${job.id}" style="margin-top: 10px; width: 100%; padding: 6px; font-size: 0.78rem; font-weight: 600; border-radius: var(--radius-sm); background: var(--gradient-success); color: white; border: none; cursor: pointer;">
+                        <button type="button" class="btn-render-individual" data-id="${job.id}" ${isAnyActive ? 'disabled style="margin-top: 10px; width: 100%; padding: 6px; font-size: 0.78rem; font-weight: 600; border-radius: var(--radius-sm); background: var(--bg-card); border: 1px solid var(--border-subtle); color: var(--text-muted); cursor: not-allowed; opacity: 0.6;"' : 'style="margin-top: 10px; width: 100%; padding: 6px; font-size: 0.78rem; font-weight: 600; border-radius: var(--radius-sm); background: var(--gradient-success); color: white; border: none; cursor: pointer;"'}>
                             ⚡ Render Video Ini
                         </button>
                     </div>
@@ -2318,6 +2321,7 @@
                 const btnRenderIndiv = card.querySelector('.btn-render-individual');
                 if (btnRenderIndiv) {
                     btnRenderIndiv.addEventListener('click', () => {
+                        if (bulkQueue.some(j => j.status === 'analyzing' || j.status === 'rendering')) return;
                         renderBulkJob(job);
                     });
                 }
@@ -2443,12 +2447,12 @@
         const activeJobs = bulkQueue.filter(j => j.status === 'analyzing');
         const pendingJobs = bulkQueue.filter(j => j.status === 'pending');
 
-        if (activeJobs.length >= MAX_CONCURRENT || pendingJobs.length === 0) {
+        if (activeJobs.length >= MAX_CONCURRENT_ANALYZE || pendingJobs.length === 0) {
             updateBulkStats();
             return;
         }
 
-        const vacantSlots = MAX_CONCURRENT - activeJobs.length;
+        const vacantSlots = MAX_CONCURRENT_ANALYZE - activeJobs.length;
         const jobsToStart = pendingJobs.slice(0, vacantSlots);
 
         jobsToStart.forEach(job => {
@@ -2463,12 +2467,12 @@
         const activeJobs = bulkQueue.filter(j => j.status === 'rendering');
         const analyzedJobs = bulkQueue.filter(j => j.status === 'analyzed');
 
-        if (activeJobs.length >= MAX_CONCURRENT || analyzedJobs.length === 0) {
+        if (activeJobs.length >= MAX_CONCURRENT_RENDER || analyzedJobs.length === 0) {
             updateBulkStats();
             return;
         }
 
-        const vacantSlots = MAX_CONCURRENT - activeJobs.length;
+        const vacantSlots = MAX_CONCURRENT_RENDER - activeJobs.length;
         const jobsToStart = analyzedJobs.slice(0, vacantSlots);
 
         jobsToStart.forEach(job => {
