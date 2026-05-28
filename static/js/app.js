@@ -148,6 +148,30 @@
         }
         const hasVideo = selectedVideoFile !== null;
         btnGenerate.disabled = !hasVideo || isProcessing;
+
+        // Dynamic text depending on whether video has been analyzed (scriptEditPanel is visible)
+        const isAnalyzed = scriptEditPanel && scriptEditPanel.style.display === 'block';
+        if (btnContent) {
+            if (isAnalyzed) {
+                btnContent.innerHTML = `
+                    <svg width="20" height="20" viewBox="0 0 24 24" fill="none"
+                        stroke="currentColor" stroke-width="2" stroke-linecap="round"
+                        stroke-linejoin="round">
+                        <path d="M21.5 2v6h-6M21.34 15.57a10 10 0 1 1-.57-8.38l5.67-5.67"/>
+                    </svg>
+                    Generate Analisis Ulang
+                `;
+            } else {
+                btnContent.innerHTML = `
+                    <svg width="20" height="20" viewBox="0 0 24 24" fill="none"
+                        stroke="currentColor" stroke-width="2" stroke-linecap="round"
+                        stroke-linejoin="round">
+                        <polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2" />
+                    </svg>
+                    Generate Video Affiliate UGC
+                `;
+            }
+        }
     }
 
     // === File Validation & Selection ===
@@ -179,6 +203,8 @@
             // Accept file
             selectedVideoFile = file;
             showVideoPreview(file, duration);
+            if (scriptEditPanel) scriptEditPanel.style.display = 'none';
+            resetProgress();
             updateGenerateBtn();
 
         } catch (err) {
@@ -208,6 +234,11 @@
         dropZonePreview.style.display = 'none';
         dropZone.classList.remove('has-file');
         fileInput.value = '';
+        
+        // Hide edit panel and reset progress steps since video is removed
+        if (scriptEditPanel) scriptEditPanel.style.display = 'none';
+        resetProgress();
+        
         updateGenerateBtn();
     }
 
