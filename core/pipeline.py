@@ -891,12 +891,12 @@ def step_c_ffmpeg(
     # Audio mixing mapping using the tracked backsound index
     if backsound_index != -1:
         filter_complex += (
-            f";[{backsound_index}:a]volume={backsound_volume:.2f}[bg_audio];"
-            f"[1:a][bg_audio]amix=inputs=2:duration=first[aud_final]"
+            f";[{backsound_index}:0]volume={backsound_volume:.2f}[bg_audio];"
+            f"[1:0][bg_audio]amix=inputs=2:duration=first[aud_final]"
         )
         audio_map = '[aud_final]'
     else:
-        audio_map = '1:a'
+        audio_map = '1:0'
 
     cmd = [
         FFMPEG_PATH, '-y',
