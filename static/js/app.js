@@ -1037,15 +1037,15 @@
     const convertVideoPage = document.getElementById('convertVideoPage');
 
     function resetToDefaultSettings() {
-        // 1. AI Voice -> Ardi Neural
+        // 1. AI Voice -> Supertonic F3 Indah
         const voiceSelect = document.getElementById('voiceSelect');
         if (voiceSelect) {
-            voiceSelect.value = 'id-ID-ArdiNeural';
+            voiceSelect.value = 'supertonic-id-F3';
             voiceSelect.dispatchEvent(new Event('change'));
         }
         const bulkVoiceSelect = document.getElementById('bulkVoiceSelect');
         if (bulkVoiceSelect) {
-            bulkVoiceSelect.value = 'id-ID-ArdiNeural';
+            bulkVoiceSelect.value = 'supertonic-id-F3';
         }
 
         // Resets for bulk subtitle settings
