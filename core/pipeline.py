@@ -56,7 +56,7 @@ def init_backsound_placeholders(ffmpeg_path, backsounds_dir):
     backsounds_dir = Path(backsounds_dir)
     for i in range(1, 4):
         p = backsounds_dir / f"backsound{i}.mp3"
-        if not p.exists():
+        if not p.exists() or p.stat().st_size == 0:
             try:
                 # Generate 60s of silence
                 cmd = [
@@ -66,9 +66,22 @@ def init_backsound_placeholders(ffmpeg_path, backsounds_dir):
                     '-c:a', 'libmp3lame', '-b:a', '32k',
                     str(p)
                 ]
-                subprocess.run(cmd, capture_output=True, timeout=10)
-                print(f"[INFO] Created silent placeholder: {p}")
+                res = subprocess.run(cmd, capture_output=True, timeout=10)
+                if res.returncode != 0 or not p.exists() or p.stat().st_size == 0:
+                    if p.exists():
+                        try:
+                            p.unlink()
+                        except Exception:
+                            pass
+                    print(f"[WARNING] Failed to generate placeholder {p} (FFmpeg returned {res.returncode})")
+                else:
+                    print(f"[INFO] Created silent placeholder: {p}")
             except Exception as e:
+                if p.exists():
+                    try:
+                        p.unlink()
+                    except Exception:
+                        pass
                 print(f"[WARNING] Could not create placeholder {p}: {e}")
 
 # DashScope / Aliyun API Key
@@ -150,11 +163,11 @@ def build_qwen_prompt(duration_seconds: int) -> str:
 
 def ensure_backsound() -> str:
     """Create a silent MP3 backsound placeholder if no file exists."""
-    if BACKSOUND_PATH.exists():
+    if BACKSOUND_PATH.exists() and BACKSOUND_PATH.stat().st_size > 0:
         return str(BACKSOUND_PATH)
     
     silent_path = TEMP_DIR / 'silent_backsound.mp3'
-    if silent_path.exists():
+    if silent_path.exists() and silent_path.stat().st_size > 0:
         return str(silent_path)
     
     try:
@@ -165,10 +178,21 @@ def ensure_backsound() -> str:
             '-c:a', 'libmp3lame', '-b:a', '32k',
             str(silent_path)
         ]
-        subprocess.run(cmd, capture_output=True, timeout=15)
-        if silent_path.exists():
+        res = subprocess.run(cmd, capture_output=True, timeout=15)
+        if res.returncode != 0 or not silent_path.exists() or silent_path.stat().st_size == 0:
+            if silent_path.exists():
+                try:
+                    silent_path.unlink()
+                except Exception:
+                    pass
+        else:
             return str(silent_path)
     except Exception as e:
+        if silent_path.exists():
+            try:
+                silent_path.unlink()
+            except Exception:
+                pass
         print(f"[WARNING] Could not create silent backsound: {e}")
     
     return None
@@ -705,7 +729,7 @@ def step_c_ffmpeg(
     for ch in ["'", ":", "\\", "%"]:
         safe_text = safe_text.replace(ch, f"\\{ch}")
         
-    has_backsound = backsound and Path(backsound).exists()
+    has_backsound = backsound and Path(backsound).exists() and Path(backsound).stat().st_size > 0
     
     position_map = {
         'top-right':     ('x=W-tw-30', 'y=30'),
