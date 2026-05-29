@@ -743,6 +743,7 @@ def step_c_ffmpeg(
     thumbnail_path: Optional[str] = None,
     backsound_volume: float = 0.12,
     video_volume: float = 0.0,
+    narration_volume: float = 1.0,
 ):
     """Process video using FFmpeg with anti-copyright, customized subtitles, adjustable watermark opacity, and optional thumbnail cover."""
     # Get original input video duration
@@ -951,7 +952,10 @@ def step_c_ffmpeg(
 
     # Audio mixing mapping supporting multi-source per-track dynamic volume controls
     video_has_audio = has_audio_stream(input_video)
-    mix_inputs = ['[1:0]']  # Always include TTS (input index 1)
+    
+    # Apply narration volume to TTS stream (input index 1)
+    filter_complex += f";[1:0]volume={narration_volume:.2f}[tts_audio]"
+    mix_inputs = ['[tts_audio]']
     
     if video_has_audio and video_volume > 0.0:
         filter_complex += f";[0:a]volume={video_volume:.2f}[orig_audio]"
@@ -966,7 +970,7 @@ def step_c_ffmpeg(
         filter_complex += f";{inputs_str}amix=inputs={len(mix_inputs)}:duration=first[aud_final]"
         audio_map = '[aud_final]'
     else:
-        audio_map = '1:0'
+        audio_map = '[tts_audio]'
 
     cmd = [
         FFMPEG_PATH, '-y',

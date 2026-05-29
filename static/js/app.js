@@ -34,6 +34,8 @@
     const backsoundVolumeGroup = document.getElementById('backsoundVolumeGroup');
     const videoVolume = document.getElementById('videoVolume');
     const videoVolumeVal = document.getElementById('videoVolumeVal');
+    const narrationVolume = document.getElementById('narrationVolume');
+    const narrationVolumeVal = document.getElementById('narrationVolumeVal');
 
     const toggleText = document.getElementById('toggleText');
     const toggleLogo = document.getElementById('toggleLogo');
@@ -457,6 +459,13 @@
         videoVolume.addEventListener('input', (e) => {
             const pct = Math.round(parseFloat(e.target.value) * 100);
             if (videoVolumeVal) videoVolumeVal.textContent = pct + '%';
+        });
+    }
+
+    if (narrationVolume) {
+        narrationVolume.addEventListener('input', (e) => {
+            const pct = Math.round(parseFloat(e.target.value) * 100);
+            if (narrationVolumeVal) narrationVolumeVal.textContent = pct + '%';
         });
     }
 
@@ -884,9 +893,11 @@
         const bsMode = backsoundSelect?.value || 'backsound3';
         const bsVol = backsoundVolume?.value || 0.12;
         const vVol = videoVolume?.value || 0.0;
+        const nVol = narrationVolume?.value || 1.0;
         formData.append('backsound_mode', bsMode);
         formData.append('backsound_volume', bsVol);
         formData.append('video_volume', vVol);
+        formData.append('narration_volume', nVol);
         if (bsMode === 'custom' && selectedBacksoundFile) {
             formData.append('backsound_file', selectedBacksoundFile);
         }
