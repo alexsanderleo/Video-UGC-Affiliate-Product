@@ -32,6 +32,8 @@
     const backsoundVolume = document.getElementById('backsoundVolume');
     const backsoundVolumeVal = document.getElementById('backsoundVolumeVal');
     const backsoundVolumeGroup = document.getElementById('backsoundVolumeGroup');
+    const videoVolume = document.getElementById('videoVolume');
+    const videoVolumeVal = document.getElementById('videoVolumeVal');
 
     const toggleText = document.getElementById('toggleText');
     const toggleLogo = document.getElementById('toggleLogo');
@@ -448,6 +450,13 @@
         backsoundVolume.addEventListener('input', (e) => {
             const pct = Math.round(parseFloat(e.target.value) * 100);
             if (backsoundVolumeVal) backsoundVolumeVal.textContent = pct + '%';
+        });
+    }
+
+    if (videoVolume) {
+        videoVolume.addEventListener('input', (e) => {
+            const pct = Math.round(parseFloat(e.target.value) * 100);
+            if (videoVolumeVal) videoVolumeVal.textContent = pct + '%';
         });
     }
 
@@ -874,8 +883,10 @@
         // Backsound parameters
         const bsMode = backsoundSelect?.value || 'backsound3';
         const bsVol = backsoundVolume?.value || 0.12;
+        const vVol = videoVolume?.value || 0.0;
         formData.append('backsound_mode', bsMode);
         formData.append('backsound_volume', bsVol);
+        formData.append('video_volume', vVol);
         if (bsMode === 'custom' && selectedBacksoundFile) {
             formData.append('backsound_file', selectedBacksoundFile);
         }

@@ -767,6 +767,16 @@
                                             <input type="range" id="backsoundVolume" class="range-input" min="0.0" max="0.5" step="0.02" value="0.12"
                                                 style="width: 100%; height: 6px; border-radius: 4px; background: rgba(255,255,255,0.1); outline: none; -webkit-appearance: none; cursor: pointer; accent-color: var(--text-accent);">
                                         </div>
+
+                                        <!-- Volume Suara Bawaan Video Slider (Untuk Mempertahankan/Mereduksi Suara Asli) -->
+                                        <div id="videoVolumeGroup" style="margin-top: 12px; transition: all 0.3s ease;">
+                                            <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 6px;">
+                                                <label for="videoVolume" class="input-label" style="margin: 0; font-size: 0.78rem;">Volume Suara Bawaan Video</label>
+                                                <span id="videoVolumeVal" style="font-size: 0.8rem; font-weight: 600; color: var(--text-accent);">0%</span>
+                                            </div>
+                                            <input type="range" id="videoVolume" class="range-input" min="0.0" max="1.0" step="0.05" value="0.0"
+                                                style="width: 100%; height: 6px; border-radius: 4px; background: rgba(255,255,255,0.1); outline: none; -webkit-appearance: none; cursor: pointer; accent-color: var(--text-accent);">
+                                        </div>
                                     </div>
 
                                     <!-- Render Final Button -->

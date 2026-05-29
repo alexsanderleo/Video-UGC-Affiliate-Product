@@ -220,6 +220,23 @@ def get_video_duration(video_path: str) -> float:
     except Exception:
         return 30.0
 
+def has_audio_stream(video_path: str) -> bool:
+    """Check if the video has an audio stream using ffprobe."""
+    try:
+        cmd = [
+            FFPROBE_PATH,
+            '-v', 'error',
+            '-select_streams', 'a',
+            '-show_entries', 'stream=codec_name',
+            '-of', 'default=noprint_wrappers=1:nokey=1',
+            video_path
+        ]
+        result = subprocess.run(cmd, capture_output=True, text=True, timeout=10)
+        return result.returncode == 0 and bool(result.stdout.strip())
+    except Exception as e:
+        print(f"[ffprobe] Error checking audio stream: {e}")
+        return False
+
 def clean_script_for_tts(text: str) -> str:
     """Regex-based cleaning to ensure only speakable text goes to Edge-TTS."""
     original_len = len(text)
@@ -713,6 +730,7 @@ def step_c_ffmpeg(
     use_camera_shake: str = "false",
     thumbnail_path: Optional[str] = None,
     backsound_volume: float = 0.12,
+    video_volume: float = 0.0,
 ):
     """Process video using FFmpeg with anti-copyright, customized subtitles, adjustable watermark opacity, and optional thumbnail cover."""
     # Get original input video duration
@@ -919,12 +937,21 @@ def step_c_ffmpeg(
     if last_vid != "[vid_final]":
         filter_complex += f";{last_vid}null[vid_final]"
 
-    # Audio mixing mapping using the tracked backsound index
+    # Audio mixing mapping supporting multi-source per-track dynamic volume controls
+    video_has_audio = has_audio_stream(input_video)
+    mix_inputs = ['[1:0]']  # Always include TTS (input index 1)
+    
+    if video_has_audio and video_volume > 0.0:
+        filter_complex += f";[0:a]volume={video_volume:.2f}[orig_audio]"
+        mix_inputs.append('[orig_audio]')
+        
     if backsound_index != -1:
-        filter_complex += (
-            f";[{backsound_index}:0]volume={backsound_volume:.2f}[bg_audio];"
-            f"[1:0][bg_audio]amix=inputs=2:duration=first[aud_final]"
-        )
+        filter_complex += f";[{backsound_index}:0]volume={backsound_volume:.2f}[bg_audio]"
+        mix_inputs.append('[bg_audio]')
+        
+    if len(mix_inputs) > 1:
+        inputs_str = "".join(mix_inputs)
+        filter_complex += f";{inputs_str}amix=inputs={len(mix_inputs)}:duration=first[aud_final]"
         audio_map = '[aud_final]'
     else:
         audio_map = '1:0'

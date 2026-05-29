@@ -131,6 +131,7 @@ async def render_video_endpoint(
     backsound_mode: str = Form("backsound3"),
     backsound_file: Optional[UploadFile] = File(None),
     backsound_volume: float = Form(0.12),
+    video_volume: float = Form(0.0),
     sub_font: str = Form("Impact"),
     sub_size: int = Form(45),
     sub_color: str = Form("#F5CC00"),
@@ -257,6 +258,7 @@ async def render_video_endpoint(
                 'thumbnail_path': thumbnail_path,
                 'backsound_path': backsound_path,
                 'backsound_volume': backsound_volume,
+                'video_volume': video_volume,
             },
             task_id=job_id
         )
@@ -369,6 +371,7 @@ async def generate_video(
     use_subtitle: str = Form("true"),
     use_speed_ramping: str = Form("true"),
     use_camera_shake: str = Form("false"),
+    video_volume: float = Form(0.0),
     current_user: User = Depends(get_current_user),
     db: AsyncSession = Depends(get_db),
 ):
@@ -460,6 +463,7 @@ async def generate_video(
                 'use_subtitle': use_subtitle,
                 'use_speed_ramping': use_speed_ramping,
                 'use_camera_shake': use_camera_shake,
+                'video_volume': video_volume,
             },
             task_id=job_id
         )
