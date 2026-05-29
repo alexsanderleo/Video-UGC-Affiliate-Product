@@ -692,10 +692,12 @@
         // Collapse settings cards & caption card to keep workspace clean
         const watermarkCard = document.getElementById('watermarkSettingsCard');
         const subtitleCard = document.getElementById('subtitleSettingsCard');
+        const backsoundCard = document.getElementById('backsoundSettingsCard');
         const antiCopyrightCard = document.getElementById('antiCopyrightSettingsCard');
         const captionCard = document.getElementById('captionOutputCard');
         if (watermarkCard) watermarkCard.classList.add('collapsed');
         if (subtitleCard) subtitleCard.classList.add('collapsed');
+        if (backsoundCard) backsoundCard.classList.add('collapsed');
         if (antiCopyrightCard) antiCopyrightCard.classList.add('collapsed');
         if (captionCard) captionCard.classList.add('collapsed');
 
@@ -823,10 +825,12 @@
         // Collapse settings cards & caption card to keep workspace clean
         const watermarkCard = document.getElementById('watermarkSettingsCard');
         const subtitleCard = document.getElementById('subtitleSettingsCard');
+        const backsoundCard = document.getElementById('backsoundSettingsCard');
         const antiCopyrightCard = document.getElementById('antiCopyrightSettingsCard');
         const captionCard = document.getElementById('captionOutputCard');
         if (watermarkCard) watermarkCard.classList.add('collapsed');
         if (subtitleCard) subtitleCard.classList.add('collapsed');
+        if (backsoundCard) backsoundCard.classList.add('collapsed');
         if (antiCopyrightCard) antiCopyrightCard.classList.add('collapsed');
         if (captionCard) captionCard.classList.add('collapsed');
         
