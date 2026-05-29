@@ -221,7 +221,7 @@ def get_video_duration(video_path: str) -> float:
         return 30.0
 
 def has_audio_stream(video_path: str) -> bool:
-    """Check if the video has an audio stream using ffprobe."""
+    """Check if the video has an audio stream using ffprobe or ffmpeg fallback."""
     try:
         cmd = [
             FFPROBE_PATH,
@@ -232,10 +232,22 @@ def has_audio_stream(video_path: str) -> bool:
             video_path
         ]
         result = subprocess.run(cmd, capture_output=True, text=True, timeout=10)
-        return result.returncode == 0 and bool(result.stdout.strip())
+        if result.returncode == 0 and bool(result.stdout.strip()):
+            return True
     except Exception as e:
-        print(f"[ffprobe] Error checking audio stream: {e}")
-        return False
+        print(f"[has_audio_stream] ffprobe check failed: {e}")
+
+    # Fallback: Try using ffmpeg -i to parse stderr for Audio stream (bulletproof on VPS without ffprobe)
+    try:
+        cmd = [FFMPEG_PATH, '-i', video_path]
+        result = subprocess.run(cmd, capture_output=True, text=True, timeout=10)
+        output = result.stderr or result.stdout or ""
+        if "audio" in output.lower():
+            return True
+    except Exception as e:
+        print(f"[has_audio_stream] ffmpeg fallback failed: {e}")
+
+    return False
 
 def clean_script_for_tts(text: str) -> str:
     """Regex-based cleaning to ensure only speakable text goes to Edge-TTS."""
