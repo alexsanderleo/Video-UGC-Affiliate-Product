@@ -3,13 +3,14 @@ Auth endpoints — Register, Login, Me, Force Logout.
 All async for maximum concurrency on VPS.
 """
 
-from datetime import datetime, timezone
+from datetime import datetime, timezone, timedelta
 
 from fastapi import APIRouter, Depends, HTTPException, status, Request
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from api.deps import get_current_user, get_db
+from core.agomart import verify_with_agomart
 from core.config import get_settings
 from core.security import create_access_token, hash_password, verify_password, parse_user_agent
 from models.user import User
@@ -100,8 +101,10 @@ async def login(
 ):
     """
     Authenticate user and return JWT access token.
-    - Validates email + password
-    - Token includes token_version for Force Logout support
+    - ADMIN/operator (is_admin) -> verifikasi password LOKAL.
+    - CUSTOMER -> verifikasi ke API pusat agomart (email+password+akses tool),
+      lalu akun lokal auto-dibuat/disinkronkan.
+    - Token includes token_version for Force Logout support.
     """
     # Fetch user by email (indexed query)
     result = await db.execute(
@@ -109,11 +112,53 @@ async def login(
     )
     user = result.scalar_one_or_none()
 
-    if user is None or not verify_password(body.password, user.hashed_pw):
-        raise HTTPException(
-            status_code=status.HTTP_401_UNAUTHORIZED,
-            detail="Email atau password salah.",
-        )
+    if user is not None and user.is_admin:
+        # --- ADMIN / operator app: tetap login lokal (tidak lewat agomart) ---
+        if not verify_password(body.password, user.hashed_pw):
+            raise HTTPException(
+                status_code=status.HTTP_401_UNAUTHORIZED,
+                detail="Email atau password salah.",
+            )
+    elif settings.AGOMART_AUTH_ENABLED:
+        # --- CUSTOMER: verifikasi ke pusat agomart (email+password+akses 'video') ---
+        ago = await verify_with_agomart(body.email, body.password)
+        now = datetime.now(timezone.utc)
+        far = now + timedelta(days=3650)  # akses dijaga agomart; lokal dibuat 'longgar'
+        if user is None:
+            # Auto-provision akun lokal berdasarkan email terverifikasi.
+            user = User(
+                email=body.email,
+                hashed_pw=hash_password(body.password),
+                full_name=ago.get("name") or body.email.split("@")[0],
+                token_version=0,
+                quota_reset=now,
+                is_active=True,
+                price_plan="agomart",
+                expired_at=far,
+            )
+            db.add(user)
+            await db.commit()
+            # Ambil ulang untuk dapat id (hindari refresh async di MySQL).
+            result = await db.execute(select(User).where(User.email == body.email))
+            user = result.scalar_one()
+        else:
+            # Sinkronkan akun lokal: pastikan aktif + selaraskan password & masa aktif.
+            user.is_active = True
+            user.hashed_pw = hash_password(body.password)
+            if ago.get("name"):
+                user.full_name = ago["name"]
+            user.expired_at = far
+            db.add(user)
+            await db.commit()
+            result = await db.execute(select(User).where(User.email == body.email))
+            user = result.scalar_one()
+    else:
+        # Fallback: auth lokal penuh (AGOMART_AUTH_ENABLED=False)
+        if user is None or not verify_password(body.password, user.hashed_pw):
+            raise HTTPException(
+                status_code=status.HTTP_401_UNAUTHORIZED,
+                detail="Email atau password salah.",
+            )
 
     # Check for plan expiration
     if user.expired_at and datetime.utcnow() > user.expired_at:

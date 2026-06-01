@@ -45,6 +45,13 @@ class Settings(BaseSettings):
     CELERY_BROKER_URL: str = "redis://127.0.0.1:6379/0"
     CELERY_RESULT_BACKEND: str = "redis://127.0.0.1:6379/0"
 
+    # --- Integrasi agomart (auth terpusat) ---
+    # Customer login diverifikasi ke API pusat agomart (email+password+akses tool).
+    # Admin/operator app ini tetap login lokal (is_admin=True).
+    AGOMART_API_URL: str = "https://agomart.com/api"
+    AGOMART_TOOL_SLUG: str = "video"          # slug produk di agomart untuk app ini
+    AGOMART_AUTH_ENABLED: bool = True         # set False untuk pakai auth lokal sepenuhnya
+
     model_config = {
         "env_file": ".env",
         "env_file_encoding": "utf-8",
