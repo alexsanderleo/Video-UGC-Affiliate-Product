@@ -17,6 +17,7 @@ from api.deps import get_db, get_current_admin
 from models.user import User
 from models.generation_log import GenerationLog
 from models.user_login import UserLogin
+from models.ai_provider import AIProvider, AppSetting
 from core.config import get_settings
 from core.security import hash_password
 
@@ -1117,5 +1118,234 @@ async def get_login_history(
             <td class="px-6 py-4 whitespace-nowrap text-sm text-slate-400 font-semibold">{login_time_str}</td>
         </tr>
         """
-        
+
     return HTMLResponse(html)
+
+
+# ============================================================
+# AI Provider Management (switch model untuk analisis video)
+# ============================================================
+
+QWEN_BASE_URL = "https://dashscope-intl.aliyuncs.com/compatible-mode/v1"
+
+
+def _mask_key(k: str) -> str:
+    """Tampilkan hanya 4 karakter terakhir API key."""
+    if not k:
+        return "(kosong)"
+    if len(k) <= 4:
+        return "••••"
+    return "••••" + k[-4:]
+
+
+async def _get_setting(db: AsyncSession, key: str, default: str = "") -> str:
+    row = await db.get(AppSetting, key)
+    return row.value if row and row.value is not None else default
+
+
+async def _set_setting(db: AsyncSession, key: str, value: str):
+    row = await db.get(AppSetting, key)
+    if row is None:
+        db.add(AppSetting(key=key, value=value))
+    else:
+        row.value = value
+
+
+def render_ai_providers_fragment(providers, rotation_on: bool) -> str:
+    """Render seluruh section AI Model: toggle rotasi + tabel provider + form tambah."""
+    rotation_badge = (
+        '<span class="px-2 py-0.5 rounded-full text-xs font-bold bg-emerald-500/20 text-emerald-400">ROTASI AKTIF</span>'
+        if rotation_on else
+        '<span class="px-2 py-0.5 rounded-full text-xs font-bold bg-slate-600/30 text-slate-400">MODE TUNGGAL</span>'
+    )
+    toggle_label = "Matikan Rotasi" if rotation_on else "Nyalakan Rotasi"
+    toggle_cls = "bg-rose-600 hover:bg-rose-500" if rotation_on else "bg-emerald-600 hover:bg-emerald-500"
+
+    rows = ""
+    if not providers:
+        rows = """
+        <tr><td colspan="6" class="px-4 py-6 text-center text-slate-500 text-sm">
+            Belum ada provider. Tambahkan di bawah. (Sementara generate pakai fallback Qwen dari .env.)
+        </td></tr>"""
+    for p in providers:
+        active_radio = (
+            f'<input type="radio" name="active_provider" {"checked" if p.is_active else ""} '
+            f'hx-post="/api/v1/admin/ai-providers/{p.id}/activate" '
+            f'hx-target="#ai-providers-section" hx-swap="outerHTML" '
+            f'class="w-4 h-4 accent-indigo-500 cursor-pointer" {"disabled" if rotation_on else ""}>'
+        )
+        enabled_badge = (
+            '<span class="px-2 py-0.5 rounded-full text-xs font-semibold bg-emerald-500/20 text-emerald-400">aktif</span>'
+            if p.is_enabled else
+            '<span class="px-2 py-0.5 rounded-full text-xs font-semibold bg-slate-600/30 text-slate-500">nonaktif</span>'
+        )
+        rows += f"""
+        <tr class="border-b border-slate-800/50 hover:bg-slate-900/30 transition">
+            <td class="px-4 py-3 text-center">{active_radio}</td>
+            <td class="px-4 py-3 text-sm font-semibold text-slate-200">{p.label}
+                <div class="text-[11px] text-slate-500 font-mono">{p.adapter} · {p.input_type}</div></td>
+            <td class="px-4 py-3 text-sm text-indigo-300 font-mono">{p.model}</td>
+            <td class="px-4 py-3 text-sm text-slate-400 font-mono">{_mask_key(p.api_key)}</td>
+            <td class="px-4 py-3">
+                <button hx-post="/api/v1/admin/ai-providers/{p.id}/toggle-enabled"
+                    hx-target="#ai-providers-section" hx-swap="outerHTML"
+                    class="cursor-pointer">{enabled_badge}</button>
+            </td>
+            <td class="px-4 py-3 text-right">
+                <button hx-post="/api/v1/admin/ai-providers/{p.id}/delete"
+                    hx-confirm="Hapus provider '{p.label}'?"
+                    hx-target="#ai-providers-section" hx-swap="outerHTML"
+                    class="text-rose-400 hover:text-rose-300 text-xs font-semibold">Hapus</button>
+            </td>
+        </tr>"""
+
+    return f"""
+    <div id="ai-providers-section" class="space-y-6">
+        <div class="flex items-center justify-between bg-slate-900/40 border border-slate-800 rounded-xl px-5 py-4">
+            <div class="flex items-center gap-3">
+                <div>
+                    <div class="text-sm font-bold text-slate-200">Mode pemilihan model</div>
+                    <div class="text-xs text-slate-500">Tunggal = pakai 1 provider terpilih. Rotasi = putar otomatis antar provider aktif.</div>
+                </div>
+                {rotation_badge}
+            </div>
+            <button hx-post="/api/v1/admin/ai-providers/toggle-rotation"
+                hx-target="#ai-providers-section" hx-swap="outerHTML"
+                class="{toggle_cls} text-white text-xs font-bold px-4 py-2 rounded-lg transition">{toggle_label}</button>
+        </div>
+
+        <div class="bg-slate-900/40 border border-slate-800 rounded-xl overflow-hidden">
+            <table class="w-full">
+                <thead class="bg-slate-900/60">
+                    <tr class="text-left text-[11px] uppercase tracking-wider text-slate-500">
+                        <th class="px-4 py-3 text-center">Aktif</th>
+                        <th class="px-4 py-3">Label</th>
+                        <th class="px-4 py-3">Model</th>
+                        <th class="px-4 py-3">API Key</th>
+                        <th class="px-4 py-3">Status</th>
+                        <th class="px-4 py-3 text-right">Aksi</th>
+                    </tr>
+                </thead>
+                <tbody>{rows}</tbody>
+            </table>
+        </div>
+
+        <form hx-post="/api/v1/admin/ai-providers/create"
+            hx-target="#ai-providers-section" hx-swap="outerHTML"
+            hx-on::after-request="if(event.detail.successful) this.reset()"
+            class="bg-slate-900/40 border border-slate-800 rounded-xl p-5 grid grid-cols-1 md:grid-cols-2 gap-3">
+            <div class="md:col-span-2 text-sm font-bold text-slate-200 mb-1">Tambah Provider</div>
+            <input name="label" required placeholder="Label (mis. Qwen Plus)"
+                class="bg-slate-950 border border-slate-800 rounded-lg px-3 py-2 text-sm text-slate-200 focus:border-indigo-500 focus:outline-none">
+            <input name="model" required placeholder="Model (mis. qwen-vl-plus)" value="qwen-vl-plus"
+                class="bg-slate-950 border border-slate-800 rounded-lg px-3 py-2 text-sm text-slate-200 focus:border-indigo-500 focus:outline-none">
+            <input name="base_url" required value="{QWEN_BASE_URL}"
+                class="bg-slate-950 border border-slate-800 rounded-lg px-3 py-2 text-sm text-slate-200 focus:border-indigo-500 focus:outline-none">
+            <input name="api_key" required placeholder="API Key (sk-...)"
+                class="bg-slate-950 border border-slate-800 rounded-lg px-3 py-2 text-sm text-slate-200 focus:border-indigo-500 focus:outline-none">
+            <input type="hidden" name="adapter" value="openai_video">
+            <input type="hidden" name="input_type" value="video">
+            <div class="md:col-span-2 flex items-center justify-between">
+                <span class="text-[11px] text-slate-500">Adapter: openai_video (Qwen, terima video). Gemini/Groq menyusul.</span>
+                <button type="submit" class="bg-indigo-600 hover:bg-indigo-500 text-white text-sm font-bold px-5 py-2 rounded-lg transition">Tambah</button>
+            </div>
+        </form>
+    </div>"""
+
+
+async def _render_section(db: AsyncSession) -> HTMLResponse:
+    result = await db.execute(select(AIProvider).order_by(AIProvider.sort_order, AIProvider.id))
+    providers = result.scalars().all()
+    rotation_on = (await _get_setting(db, "ai_rotation_enabled", "0")) == "1"
+    return HTMLResponse(render_ai_providers_fragment(providers, rotation_on))
+
+
+@router.get("/ai-providers", response_class=HTMLResponse, summary="AI provider management fragment")
+async def get_ai_providers(
+    db: AsyncSession = Depends(get_db),
+    admin: User = Depends(get_current_admin),
+):
+    return await _render_section(db)
+
+
+@router.post("/ai-providers/create", response_class=HTMLResponse)
+async def create_ai_provider(
+    label: str = Form(...),
+    model: str = Form(...),
+    base_url: str = Form(...),
+    api_key: str = Form(...),
+    adapter: str = Form("openai_video"),
+    input_type: str = Form("video"),
+    db: AsyncSession = Depends(get_db),
+    admin: User = Depends(get_current_admin),
+):
+    # Provider pertama otomatis jadi aktif (mode tunggal).
+    count = (await db.execute(select(func.count(AIProvider.id)))).scalar() or 0
+    provider = AIProvider(
+        label=label.strip(),
+        model=model.strip(),
+        base_url=base_url.strip(),
+        api_key=api_key.strip(),
+        adapter=adapter.strip() or "openai_video",
+        input_type=input_type.strip() or "video",
+        is_enabled=True,
+        is_active=(count == 0),
+        sort_order=count,
+    )
+    db.add(provider)
+    await db.commit()
+    return await _render_section(db)
+
+
+@router.post("/ai-providers/{provider_id}/activate", response_class=HTMLResponse)
+async def activate_ai_provider(
+    provider_id: int,
+    db: AsyncSession = Depends(get_db),
+    admin: User = Depends(get_current_admin),
+):
+    """Set provider ini aktif (mode tunggal), matikan is_active lainnya."""
+    result = await db.execute(select(AIProvider))
+    for p in result.scalars().all():
+        p.is_active = (p.id == provider_id)
+    await db.commit()
+    return await _render_section(db)
+
+
+@router.post("/ai-providers/{provider_id}/toggle-enabled", response_class=HTMLResponse)
+async def toggle_ai_provider_enabled(
+    provider_id: int,
+    db: AsyncSession = Depends(get_db),
+    admin: User = Depends(get_current_admin),
+):
+    p = await db.get(AIProvider, provider_id)
+    if p is None:
+        raise HTTPException(status_code=404, detail="Provider tidak ditemukan")
+    p.is_enabled = not p.is_enabled
+    if not p.is_enabled:
+        p.is_active = False  # tidak boleh aktif kalau nonaktif
+    await db.commit()
+    return await _render_section(db)
+
+
+@router.post("/ai-providers/{provider_id}/delete", response_class=HTMLResponse)
+async def delete_ai_provider(
+    provider_id: int,
+    db: AsyncSession = Depends(get_db),
+    admin: User = Depends(get_current_admin),
+):
+    p = await db.get(AIProvider, provider_id)
+    if p is not None:
+        await db.delete(p)
+        await db.commit()
+    return await _render_section(db)
+
+
+@router.post("/ai-providers/toggle-rotation", response_class=HTMLResponse)
+async def toggle_ai_rotation(
+    db: AsyncSession = Depends(get_db),
+    admin: User = Depends(get_current_admin),
+):
+    current = await _get_setting(db, "ai_rotation_enabled", "0")
+    await _set_setting(db, "ai_rotation_enabled", "0" if current == "1" else "1")
+    await db.commit()
+    return await _render_section(db)

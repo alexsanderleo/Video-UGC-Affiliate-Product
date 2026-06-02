@@ -280,13 +280,28 @@ def clean_script_for_tts(text: str) -> str:
     return text
 
 def step_a_video_understanding(video_path: str, duration_seconds: int = 30) -> str:
-    """Send video to Qwen VL Plus for analysis and script generation."""
-    if not DASHSCOPE_API_KEY or DASHSCOPE_API_KEY == 'your_api_key_here':
-        raise ValueError("DASHSCOPE_API_KEY is not set or invalid in environment variables.")
+    """Analisis video -> script. Provider/model dipilih dinamis dari panel admin
+    (tabel ai_providers); fallback ke Qwen .env bila belum dikonfigurasi."""
+    from core.ai_provider import get_active_ai_config
+    cfg = get_active_ai_config()
 
+    if cfg["adapter"] != "openai_video":
+        # Adapter lain (openai_frames untuk Gemini/Groq, gemini_native) belum diimplementasi.
+        raise NotImplementedError(
+            f"Adapter AI '{cfg['adapter']}' (provider '{cfg['label']}') belum didukung. "
+            "Saat ini hanya 'openai_video' (Qwen)."
+        )
+
+    if not cfg["api_key"] or cfg["api_key"] == 'your_api_key_here':
+        raise ValueError(
+            f"API key untuk provider AI '{cfg['label']}' kosong/invalid. "
+            "Atur di panel admin (AI Model) atau DASHSCOPE_API_KEY di .env."
+        )
+
+    print(f"[Step A] Provider aktif: {cfg['label']} (model={cfg['model']})")
     client = OpenAI(
-        api_key=DASHSCOPE_API_KEY,
-        base_url=DASHSCOPE_BASE_URL
+        api_key=cfg["api_key"],
+        base_url=cfg["base_url"],
     )
 
     video_path_obj = Path(video_path)
@@ -329,7 +344,7 @@ def step_a_video_understanding(video_path: str, duration_seconds: int = 30) -> s
             pass
 
     response = client.chat.completions.create(
-        model="qwen-vl-plus",
+        model=cfg["model"],
         messages=[
             {
                 "role": "user",

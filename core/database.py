@@ -138,6 +138,34 @@ async def init_db():
                 await session.rollback()
                 print("[SEED] Admin user already created by another worker process.")
 
+    # Seed default AI provider (Qwen dari .env) + setting rotasi, bila belum ada.
+    import os
+    from sqlalchemy import func
+    from models.ai_provider import AIProvider, AppSetting
+    async with async_session() as session:
+        count = (await session.execute(select(func.count(AIProvider.id)))).scalar() or 0
+        if count == 0:
+            dash_key = os.getenv("DASHSCOPE_API_KEY", "")
+            if dash_key:
+                session.add(AIProvider(
+                    label="Qwen Plus",
+                    adapter="openai_video",
+                    base_url="https://dashscope-intl.aliyuncs.com/compatible-mode/v1",
+                    model="qwen-vl-plus",
+                    api_key=dash_key,
+                    input_type="video",
+                    is_enabled=True,
+                    is_active=True,
+                    sort_order=0,
+                ))
+        if await session.get(AppSetting, "ai_rotation_enabled") is None:
+            session.add(AppSetting(key="ai_rotation_enabled", value="0"))
+        try:
+            await session.commit()
+            print("[SEED] AI provider defaults ready.")
+        except IntegrityError:
+            await session.rollback()
+
 
 async def close_db():
     """Dispose engine on shutdown."""
