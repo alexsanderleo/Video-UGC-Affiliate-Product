@@ -4,12 +4,13 @@ Optimized for aaPanel low-RAM VPS using HTMX partial rendering.
 """
 
 import os
+import logging
 from datetime import datetime, timezone
 import redis.asyncio as async_redis
 
 from fastapi import APIRouter, Depends, HTTPException, status, Form
 from fastapi.responses import HTMLResponse, FileResponse
-from sqlalchemy import select, func
+from sqlalchemy import select, func, delete
 from sqlalchemy.ext.asyncio import AsyncSession
 from typing import Optional
 
@@ -23,6 +24,7 @@ from core.security import hash_password
 
 router = APIRouter(prefix="/admin", tags=["Admin Dashboard"])
 settings = get_settings()
+logger = logging.getLogger("admin")
 
 
 def format_bytes(b: int) -> str:
@@ -673,10 +675,22 @@ async def admin_delete_user(
     user = result.scalar_one_or_none()
     if not user:
         raise HTTPException(status_code=404, detail="User tidak ditemukan")
-        
-    await db.delete(user)
-    await db.commit()
-    
+
+    try:
+        # Hapus baris anak dulu secara eksplisit. FK di DB live mungkin belum
+        # punya ON DELETE CASCADE, jadi jangan andalkan cascade DB (bikin 500).
+        await db.execute(delete(GenerationLog).where(GenerationLog.user_id == user_id))
+        await db.execute(delete(UserLogin).where(UserLogin.user_id == user_id))
+        await db.delete(user)
+        await db.commit()
+    except Exception:
+        await db.rollback()
+        logger.exception("Gagal menghapus user id=%s", user_id)
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail="Gagal menghapus user (kemungkinan data terkait). Cek log server.",
+        )
+
     # Return empty response to let HTMX remove the outerHTML row
     return HTMLResponse("")
 
