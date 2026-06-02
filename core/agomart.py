@@ -10,12 +10,15 @@ Lihat endpoint pusat: POST {AGOMART_API_URL}/auth/app-login
   403  : belum punya akses produk ini
 """
 
+import logging
+
 import httpx
 from fastapi import HTTPException, status
 
 from core.config import get_settings
 
 settings = get_settings()
+logger = logging.getLogger("agomart")
 
 
 async def verify_with_agomart(email: str, password: str) -> dict:
@@ -27,15 +30,28 @@ async def verify_with_agomart(email: str, password: str) -> dict:
     try:
         async with httpx.AsyncClient(timeout=8.0) as client:
             resp = await client.post(url, json=payload, headers={"Accept": "application/json"})
-    except httpx.HTTPError:
+    except httpx.HTTPError as exc:
+        logger.warning("agomart unreachable url=%s err=%r", url, exc)
         raise HTTPException(
             status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
             detail="Server autentikasi agomart sedang tidak dapat dihubungi. Coba beberapa saat lagi.",
         )
 
     if resp.status_code == 200:
-        data = resp.json()
-        return data.get("user") or {"email": email}
+        # 200 dari agomart = kredensial valid + punya akses. Body JSON hanya
+        # info profil tambahan; jangan sampai parsing-nya bikin login crash.
+        try:
+            data = resp.json()
+        except ValueError:
+            logger.warning(
+                "agomart 200 tapi body bukan JSON ct=%s body=%.200r",
+                resp.headers.get("content-type"), resp.text,
+            )
+            return {"email": email}
+        if not isinstance(data, dict):
+            return {"email": email}
+        user = data.get("user")
+        return user if isinstance(user, dict) else {"email": email}
 
     if resp.status_code == 401:
         raise HTTPException(status.HTTP_401_UNAUTHORIZED, detail="Email atau password salah.")
@@ -46,4 +62,8 @@ async def verify_with_agomart(email: str, password: str) -> dict:
             detail="Anda belum memiliki akses ke produk ini. Silakan beli dulu di agomart.com.",
         )
 
+    logger.warning(
+        "agomart status tak terduga=%s ct=%s body=%.200r",
+        resp.status_code, resp.headers.get("content-type"), resp.text,
+    )
     raise HTTPException(status.HTTP_502_BAD_GATEWAY, detail="Gagal verifikasi ke server agomart.")

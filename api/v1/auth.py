@@ -3,6 +3,7 @@ Auth endpoints — Register, Login, Me, Force Logout.
 All async for maximum concurrency on VPS.
 """
 
+import logging
 from datetime import datetime, timezone, timedelta
 
 from fastapi import APIRouter, Depends, HTTPException, status, Request
@@ -25,6 +26,7 @@ from schemas.user import UserBrief, UserResponse
 
 router = APIRouter(prefix="/auth", tags=["Authentication"])
 settings = get_settings()
+logger = logging.getLogger("auth")
 
 
 @router.post(
@@ -124,34 +126,42 @@ async def login(
         ago = await verify_with_agomart(body.email, body.password)
         now = datetime.now(timezone.utc)
         far = now + timedelta(days=3650)  # akses dijaga agomart; lokal dibuat 'longgar'
-        if user is None:
-            # Auto-provision akun lokal berdasarkan email terverifikasi.
-            user = User(
-                email=body.email,
-                hashed_pw=hash_password(body.password),
-                full_name=ago.get("name") or body.email.split("@")[0],
-                token_version=0,
-                quota_reset=now,
-                is_active=True,
-                price_plan="agomart",
-                expired_at=far,
+        try:
+            if user is None:
+                # Auto-provision akun lokal berdasarkan email terverifikasi.
+                user = User(
+                    email=body.email,
+                    hashed_pw=hash_password(body.password),
+                    full_name=ago.get("name") or body.email.split("@")[0],
+                    token_version=0,
+                    quota_reset=now,
+                    is_active=True,
+                    price_plan="agomart",
+                    expired_at=far,
+                )
+                db.add(user)
+                await db.commit()
+                # Ambil ulang untuk dapat id (hindari refresh async di MySQL).
+                result = await db.execute(select(User).where(User.email == body.email))
+                user = result.scalar_one()
+            else:
+                # Sinkronkan akun lokal: pastikan aktif + selaraskan password & masa aktif.
+                user.is_active = True
+                user.hashed_pw = hash_password(body.password)
+                if ago.get("name"):
+                    user.full_name = ago["name"]
+                user.expired_at = far
+                db.add(user)
+                await db.commit()
+                result = await db.execute(select(User).where(User.email == body.email))
+                user = result.scalar_one()
+        except Exception:
+            await db.rollback()
+            logger.exception("Gagal provision/sinkron akun agomart untuk email=%s", body.email)
+            raise HTTPException(
+                status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+                detail="Gagal menyiapkan akun lokal setelah verifikasi agomart.",
             )
-            db.add(user)
-            await db.commit()
-            # Ambil ulang untuk dapat id (hindari refresh async di MySQL).
-            result = await db.execute(select(User).where(User.email == body.email))
-            user = result.scalar_one()
-        else:
-            # Sinkronkan akun lokal: pastikan aktif + selaraskan password & masa aktif.
-            user.is_active = True
-            user.hashed_pw = hash_password(body.password)
-            if ago.get("name"):
-                user.full_name = ago["name"]
-            user.expired_at = far
-            db.add(user)
-            await db.commit()
-            result = await db.execute(select(User).where(User.email == body.email))
-            user = result.scalar_one()
     else:
         # Fallback: auth lokal penuh (AGOMART_AUTH_ENABLED=False)
         if user is None or not verify_password(body.password, user.hashed_pw):
