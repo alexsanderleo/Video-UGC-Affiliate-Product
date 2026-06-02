@@ -23,6 +23,20 @@ def hash_password(password: str) -> str:
     return hashed.decode('utf-8')
 
 
+def is_expired(expired_at: Optional[datetime]) -> bool:
+    """True bila masa aktif sudah lewat.
+
+    Aman untuk datetime naive (lama, diasumsikan UTC) maupun aware (kolom
+    DateTime(timezone=True) yang dikembalikan aiomysql sebagai tz-aware) —
+    menghindari TypeError "can't compare offset-naive and offset-aware".
+    """
+    if not expired_at:
+        return False
+    if expired_at.tzinfo is None:
+        expired_at = expired_at.replace(tzinfo=timezone.utc)
+    return datetime.now(timezone.utc) > expired_at
+
+
 def verify_password(plain_password: str, hashed_password: str) -> bool:
     """Verify a plaintext password against a native bcrypt hash."""
     plain_bytes = plain_password.encode('utf-8')

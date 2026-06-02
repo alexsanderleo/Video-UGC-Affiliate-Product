@@ -13,7 +13,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from api.deps import get_current_user, get_db
 from core.agomart import verify_with_agomart
 from core.config import get_settings
-from core.security import create_access_token, hash_password, verify_password, parse_user_agent
+from core.security import create_access_token, hash_password, verify_password, parse_user_agent, is_expired
 from models.user import User
 from models.user_login import UserLogin
 from schemas.auth import (
@@ -170,8 +170,8 @@ async def login(
                 detail="Email atau password salah.",
             )
 
-    # Check for plan expiration
-    if user.expired_at and datetime.utcnow() > user.expired_at:
+    # Check for plan expiration (timezone-safe)
+    if is_expired(user.expired_at):
         raise HTTPException(
             status_code=status.HTTP_403_FORBIDDEN,
             detail="Masa aktif akun Anda telah berakhir. Silakan hubungi Admin untuk melakukan perpanjangan.",

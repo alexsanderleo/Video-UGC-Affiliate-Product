@@ -9,7 +9,7 @@ from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from core.database import get_db
-from core.security import decode_access_token
+from core.security import decode_access_token, is_expired
 from models.user import User
 
 # Bearer token scheme for Swagger UI auto-integration
@@ -59,9 +59,8 @@ async def get_current_user(
             detail="User tidak ditemukan.",
         )
 
-    # Check if account has expired
-    from datetime import datetime
-    if user.expired_at and datetime.utcnow() > user.expired_at:
+    # Check if account has expired (timezone-safe)
+    if is_expired(user.expired_at):
         raise HTTPException(
             status_code=status.HTTP_403_FORBIDDEN,
             detail="Masa aktif akun Anda telah berakhir. Silakan hubungi Admin untuk melakukan perpanjangan.",
