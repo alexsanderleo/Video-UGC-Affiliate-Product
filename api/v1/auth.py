@@ -114,16 +114,25 @@ async def login(
     )
     user = result.scalar_one_or_none()
 
-    if user is not None and user.is_admin:
-        # --- ADMIN / operator app: tetap login lokal (tidak lewat agomart) ---
+    # Penanda sumber akun:
+    #   - lokal/operator  -> dibuat manual di video (admin seed, dll), price_plan != "agomart"
+    #   - agomart         -> bayangan dari pusat, price_plan == "agomart"
+    # Peran admin tool 'video' DIKONTROL DARI PUSAT: akun agomart SELALU diverifikasi
+    # ke pusat (meski is_admin=True) supaya flag admin selalu disinkron tiap login.
+    is_agomart_account = user is not None and user.price_plan == "agomart"
+
+    if user is not None and user.is_admin and not is_agomart_account:
+        # --- ADMIN / operator lokal: tetap login lokal (tidak lewat agomart) ---
         if not verify_password(body.password, user.hashed_pw):
             raise HTTPException(
                 status_code=status.HTTP_401_UNAUTHORIZED,
                 detail="Email atau password salah.",
             )
     elif settings.AGOMART_AUTH_ENABLED:
-        # --- CUSTOMER: verifikasi ke pusat agomart (email+password+akses 'video') ---
+        # --- AGOMART (customer ATAU admin tool 'video'): verifikasi ke pusat ---
         ago = await verify_with_agomart(body.email, body.password)
+        # Pusat menentukan apakah user ini admin untuk tool 'video'.
+        ago_is_admin = bool(ago.get("is_admin"))
         now = datetime.now(timezone.utc)
         far = now + timedelta(days=3650)  # akses dijaga agomart; lokal dibuat 'longgar'
         try:
@@ -136,6 +145,7 @@ async def login(
                     token_version=0,
                     quota_reset=now,
                     is_active=True,
+                    is_admin=ago_is_admin,
                     price_plan="agomart",
                     expired_at=far,
                 )
@@ -145,11 +155,12 @@ async def login(
                 result = await db.execute(select(User).where(User.email == body.email))
                 user = result.scalar_one()
             else:
-                # Sinkronkan akun lokal: pastikan aktif + selaraskan password & masa aktif.
+                # Sinkronkan akun lokal: aktif + selaraskan password, peran admin & masa aktif.
                 user.is_active = True
                 user.hashed_pw = hash_password(body.password)
                 if ago.get("name"):
                     user.full_name = ago["name"]
+                user.is_admin = ago_is_admin
                 user.expired_at = far
                 db.add(user)
                 await db.commit()
