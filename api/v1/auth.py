@@ -4,6 +4,7 @@ All async for maximum concurrency on VPS.
 """
 
 import logging
+import secrets
 from datetime import datetime, timezone, timedelta
 
 from fastapi import APIRouter, Depends, HTTPException, status, Request
@@ -11,7 +12,7 @@ from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from api.deps import get_current_user, get_db
-from core.agomart import verify_with_agomart
+from core.agomart import verify_with_agomart, sso_lookup
 from core.config import get_settings
 from core.security import create_access_token, hash_password, verify_password, parse_user_agent, is_expired
 from models.user import User
@@ -222,6 +223,78 @@ async def login(
         # Don't block login if logging fails
         pass
 
+    return TokenResponse(
+        access_token=access_token,
+        token_type="bearer",
+        expires_in=settings.JWT_EXPIRE_MINUTES * 60,
+        user=UserBrief.model_validate(user),
+    )
+
+
+@router.post(
+    "/sso",
+    response_model=TokenResponse,
+    summary="SSO agomart — auto-login via cookie agomart_sso (tanpa password)",
+)
+async def sso(request: Request, db: AsyncSession = Depends(get_db)):
+    """SSO lintas-subdomain: bila browser sudah login di agomart.com (cookie `agomart_sso`)
+    DAN punya akses tool 'video', auto buat/sinkron akun lokal + terbitkan JWT — TANPA password.
+    Identitas saja: keputusan akses dari has_access (pusat). Tidak menerima kredensial."""
+    if not settings.AGOMART_AUTH_ENABLED:
+        raise HTTPException(status.HTTP_404_NOT_FOUND, detail="SSO nonaktif.")
+
+    ago = await sso_lookup(request.headers.get("cookie", ""))
+    if not ago or not ago.get("email"):
+        raise HTTPException(status.HTTP_401_UNAUTHORIZED, detail="Belum login agomart / belum punya akses.")
+
+    email = ago["email"]
+    ago_is_admin = bool(ago.get("is_admin"))
+    now = datetime.now(timezone.utc)
+    far = now + timedelta(days=3650)  # akses dijaga agomart; lokal dibuat 'longgar'
+
+    result = await db.execute(select(User).where(User.email == email))
+    user = result.scalar_one_or_none()
+    try:
+        if user is None:
+            user = User(
+                email=email,
+                hashed_pw=hash_password(secrets.token_urlsafe(24)),  # acak; akun lewat SSO
+                full_name=ago.get("name") or email.split("@")[0],
+                token_version=0,
+                quota_reset=now,
+                is_active=True,
+                is_admin=ago_is_admin,
+                price_plan="agomart",
+                expired_at=far,
+            )
+            db.add(user)
+            await db.commit()
+            result = await db.execute(select(User).where(User.email == email))
+            user = result.scalar_one()
+        else:
+            user.is_active = True
+            if ago.get("name"):
+                user.full_name = ago["name"]
+            user.is_admin = ago_is_admin
+            user.expired_at = far
+            db.add(user)
+            await db.commit()
+            result = await db.execute(select(User).where(User.email == email))
+            user = result.scalar_one()
+    except Exception:
+        await db.rollback()
+        logger.exception("Gagal provision/sinkron akun SSO video email=%s", email)
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail="Gagal menyiapkan akun lokal setelah verifikasi SSO.",
+        )
+
+    if not user.is_active:
+        raise HTTPException(status.HTTP_403_FORBIDDEN, detail="Akun dinonaktifkan.")
+
+    access_token = create_access_token(
+        user_id=user.id, email=user.email, token_version=user.token_version,
+    )
     return TokenResponse(
         access_token=access_token,
         token_type="bearer",

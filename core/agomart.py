@@ -9,6 +9,7 @@ Lihat endpoint pusat: POST {AGOMART_API_URL}/auth/app-login
   401  : email/password salah
   403  : belum punya akses produk ini
 """
+from __future__ import annotations  # anotasi 'dict | None' aman di Python 3.9+
 
 import logging
 
@@ -67,3 +68,38 @@ async def verify_with_agomart(email: str, password: str) -> dict:
         resp.status_code, resp.headers.get("content-type"), resp.text,
     )
     raise HTTPException(status.HTTP_502_BAD_GATEWAY, detail="Gagal verifikasi ke server agomart.")
+
+
+async def sso_lookup(cookie_header: str) -> dict | None:
+    """SSO lintas-subdomain: dari cookie `agomart_sso` (otomatis dibawa browser ke
+    *.agomart.com), cek ke pusat apakah user sudah login DAN punya akses tool 'video'.
+    Return {email,name,avatar,is_admin} bila authenticated & has_access, selain itu None.
+    IDENTITAS saja — keputusan akses dari has_access (pusat agomart)."""
+    if not cookie_header or "agomart_sso=" not in cookie_header:
+        return None
+    url = f"{settings.AGOMART_API_URL.rstrip('/')}/sso/me"
+    try:
+        async with httpx.AsyncClient(timeout=8.0) as client:
+            resp = await client.get(
+                url,
+                params={"tool": settings.AGOMART_TOOL_SLUG},
+                headers={"Cookie": cookie_header, "Accept": "application/json"},
+            )
+    except httpx.HTTPError:
+        return None
+    if resp.status_code != 200:
+        return None
+    try:
+        data = resp.json()
+    except ValueError:
+        return None
+    if not isinstance(data, dict) or not data.get("authenticated"):
+        return None
+    tool = data.get("tool") or {}
+    if not tool.get("has_access"):
+        return None  # dikenal tapi belum berlangganan tool ini
+    user = data.get("user") or {}
+    if not user.get("email"):
+        return None
+    user["is_admin"] = bool(tool.get("is_admin"))
+    return user

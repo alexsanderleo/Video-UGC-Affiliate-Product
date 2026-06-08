@@ -1250,11 +1250,27 @@
 
     // Initialize Auth state
     async function initAuth() {
-        const token = localStorage.getItem('token');
+        let token = localStorage.getItem('token');
         const guestProfile = document.getElementById('guestProfile');
         const appSidebar = document.getElementById('appSidebar');
 
         if (appSidebar) appSidebar.style.display = 'flex';
+
+        if (!token) {
+            // SSO: coba auto-login via cookie agomart_sso (.agomart.com) tanpa password.
+            // Hanya berhasil bila sudah login agomart & punya akses 'video' (diputuskan pusat).
+            try {
+                const sr = await fetch('/api/v1/auth/sso', { method: 'POST', credentials: 'include' });
+                if (sr.ok) {
+                    const sd = await sr.json().catch(() => ({}));
+                    if (sd.access_token) {
+                        localStorage.setItem('token', sd.access_token);
+                        if (sd.user && sd.user.email) localStorage.setItem('email', sd.user.email);
+                        token = sd.access_token;
+                    }
+                }
+            } catch (e) {}
+        }
 
         if (!token) {
             authOverlay.style.display = 'none'; // Keep hidden on load
