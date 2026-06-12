@@ -358,9 +358,9 @@ def render_clip_export(project, clip, export, words: list, progress_cb=None) -> 
         music_idx = input_idx
         input_idx += 1
 
-    # AI voice-over: [{url, start, volume}] -> input audio tambahan
+    # AI voice-over + audio tambahan (multi-track ala add_audios): volume & fade per item
     voiceover_specs = []
-    for vo in (es.get("voiceovers") or []):
+    for vo in list(es.get("voiceovers") or []) + list(es.get("audios") or []):
         p = _resolve_local(vo.get("url") or vo.get("path"), work)
         if not p:
             continue
@@ -461,22 +461,65 @@ def render_clip_export(project, clip, export, words: list, progress_cb=None) -> 
         te = float(item.get("end") or min(out_duration, ts + 3))
         n_ov += 1
         lbl = f"ov{n_ov}"
+        # animasi masuk/keluar (buatan sendiri — setara preview)
+        anim_in = (item.get("anim_in") or "none").lower()
+        anim_out = (item.get("anim_out") or "none").lower()
+        anim_loop = (item.get("anim_loop") or "none").lower()
+        adur = min(0.45, max(0.1, (te - ts) / 2))
+
         if op["op"] == "overlay":
             in_idx, kind = op["in_idx"], op["kind"]
+            # rantai pra-proses overlay: scale -> mask -> rotasi -> border -> fade alpha
+            pre = []
             if kind.startswith("broll"):
-                # B-roll = overlay penuh menutup video
-                fg.append(f"[{in_idx}:v]scale={out_w}:{out_h}:force_original_aspect_ratio=increase,"
-                          f"crop={out_w}:{out_h},setpts=PTS-STARTPTS+{ts:.3f}/TB[b{n_ov}]")
-                fg.append(f"[{cur}][b{n_ov}]overlay=0:0:enable='between(t,{ts:.3f},{te:.3f})'[{lbl}]")
+                pre.append(f"scale={out_w}:{out_h}:force_original_aspect_ratio=increase,crop={out_w}:{out_h}")
             else:
-                wpct = float(item.get("w_pct") or 40) / 100
+                ow = int(out_w * (float(item.get("w_pct") or 40) / 100))
+                pre.append(f"scale={ow}:-2")
+            mask = (item.get("mask") or "none").lower()
+            if mask in ("circle", "rounded"):
+                pre.append("format=rgba")
+                if mask == "circle":
+                    pre.append("geq=a='if(lte(hypot(X-W/2,Y-H/2),min(W,H)/2),alpha(X,Y),0)'"
+                               ":r='r(X,Y)':g='g(X,Y)':b='b(X,Y)'")
+                else:  # rounded rect (radius 14%)
+                    pre.append("geq=a='if(lte(hypot(max(max(0.14*min(W,H)-X,X-(W-0.14*min(W,H))),0),"
+                               "max(max(0.14*min(W,H)-Y,Y-(H-0.14*min(W,H))),0)),0.14*min(W,H)),alpha(X,Y),0)'"
+                               ":r='r(X,Y)':g='g(X,Y)':b='b(X,Y)'")
+            if item.get("border"):
+                bc = (item.get("border_color") or "#FFFFFF").replace("#", "0x")
+                pre.append(f"pad=iw+8:ih+8:4:4:color={bc}")
+            rot = float(item.get("rot") or 0)
+            if rot:
+                import math as _math
+                pre.append(f"format=rgba,rotate={rot * _math.pi / 180:.5f}:c=none:ow=rotw({rot * _math.pi / 180:.5f}):oh=roth({rot * _math.pi / 180:.5f})")
+            pre.append(f"setpts=PTS-STARTPTS+{ts:.3f}/TB")
+            if anim_in in ("fade", "slide-up", "slide-down", "slide-left"):
+                pre.append(f"format=rgba,fade=t=in:st={ts:.3f}:d={adur:.2f}:alpha=1")
+            if anim_out in ("fade", "slide-down"):
+                pre.append(f"format=rgba,fade=t=out:st={te - adur:.3f}:d={adur:.2f}:alpha=1")
+            fg.append(f"[{in_idx}:v]" + ",".join(pre) + f"[m{n_ov}]")
+
+            # posisi (dengan offset slide bila ada)
+            if kind.startswith("broll"):
+                xe, ye = "0", "0"
+            else:
                 xpct = float(item.get("x_pct") or 50) / 100
                 ypct = float(item.get("y_pct") or 50) / 100
-                ow = int(out_w * wpct)
-                fg.append(f"[{in_idx}:v]scale={ow}:-2,setpts=PTS-STARTPTS+{ts:.3f}/TB[m{n_ov}]")
-                fg.append(f"[{cur}][m{n_ov}]overlay=x={int(out_w * xpct)}-w/2:y={int(out_h * ypct)}-h/2"
-                          f":enable='between(t,{ts:.3f},{te:.3f})'[{lbl}]")
-        else:  # text
+                xe = f"{int(out_w * xpct)}-w/2"
+                ye = f"{int(out_h * ypct)}-h/2"
+            slide = int(out_h * 0.07)
+            if anim_in == "slide-up":
+                ye += f"+if(lt(t,{ts + adur:.3f}),(1-(t-{ts:.3f})/{adur:.2f})*{slide},0)"
+            elif anim_in == "slide-down":
+                ye += f"-if(lt(t,{ts + adur:.3f}),(1-(t-{ts:.3f})/{adur:.2f})*{slide},0)"
+            elif anim_in == "slide-left":
+                xe += f"+if(lt(t,{ts + adur:.3f}),(1-(t-{ts:.3f})/{adur:.2f})*{int(out_w * 0.12)},0)"
+            if anim_out == "slide-down":
+                ye += f"+if(gt(t,{te - adur:.3f}),(1-({te:.3f}-t)/{adur:.2f})*{slide},0)"
+            fg.append(f"[{cur}][m{n_ov}]overlay=x='{xe}':y='{ye}'"
+                      f":enable='between(t,{ts:.3f},{te:.3f})'[{lbl}]")
+        else:  # text — animasi via ekspresi alpha & y drawtext
             content = _esc_drawtext(str(item.get("text") or "")[:200])
             if not content:
                 n_ov -= 1
@@ -485,10 +528,28 @@ def render_clip_export(project, clip, export, words: list, progress_cb=None) -> 
             color = (item.get("color") or "#FFFFFF").replace("#", "0x")
             ypct = float(item.get("y_pct") or 12) / 100
             fontfile = settings.BASE_DIR / "static" / "fonts" / "arialbd.ttf"
+            # alpha: fade in/out + loop pulse
+            a_in = f"if(lt(t,{ts + adur:.3f}),(t-{ts:.3f})/{adur:.2f},1)" if anim_in != "none" else "1"
+            a_out = f"if(gt(t,{te - adur:.3f}),({te:.3f}-t)/{adur:.2f},1)" if anim_out != "none" else "1"
+            a_loop = "(0.82+0.18*sin(t*6))" if anim_loop == "pulse" else "1"
+            alpha = f"{a_in}*{a_out}*{a_loop}"
+            ybase = int(out_h * ypct)
+            slide = int(out_h * 0.07)
+            ye = f"{ybase}"
+            if anim_in == "slide-up":
+                ye += f"+if(lt(t,{ts + adur:.3f}),(1-(t-{ts:.3f})/{adur:.2f})*{slide},0)"
+            elif anim_in == "slide-down":
+                ye += f"-if(lt(t,{ts + adur:.3f}),(1-(t-{ts:.3f})/{adur:.2f})*{slide},0)"
+            if anim_out == "slide-down":
+                ye += f"+if(gt(t,{te - adur:.3f}),(1-({te:.3f}-t)/{adur:.2f})*{slide},0)"
+            xe = "(w-text_w)/2"
+            if anim_in == "slide-left":
+                xe += f"+if(lt(t,{ts + adur:.3f}),(1-(t-{ts:.3f})/{adur:.2f})*{int(out_w * 0.12)},0)"
             fg.append(
                 f"[{cur}]drawtext=fontfile='{_esc_fpath(fontfile)}':text='{content}'"
                 f":fontsize={size}:fontcolor={color}:borderw=3:bordercolor=black"
-                f":x=(w-text_w)/2:y={int(out_h * ypct)}"
+                f":alpha='{alpha}'"
+                f":x='{xe}':y='{ye}'"
                 f":enable='between(t,{ts:.3f},{te:.3f})'[{lbl}]"
             )
         cur = lbl
@@ -526,14 +587,22 @@ def render_clip_export(project, clip, export, words: list, progress_cb=None) -> 
         voice_chain += ",highpass=f=70,afftdn=nf=-22,loudnorm=I=-16:TP=-1.5:LRA=11"
     fg.append(f"[acat]{voice_chain}[voice0]")
 
-    # Mix voice-over di atas suara asli
+    # Mix voice-over & audio tambahan di atas suara asli (per item: volume + fade opsional)
     if voiceover_specs:
         vo_labels = []
         for k, (in_idx, vo) in enumerate(voiceover_specs):
-            delay_ms = max(0, int(float(vo.get("start") or 0) * 1000))
+            vstart = float(vo.get("start") or 0)
+            vend = float(vo.get("end") or vstart + float(vo.get("duration") or 3))
+            idur = max(0.2, vend - vstart)
+            delay_ms = max(0, int(vstart * 1000))
             vvol = float(vo.get("volume", 1.0))
-            fg.append(f"[{in_idx}:a]volume={vvol:.2f},adelay={delay_ms}:all=1,"
-                      f"apad,atrim=0:{out_duration:.3f}[vo{k}]")
+            chain = f"volume={vvol:.2f},atrim=0:{idur:.3f}"
+            if vo.get("fade"):
+                fdur = min(0.8, idur / 3)
+                chain += (f",afade=t=in:st=0:d={fdur:.2f}"
+                          f",afade=t=out:st={max(0, idur - fdur):.3f}:d={fdur:.2f}")
+            chain += f",adelay={delay_ms}:all=1,apad,atrim=0:{out_duration:.3f}"
+            fg.append(f"[{in_idx}:a]{chain}[vo{k}]")
             vo_labels.append(f"[vo{k}]")
         fg.append(f"[voice0]{''.join(vo_labels)}amix=inputs={1 + len(vo_labels)}"
                   f":duration=first:dropout_transition=0:normalize=0[voice]")

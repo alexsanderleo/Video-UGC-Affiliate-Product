@@ -105,6 +105,26 @@ Sebelumnya whisper lokal CPU: ±5-6 menit.
   Instagram, X/Twitter, Loom, Rumble, dll (via yt-dlp).
 - **Bulk export**: render semua klip 1 klik dari halaman hasil.
 
+## Fitur editor ala CapCut (batch 3 — 100% BUATAN SENDIRI, NOL API eksternal)
+
+Prinsip proyek jangka panjang: seluruh fitur di bawah diimplementasi mandiri di kode
+kita (preview = CSS/canvas, export = filter ffmpeg setara). TIDAK ada panggilan ke
+API CapCut/capcut-mate/pihak ketiga — checklist fiturnya saja yang dipakai sebagai acuan:
+
+- Timeline multi-track output-time (cut benar-benar hilang, segmen menyambung,
+  trim sambungan dgn drag, pindah layer dgn drag vertikal) ~ create_draft/tracks.
+- add_videos/add_images ~ media & B-roll overlay multi-layer + drag/resize di preview.
+- add_audios ~ multi-track audio: volume + fade per item, blok di lane audio.
+- add_sticker ~ stiker emoji dirender PNG transparan LOKAL via canvas.
+- add_captions/add_text_style ~ caption karaoke + keyword highlight + 9 template.
+- add_effects ~ 7 efek (BW, vintage, blur, glow, grain, shake, negatif) sbg blok track.
+- add_masks ~ mask bentuk (lingkaran / rounded) per overlay (geq alpha di ffmpeg).
+- add_keyframes ~ rotasi + posisi/skala per item + crop keyframes wajah; animasi
+  properti waktu = animasi masuk/keluar.
+- get_text_animations / get_image_animations ~ animasi masuk (fade/naik/turun/geser),
+  keluar (fade/turun), loop (pulse) utk teks & gambar — preview & export identik.
+- gen_video/gen_video_status ~ export celery/thread + polling progres.
+
 ## TODO / stub yang dicatat (tidak dihilangkan diam-diam)
 
 - [ ] Transisi `zoom` & `slide` saat export dirender sebagai fade halus (TODO: chain xfade).

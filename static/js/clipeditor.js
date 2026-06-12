@@ -425,6 +425,40 @@
     return [Math.sin(tOut * 53) * amp, Math.cos(tOut * 47) * amp];
   }
 
+  // ---------------- ANIMASI & MASK (buatan sendiri, tanpa API eksternal) ----------------
+  const ANIM_DUR = 0.45;
+  const TEXT_ANIM_IN = [['none', 'Tanpa'], ['fade', 'Fade In'], ['slide-up', 'Naik'], ['slide-down', 'Turun'], ['slide-left', 'Geser Kiri']];
+  const TEXT_ANIM_OUT = [['none', 'Tanpa'], ['fade', 'Fade Out'], ['slide-down', 'Turun']];
+  const TEXT_ANIM_LOOP = [['none', 'Tanpa'], ['pulse', 'Pulse (denyut)']];
+  const MASKS = [['none', 'Tanpa'], ['circle', 'Lingkaran'], ['rounded', 'Rounded']];
+
+  function animState(it, t) {
+    // hitung {opacity, dx, dy} dari animasi masuk/keluar item pada waktu output t
+    const s = it.start || 0, e = it.end || s + 3;
+    let op = 1, dx = 0, dy = 0;
+    const din = Math.min(ANIM_DUR, (e - s) / 2);
+    if (it.anim_in && it.anim_in !== 'none' && t < s + din) {
+      const p = clamp((t - s) / din, 0, 1);
+      op = p;
+      if (it.anim_in === 'slide-up') dy = (1 - p) * stageH * 0.07;
+      if (it.anim_in === 'slide-down') dy = -(1 - p) * stageH * 0.07;
+      if (it.anim_in === 'slide-left') dx = (1 - p) * stageW * 0.12;
+      if (it.anim_in === 'fade') { dx = 0; dy = 0; }
+    }
+    if (it.anim_out && it.anim_out !== 'none' && t > e - din) {
+      const p = clamp((e - t) / din, 0, 1);
+      op = Math.min(op, p);
+      if (it.anim_out === 'slide-down') dy = (1 - p) * stageH * 0.07;
+    }
+    if (it.anim_loop === 'pulse') op *= 0.82 + 0.18 * Math.sin(t * 6);
+    return { op, dx, dy };
+  }
+  function maskCss(it) {
+    if (it.mask === 'circle') return 'clip-path:circle(50% at 50% 50%);';
+    if (it.mask === 'rounded') return 'border-radius:14%;overflow:hidden;';
+    return '';
+  }
+
   // ---------------- overlay preview terpadu (z-order mengikuti track) ----------------
   function renderOverlays() {
     const t = srcToOut(vid.currentTime);
@@ -438,31 +472,59 @@
 
     const ml = $('mediaLayer');
     if (ovDrag) return;   // jangan rebuild DOM saat user sedang menggeser overlay
-    let mh = '';
-    // render urut track (rendah dulu) -> z-index naik mengikuti track
+
+    // 1) bangun ulang DOM hanya saat STRUKTUR berubah (video tidak restart saat animasi)
     const items = visualItems().slice().sort((a2, b2) => trackOf(a2.kind, a2.it) - trackOf(b2.kind, b2.it));
-    items.forEach((v) => {
+    const vis = items.filter((v) => t >= (v.it.start || 0) && t <= (v.it.end || 3));
+    const sig = JSON.stringify(vis.map((v) => {
       const it = v.it;
-      if (t < (it.start || 0) || t > (it.end || 3)) return;
-      const z = 4 + trackOf(v.kind, it);
-      if (v.kind === 'broll') {
-        const tag = it.type === 'video' ? 'video' : 'img';
-        mh += '<' + tag + ' src="' + (it.url || '') + '" ' + (tag === 'video' ? 'muted autoplay loop playsinline' : '') +
-          ' style="position:absolute;inset:0;width:100%;height:100%;object-fit:cover;z-index:' + z + '"></' + tag + '>';
-      } else if (v.kind === 'overlays') {
-        const tag = it.type === 'video' ? 'video' : 'img';
-        mh += '<' + tag + ' data-oi="' + v.idx + '" src="' + (it.url || '') + '" ' + (tag === 'video' ? 'muted autoplay loop playsinline' : '') +
-          ' style="position:absolute;left:' + (it.x_pct || 50) + '%;top:' + (it.y_pct || 50) + '%;width:' + (it.w_pct || 40) +
-          '%;transform:translate(-50%,-50%);border-radius:6px;pointer-events:auto;cursor:move;touch-action:none;z-index:' + z + '"></' + tag + '>';
+      return [v.kind, v.idx, it.url, it.x_pct, it.y_pct, it.w_pct, it.rot, it.mask,
+              it.border, it.border_color, it.text, it.size, it.color, it.font, trackOf(v.kind, it)];
+    }));
+    if (ml._sig !== sig) {
+      ml._sig = sig;
+      let mh = '';
+      vis.forEach((v) => {
+        const it = v.it;
+        const z = 4 + trackOf(v.kind, it);
+        const dk = ' data-k="' + v.kind + ':' + v.idx + '"';
+        if (v.kind === 'broll') {
+          const tag = it.type === 'video' ? 'video' : 'img';
+          mh += '<' + tag + dk + ' src="' + (it.url || '') + '" ' + (tag === 'video' ? 'muted autoplay loop playsinline' : '') +
+            ' style="position:absolute;inset:0;width:100%;height:100%;object-fit:cover;z-index:' + z + '"></' + tag + '>';
+        } else if (v.kind === 'overlays') {
+          const tag = it.type === 'video' ? 'video' : 'img';
+          const border = it.border ? 'border:3px solid ' + (it.border_color || '#fff') + ';' : '';
+          mh += '<' + tag + dk + ' data-oi="' + v.idx + '" src="' + (it.url || '') + '" ' + (tag === 'video' ? 'muted autoplay loop playsinline' : '') +
+            ' style="position:absolute;left:' + (it.x_pct || 50) + '%;top:' + (it.y_pct || 50) + '%;width:' + (it.w_pct || 40) +
+            '%;border-radius:6px;pointer-events:auto;cursor:move;touch-action:none;z-index:' + z + ';' +
+            maskCss(it) + border + '"></' + tag + '>';
+        } else if (v.kind === 'texts') {
+          const size = (it.size || 56) * stageH / 1920;
+          mh += '<div' + dk + ' style="position:absolute;left:0;right:0;top:' + (it.y_pct || 12) + '%;text-align:center;z-index:' + z + ';' +
+            'font-family:' + cssFont(it.font || 'Arial') + ';font-weight:800;font-size:' + size + 'px;color:' + (it.color || '#fff') +
+            ';text-shadow:0 2px 6px rgba(0,0,0,.8);pointer-events:none">' + String(it.text || '').replace(/</g, '&lt;') + '</div>';
+        }
+        // efek tidak digambar sebagai DOM (filter video di atas)
+      });
+      ml.innerHTML = mh;
+    }
+
+    // 2) tiap frame: terapkan nilai animasi (opacity + offset) tanpa rebuild
+    for (const el of ml.children) {
+      const k = (el.dataset.k || '').split(':');
+      const v = vis.find((v2) => v2.kind === k[0] && v2.idx === +k[1]);
+      if (!v) continue;
+      const it = v.it;
+      const an = animState(it, t);
+      el.style.opacity = an.op.toFixed(3);
+      if (v.kind === 'overlays') {
+        el.style.transform = 'translate(calc(-50% + ' + an.dx + 'px),calc(-50% + ' + an.dy + 'px))' +
+          (it.rot ? ' rotate(' + it.rot + 'deg)' : '');
       } else if (v.kind === 'texts') {
-        const size = (it.size || 56) * stageH / 1920;
-        mh += '<div style="position:absolute;left:0;right:0;top:' + (it.y_pct || 12) + '%;text-align:center;z-index:' + z + ';' +
-          'font-family:' + cssFont(it.font || 'Arial') + ';font-weight:800;font-size:' + size + 'px;color:' + (it.color || '#fff') +
-          ';text-shadow:0 2px 6px rgba(0,0,0,.8);pointer-events:none">' + String(it.text || '').replace(/</g, '&lt;') + '</div>';
+        el.style.transform = 'translate(' + an.dx + 'px,' + an.dy + 'px)';
       }
-      // efek tidak digambar sebagai DOM (filter video di atas)
-    });
-    if (ml._last !== mh) { ml.innerHTML = mh; ml._last = mh; }
+    }
     const tl2 = $('textLayer');
     if (tl2 && tl2.innerHTML) tl2.innerHTML = '';   // teks kini ikut layer terpadu
   }
@@ -915,10 +977,14 @@
       drawBlock(ovLaneForTrack(trackOf(v.kind, v.it)), v.it, v.color, v.label, isSel);
     });
 
-    // lane AUDIO: voice-over + musik
+    // lane AUDIO: voice-over + audio tambahan + musik
     (ES.voiceovers || []).forEach((v, i) => {
       const isSel = selItem && selItem.kind === 'voiceovers' && selItem.idx === i;
       drawBlock(LANE.audio, v, '#22C55E', '🎙' + ((v.text || 'VO').slice(0, 14)), isSel);
+    });
+    (ES.audios || []).forEach((a, i) => {
+      const isSel = selItem && selItem.kind === 'audios' && selItem.idx === i;
+      drawBlock(LANE.audio, a, '#38BDF8', '🎵' + ((a.name || 'audio').slice(0, 12)), isSel);
     });
     if (ES.music) {
       const isSel = selItem && selItem.kind === 'music';
@@ -999,16 +1065,17 @@
         return { type: 'block', key: v.kind, idx: v.idx, item: v.it, edge };
       }
     }
-    // 5) lane audio: voice-over / musik
+    // 5) lane audio: voice-over / audio tambahan / musik
     if (y >= LANE.audio[0] && y <= LANE.audio[0] + LANE.audio[1]) {
-      const arr = ES.voiceovers || [];
-      for (let i = arr.length - 1; i >= 0; i--) {
-        const it = arr[i];
-        const s = it.start || 0, e = it.end || s + 3;
-        const x1 = X(s), x2 = x1 + Math.max(8, (e - s) * pxPerSec);
-        if (x < x1 - EDGE_PX || x > x2 + EDGE_PX) continue;
-        const edge = (Math.abs(x - x1) <= EDGE_PX) ? 'L' : (Math.abs(x - x2) <= EDGE_PX) ? 'R' : 'mid';
-        return { type: 'block', key: 'voiceovers', idx: i, item: it, edge, audioLane: true };
+      for (const [key, arr] of [['voiceovers', ES.voiceovers || []], ['audios', ES.audios || []]]) {
+        for (let i = arr.length - 1; i >= 0; i--) {
+          const it = arr[i];
+          const s = it.start || 0, e = it.end || s + 3;
+          const x1 = X(s), x2 = x1 + Math.max(8, (e - s) * pxPerSec);
+          if (x < x1 - EDGE_PX || x > x2 + EDGE_PX) continue;
+          const edge = (Math.abs(x - x1) <= EDGE_PX) ? 'L' : (Math.abs(x - x2) <= EDGE_PX) ? 'R' : 'mid';
+          return { type: 'block', key, idx: i, item: it, edge, audioLane: true };
+        }
       }
       if (ES.music && tOut >= 0 && tOut <= outDur) return { type: 'music' };
     }
@@ -1132,7 +1199,7 @@
         renderTranscript();
       }
       if (tlDrag.type === 'trimL' || tlDrag.type === 'trimR') renderTranscript();
-      if (tlDrag.type === 'block' && tlDrag.key === 'voiceovers') voSyncReset();
+      if (tlDrag.type === 'block' && (tlDrag.key === 'voiceovers' || tlDrag.key === 'audios')) voSyncReset();
       commit(); updateTotals();
     }
     tlDrag = null;
@@ -1171,11 +1238,42 @@
       } else { return true; }
     } else if (ES[selItem.kind]) {
       ES[selItem.kind].splice(selItem.idx, 1);
-      if (selItem.kind === 'voiceovers') voSyncReset();
+      if (selItem.kind === 'voiceovers' || selItem.kind === 'audios') voSyncReset();
     }
     selItem = null;
     commit(); renderTranscript(); renderTimeline(); updateTotals();
     return true;
+  }
+
+  // ---- editor properti item overlay: animasi / mask / rotasi / border ----
+  function openItemEditor(it, after) {
+    const sel = (label, key, opts) =>
+      '<div class="fgroup"><label>' + label + '</label><select data-pk="' + key + '">' +
+      opts.map((o) => '<option value="' + o[0] + '"' + ((it[key] || 'none') === o[0] ? ' selected' : '') + '>' + o[1] + '</option>').join('') +
+      '</select></div>';
+    openDialog(
+      '<h3>✏️ Properti Item</h3>' +
+      sel('Animasi masuk', 'anim_in', TEXT_ANIM_IN) +
+      sel('Animasi keluar', 'anim_out', TEXT_ANIM_OUT) +
+      sel('Animasi loop', 'anim_loop', TEXT_ANIM_LOOP) +
+      sel('Mask bentuk', 'mask', MASKS) +
+      '<div class="fgroup"><label>Rotasi: <span id="ieRotV">' + (it.rot || 0) + '°</span></label>' +
+      '<input type="range" id="ieRot" min="-180" max="180" value="' + (it.rot || 0) + '"></div>' +
+      '<div class="fgroup colorrow"><label><input type="checkbox" id="ieBorder" ' + (it.border ? 'checked' : '') + ' style="width:auto;margin-right:6px">Border</label>' +
+      '<input type="color" id="ieBorderC" value="' + (it.border_color || '#FFFFFF') + '"></div>' +
+      '<div class="row2"><button class="btn btn-g" data-x>Tutup</button><button class="btn btn-p" id="ieSave">💾 Terapkan</button></div>'
+    );
+    $('ieRot').addEventListener('input', () => { $('ieRotV').textContent = $('ieRot').value + '°'; });
+    $('ieSave').addEventListener('click', () => {
+      document.querySelectorAll('#dlgRoot [data-pk]').forEach((s) => { it[s.dataset.pk] = s.value; });
+      it.rot = +$('ieRot').value || 0;
+      it.border = $('ieBorder').checked;
+      it.border_color = $('ieBorderC').value;
+      $('mediaLayer')._sig = '';
+      commit(); renderTimeline();
+      closeDialog();
+      if (after) after();
+    });
   }
 
   // ---- editor caption per page (klik caption di preview / dblklik blok timeline) ----
@@ -1317,7 +1415,7 @@
       '<div class="fgroup" style="margin-top:12px"><label>Atau ketik emoji/teks stiker sendiri</label>' +
       '<div style="display:flex;gap:6px"><input type="text" id="stCustom" maxlength="6" placeholder="🤡" style="flex:1;background:var(--card);border:1px solid var(--border);color:var(--text);border-radius:9px;padding:8px;font-size:1.1rem;outline:none">' +
       '<button class="iconbtn" id="stAdd">＋</button></div></div>' +
-      '<p class="note">Stiker dirender jadi gambar PNG transparan — tampil identik di export. (Integrasi pencarian stiker CapCut/Giphy: TODO, butuh API key.)</p>';
+      '<p class="note">Stiker dirender jadi PNG transparan secara LOKAL (tanpa API eksternal apa pun) — tampil identik di export, aman untuk jangka panjang. Bisa juga upload PNG stiker sendiri lewat menu Media.</p>';
     const addSticker = async (em) => {
       if (!em) return;
       // render emoji -> PNG transparan via canvas
@@ -1500,10 +1598,13 @@
         div.addEventListener('click', () => {
           const t0 = srcToOut(vid.currentTime);
           if (m.type === 'audio') {
-            ES.music = { path: m.url, volume: 0.25, duck: true, fade: true, name: m.name };
+            // multi-track audio (ala add_audios): volume & fade per item
+            ES.audios = ES.audios || [];
+            ES.audios.push({ url: m.url, name: m.name, start: t0, end: Math.min(outDuration(), t0 + 8), volume: 1.0, fade: false });
+            voSyncReset();
           } else {
             ES.overlays = ES.overlays || [];
-            ES.overlays.push({ url: m.url, type: m.type, start: t0, end: Math.min(outDuration(), t0 + 3), x_pct: 50, y_pct: 50, w_pct: 45 });
+            ES.overlays.push({ url: m.url, type: m.type, start: t0, end: Math.min(outDuration(), t0 + 3), x_pct: 50, y_pct: 50, w_pct: 45, track: 1 });
           }
           commit(); renderTimeline(); panelMedia(tab);
         });
@@ -1513,8 +1614,23 @@
       (ES.overlays || []).forEach((o, i) => {
         const r = document.createElement('div');
         r.className = 'itemrow';
-        r.innerHTML = '<span class="nm">' + (o.type === 'video' ? '🎞' : '🖼') + ' overlay ' + (i + 1) + ' (' + fmtT(o.start) + '–' + fmtT(o.end) + ')</span><button>✕</button>';
-        r.querySelector('button').addEventListener('click', () => { ES.overlays.splice(i, 1); commit(); renderTimeline(); panelMedia(tab); });
+        r.innerHTML = '<span class="nm">' + (o.sticker ? '😀' : o.type === 'video' ? '🎞' : '🖼') + ' overlay ' + (i + 1) + ' (' + fmtT(o.start) + '–' + fmtT(o.end) + ')</span>' +
+          '<button data-edit title="Animasi / mask / rotasi">✏️</button><button data-del>✕</button>';
+        r.querySelector('[data-del]').addEventListener('click', () => { ES.overlays.splice(i, 1); commit(); renderTimeline(); panelMedia(tab); });
+        r.querySelector('[data-edit]').addEventListener('click', () => openItemEditor(o, () => panelMedia(tab)));
+        used.appendChild(r);
+      });
+      (ES.audios || []).forEach((a, i) => {
+        const r = document.createElement('div');
+        r.className = 'itemrow';
+        r.innerHTML = '<span class="nm">🎵 ' + (a.name || 'audio') + ' (' + fmtT(a.start) + ')</span>' +
+          '<input type="range" min="0" max="150" value="' + Math.round((a.volume || 1) * 100) + '" style="width:60px" title="Volume">' +
+          '<label style="font-size:.65rem"><input type="checkbox" ' + (a.fade ? 'checked' : '') + ' style="width:auto"> fade</label>' +
+          '<button data-del>✕</button>';
+        r.querySelector('input[type=range]').addEventListener('input', (ev) => { a.volume = +ev.target.value / 100; markDirty(); });
+        r.querySelector('input[type=range]').addEventListener('change', commit);
+        r.querySelector('input[type=checkbox]').addEventListener('change', (ev) => { a.fade = ev.target.checked; commit(); });
+        r.querySelector('[data-del]').addEventListener('click', () => { ES.audios.splice(i, 1); voSyncReset(); commit(); renderTimeline(); panelMedia(tab); });
         used.appendChild(r);
       });
     }).catch(() => { $('mediaGrid').innerHTML = '<p class="note">Gagal memuat media.</p>'; });
@@ -1666,26 +1782,41 @@
     }));
   }
 
-  // --- Text ---
+  // --- Text (dengan animasi masuk/keluar/loop — buatan sendiri) ---
   function panelText() {
     let list = '';
     (ES.texts || []).forEach((x, i) => {
-      list += '<div class="itemrow"><span class="nm">🔤 ' + (x.text || '') + '</span><button data-i="' + i + '">✕</button></div>';
+      list += '<div class="itemrow"><span class="nm">🔤 ' + (x.text || '') + '</span>' +
+        '<button data-edit="' + i + '" title="Animasi">✏️</button><button data-i="' + i + '">✕</button></div>';
     });
+    const selOpts = (opts) => opts.map((o) => '<option value="' + o[0] + '">' + o[1] + '</option>').join('');
     sbody.innerHTML = '<h3>🔤 Text</h3>' +
       '<div class="fgroup"><label>Teks</label><input type="text" id="txtVal" placeholder="Judul / hook keren…"></div>' +
       '<div class="fgroup colorrow"><span>Warna <input type="color" id="txtColor" value="#FFFFFF"></span>' +
       '<span style="flex:1">Ukuran <input type="number" id="txtSize" value="56" min="20" max="140" style="width:64px"></span></div>' +
       '<div class="fgroup"><label>Posisi vertikal % (0 atas)</label><input type="range" id="txtY" min="2" max="90" value="12"></div>' +
+      '<div class="fgroup"><label>Animasi masuk / keluar / loop</label>' +
+      '<div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:6px">' +
+      '<select id="txtAnimIn">' + selOpts(TEXT_ANIM_IN) + '</select>' +
+      '<select id="txtAnimOut">' + selOpts(TEXT_ANIM_OUT) + '</select>' +
+      '<select id="txtAnimLoop">' + selOpts(TEXT_ANIM_LOOP) + '</select></div></div>' +
       '<button class="actionbtn primary" id="txtAdd">＋ Tambah di playhead (3 detik)</button>' + list;
+    $('txtAnimIn').value = 'fade';
     $('txtAdd').addEventListener('click', () => {
       const v = $('txtVal').value.trim();
       if (!v) return;
       const t0 = srcToOut(vid.currentTime);
       ES.texts = ES.texts || [];
-      ES.texts.push({ text: v, start: t0, end: Math.min(outDuration(), t0 + 3), color: $('txtColor').value, size: +$('txtSize').value, y_pct: +$('txtY').value, font: 'Arial' });
+      ES.texts.push({
+        text: v, start: t0, end: Math.min(outDuration(), t0 + 3),
+        color: $('txtColor').value, size: +$('txtSize').value, y_pct: +$('txtY').value, font: 'Arial', track: 2,
+        anim_in: $('txtAnimIn').value, anim_out: $('txtAnimOut').value, anim_loop: $('txtAnimLoop').value,
+      });
       commit(); renderTimeline(); panelText();
     });
+    sbody.querySelectorAll('[data-edit]').forEach((b) => b.addEventListener('click', () => {
+      openItemEditor(ES.texts[+b.dataset.edit], panelText);
+    }));
     sbody.querySelectorAll('[data-i]').forEach((b) => b.addEventListener('click', () => {
       ES.texts.splice(+b.dataset.i, 1);
       commit(); renderTimeline(); panelText();
@@ -1876,11 +2007,11 @@
     }));
   }
 
-  // preview playback voice-over (Audio elements sinkron dgn waktu output)
+  // preview playback voice-over + audio tambahan (sinkron dgn waktu output)
   let voAudios = [];
   function voSyncReset() {
     voAudios.forEach((a) => { try { a.el.pause(); } catch (e) {} });
-    voAudios = (ES.voiceovers || []).map((v) => ({ v, el: new Audio(v.url) }));
+    voAudios = [...(ES.voiceovers || []), ...(ES.audios || [])].map((v) => ({ v, el: new Audio(v.url) }));
     voAudios.forEach((a) => { a.el.preload = 'auto'; });
   }
   function voSync() {
