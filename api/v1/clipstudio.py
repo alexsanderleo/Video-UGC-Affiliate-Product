@@ -651,7 +651,8 @@ async def generate_voiceover(
 
     try:
         import edge_tts
-        com = edge_tts.Communicate(text[:1500], voice)
+        # 8000 char cukup utk dubbing penuh klip 90 detik
+        com = edge_tts.Communicate(text[:8000], voice)
         await com.save(str(dest))
     except Exception as e:
         raise HTTPException(status.HTTP_502_BAD_GATEWAY, f"Gagal generate voice-over: {e}")

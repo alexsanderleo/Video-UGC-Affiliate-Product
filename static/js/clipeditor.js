@@ -300,19 +300,32 @@
     if (doCommit !== false) commit();
   }
 
-  // drag posisi caption (vertikal)
+  // drag posisi caption (vertikal); klik tanpa geser = buka editor caption (sorot & edit)
   let dragCap = null;
   capOv.addEventListener('pointerdown', (e) => {
-    dragCap = { y0: e.clientY, p0: effStyle().pos_pct || 72 };
+    dragCap = { y0: e.clientY, x0: e.clientX, p0: effStyle().pos_pct || 72, moved: false };
     capOv.setPointerCapture(e.pointerId);
     e.stopPropagation();
   });
   capOv.addEventListener('pointermove', (e) => {
     if (!dragCap) return;
+    if (Math.abs(e.clientY - dragCap.y0) > 4 || Math.abs(e.clientX - dragCap.x0) > 4) dragCap.moved = true;
+    if (!dragCap.moved) return;
     const dpct = (e.clientY - dragCap.y0) / stageH * 100;
     STYLE.pos_pct = clamp(Math.round(dragCap.p0 - dpct), 5, 95);
   });
-  capOv.addEventListener('pointerup', () => { if (dragCap) { dragCap = null; commit(); refreshOpenPanel(); } });
+  capOv.addEventListener('pointerup', () => {
+    if (!dragCap) return;
+    const wasClick = !dragCap.moved;
+    dragCap = null;
+    if (wasClick) {
+      // klik caption -> edit page yang sedang tampil
+      const t = vid.currentTime;
+      const pages = getPages();
+      const pi = pages.findIndex((p) => t >= p[0].start - 0.05 && t <= p[p.length - 1].end + 0.15);
+      if (pi >= 0) openCaptionEditor(pi);
+    } else { commit(); refreshOpenPanel(); }
+  });
 
   // ---------------- caption overlay render (rAF) ----------------
   function cssFont(f) { return "'" + (f || 'Impact') + "', Impact, Arial, sans-serif"; }
@@ -390,8 +403,9 @@
       }
     });
     if (tl._last !== h) { tl.innerHTML = h; tl._last = h; }
-    // media & broll
+    // media & broll (overlay media bisa di-DRAG pindah posisi & scroll utk resize)
     const ml = $('mediaLayer');
+    if (ovDrag) return;   // jangan rebuild DOM saat user sedang menggeser overlay
     let mh = '';
     (ES.broll || []).forEach((b) => {
       if (t >= (b.start || 0) && t <= (b.end || 3)) {
@@ -400,17 +414,56 @@
           ' style="position:absolute;inset:0;width:100%;height:100%;object-fit:cover"></' + tag + '>';
       }
     });
-    (ES.overlays || []).forEach((o) => {
+    (ES.overlays || []).forEach((o, oi) => {
       if (o.type === 'audio') return;
       if (t >= (o.start || 0) && t <= (o.end || 3)) {
         const tag = o.type === 'video' ? 'video' : 'img';
         const w = (o.w_pct || 40);
-        mh += '<' + tag + ' src="' + (o.url || '') + '" ' + (tag === 'video' ? 'muted autoplay loop playsinline' : '') +
-          ' style="position:absolute;left:' + (o.x_pct || 50) + '%;top:' + (o.y_pct || 50) + '%;width:' + w + '%;transform:translate(-50%,-50%);border-radius:6px"></' + tag + '>';
+        mh += '<' + tag + ' data-oi="' + oi + '" src="' + (o.url || '') + '" ' + (tag === 'video' ? 'muted autoplay loop playsinline' : '') +
+          ' style="position:absolute;left:' + (o.x_pct || 50) + '%;top:' + (o.y_pct || 50) + '%;width:' + w + '%;transform:translate(-50%,-50%);border-radius:6px;pointer-events:auto;cursor:move;touch-action:none"></' + tag + '>';
       }
     });
     if (ml._last !== mh) { ml.innerHTML = mh; ml._last = mh; }
   }
+
+  // drag overlay media di preview (pindah posisi) + scroll mouse utk resize
+  let ovDrag = null;
+  $('mediaLayer').addEventListener('pointerdown', (e) => {
+    const el = e.target.closest('[data-oi]');
+    if (!el) return;
+    const oi = +el.dataset.oi;
+    const o = (ES.overlays || [])[oi];
+    if (!o) return;
+    ovDrag = { oi, el, x0: e.clientX, y0: e.clientY, px: o.x_pct || 50, py: o.y_pct || 50 };
+    el.setPointerCapture(e.pointerId);
+    el.style.outline = '2px solid #06B6D4';
+    e.stopPropagation(); e.preventDefault();
+  }, true);
+  $('mediaLayer').addEventListener('pointermove', (e) => {
+    if (!ovDrag) return;
+    const o = ES.overlays[ovDrag.oi];
+    o.x_pct = clamp(Math.round(ovDrag.px + (e.clientX - ovDrag.x0) / stageW * 100), 0, 100);
+    o.y_pct = clamp(Math.round(ovDrag.py + (e.clientY - ovDrag.y0) / stageH * 100), 0, 100);
+    ovDrag.el.style.left = o.x_pct + '%';
+    ovDrag.el.style.top = o.y_pct + '%';
+  }, true);
+  $('mediaLayer').addEventListener('pointerup', () => {
+    if (!ovDrag) return;
+    ovDrag.el.style.outline = '';
+    ovDrag = null;
+    $('mediaLayer')._last = '';   // paksa rebuild bersih
+    commit(); renderTimeline();
+  }, true);
+  $('mediaLayer').addEventListener('wheel', (e) => {
+    const el = e.target.closest('[data-oi]');
+    if (!el) return;
+    const o = (ES.overlays || [])[+el.dataset.oi];
+    if (!o) return;
+    e.preventDefault();
+    o.w_pct = clamp(Math.round((o.w_pct || 40) + (e.deltaY < 0 ? 3 : -3)), 8, 100);
+    el.style.width = o.w_pct + '%';
+    markDirty();
+  }, { passive: false, capture: true });
 
   // ---------------- playback engine ----------------
   function play() {
@@ -667,47 +720,60 @@
     if (extendMode) alert('Mode Extend: klik kata REDUP di luar batas klip untuk memperluas awal/akhir klip. Klik tombol lagi untuk selesai.');
   });
 
-  // ---------------- timeline ----------------
+  // ---------------- timeline (CapCut-style: 2 lapis canvas, blok selectable) ----------------
   const LANE = { ruler: [0, 18], sprite: [20, 46], wave: [68, 34], cap: [106, 18], media: [126, 18], text: [146, 18] };
+  const tlStatic = document.createElement('canvas');   // lapisan konten (tanpa playhead)
+  let selItem = null;       // {kind:'cut'|'broll'|'overlays'|'voiceovers'|'texts'|'cap', idx}
+  let capRects = [];        // rect blok caption utk hit-test
+
+  const X = (t) => (t - cs()) * pxPerSec + 8;
+  const o2s = (t) => { // waktu output -> sumber (utk menggambar blok)
+    const segs = keptSegments();
+    let acc = 0;
+    for (const [a, b] of segs) { const d = b - a; if (t <= acc + d) return a + (t - acc); acc += d; }
+    return segs.length ? segs[segs.length - 1][1] : cs();
+  };
+
   function renderTimeline() {
     invalidatePages();
     const dur = ce() - cs();
     tlW = Math.max($('tlScroll').clientWidth, Math.ceil(dur * pxPerSec) + 40);
+    tlStatic.width = tlW * devicePixelRatio;
+    tlStatic.height = 170 * devicePixelRatio;
     tlCanvas.width = tlW * devicePixelRatio;
     tlCanvas.height = 170 * devicePixelRatio;
     tlCanvas.style.width = tlW + 'px';
     tlCanvas.style.height = '170px';
-    tctx.setTransform(devicePixelRatio, 0, 0, devicePixelRatio, 0, 0);
-    tctx.clearRect(0, 0, tlW, 170);
-    const X = (t) => (t - cs()) * pxPerSec + 8;
+    const c = tlStatic.getContext('2d');
+    c.setTransform(devicePixelRatio, 0, 0, devicePixelRatio, 0, 0);
+    c.clearRect(0, 0, tlW, 170);
 
     // ruler
-    tctx.fillStyle = '#9A9AAB'; tctx.font = '9px Inter'; tctx.strokeStyle = '#2A2A36';
+    c.fillStyle = '#9A9AAB'; c.font = '9px Inter'; c.strokeStyle = '#2A2A36';
     const step = pxPerSec >= 120 ? 1 : pxPerSec >= 50 ? 5 : 10;
     for (let s = 0; s <= dur + step; s += step) {
       const x = X(cs() + s);
-      tctx.fillText(fmtT(s).slice(0, 5), x + 2, 12);
-      tctx.beginPath(); tctx.moveTo(x, 14); tctx.lineTo(x, 170); tctx.stroke();
+      c.fillText(fmtT(s).slice(0, 5), x + 2, 12);
+      c.beginPath(); c.moveTo(x, 14); c.lineTo(x, 170); c.stroke();
     }
 
     // sprite strip
     if (spriteImg && clip.sprite_meta && clip.sprite_meta.cols) {
       const m = clip.sprite_meta;
-      const n = m.count;
-      for (let k = 0; k < n; k++) {
+      for (let k = 0; k < m.count; k++) {
         const tSec = clip.start + k * m.interval; // sprite dibuat dari rentang asli klip
-        if (tSec < cs() || tSec > ce()) continue;
+        if (tSec < cs() - m.interval || tSec > ce()) continue;
         const sx = (k % m.cols) * m.tile_w, sy = Math.floor(k / m.cols) * m.tile_h;
-        const dw = m.interval * pxPerSec;
-        tctx.drawImage(spriteImg, sx, sy, m.tile_w, m.tile_h, X(tSec), LANE.sprite[0], dw + 0.5, LANE.sprite[1]);
+        c.drawImage(spriteImg, sx, sy, m.tile_w, m.tile_h,
+          X(tSec), LANE.sprite[0], m.interval * pxPerSec + 0.5, LANE.sprite[1]);
       }
     } else {
-      tctx.fillStyle = '#17171F';
-      tctx.fillRect(8, LANE.sprite[0], tlW - 16, LANE.sprite[1]);
+      c.fillStyle = '#17171F';
+      c.fillRect(8, LANE.sprite[0], tlW - 16, LANE.sprite[1]);
     }
 
     // waveform
-    tctx.fillStyle = 'rgba(6,182,212,.75)';
+    c.fillStyle = 'rgba(6,182,212,.75)';
     if (wavePeaks) {
       const mid = LANE.wave[0] + LANE.wave[1] / 2;
       for (let x = 8; x < tlW - 8; x += 2) {
@@ -715,139 +781,199 @@
         if (t > ce()) break;
         const p = wavePeaks[Math.floor(t * 50)] || 0; // peaks per 20ms
         const h = Math.max(1, p * LANE.wave[1]);
-        tctx.fillRect(x, mid - h / 2, 1.4, h);
+        c.fillRect(x, mid - h / 2, 1.4, h);
       }
     }
 
-    // caption pages (blok per grup)
-    tctx.fillStyle = 'rgba(139,92,246,.5)';
-    getPages().forEach((p) => {
-      const x = X(p[0].start), w = Math.max(3, (p[p.length - 1].end - p[0].start) * pxPerSec);
-      tctx.fillRect(x, LANE.cap[0] + 3, w - 1, LANE.cap[1] - 6);
+    // caption pages (blok per grup — bisa diklik utk pilih & dblklik utk edit)
+    capRects = [];
+    getPages().forEach((p, pi) => {
+      const x = X(p[0].start), w = Math.max(4, (p[p.length - 1].end - p[0].start) * pxPerSec);
+      const isSel = selItem && selItem.kind === 'cap' && selItem.idx === pi;
+      c.fillStyle = isSel ? 'rgba(139,92,246,.95)' : 'rgba(139,92,246,.5)';
+      c.fillRect(x, LANE.cap[0] + 3, w - 1, LANE.cap[1] - 6);
+      if (isSel) { c.strokeStyle = '#fff'; c.strokeRect(x, LANE.cap[0] + 3, w - 1, LANE.cap[1] - 6); }
+      capRects.push({ x, w, pi });
     });
 
-    // blok media/broll/voiceover
-    (ES.broll || []).forEach((b, bi) => drawBlock(b, LANE.media, '#F59E0B', 'B' + (bi + 1)));
-    (ES.overlays || []).forEach((o, oi) => { if (o.type !== 'audio') drawBlock(o, LANE.media, '#06B6D4', 'M' + (oi + 1)); });
-    (ES.voiceovers || []).forEach((v, vi) => drawBlock(v, LANE.media, '#22C55E', 'VO' + (vi + 1)));
-    (ES.texts || []).forEach((x, xi) => drawBlock(x, LANE.text, '#EC4899', 'T' + (xi + 1)));
-    function drawBlock(item, lane, color, label) {
-      // item start/end dlm waktu OUTPUT -> mapping kasar ke sumber utk digambar
-      const segs = keptSegments();
-      let s = item.start || 0, e = item.end || (s + 3);
-      const o2s = (t) => { let acc = 0; for (const [a, b] of segs) { const d = b - a; if (t <= acc + d) return a + (t - acc); acc += d; } return segs.length ? segs[segs.length - 1][1] : cs(); };
-      const x = X(o2s(s)), w = Math.max(6, (e - s) * pxPerSec);
-      tctx.fillStyle = color + '66'; tctx.strokeStyle = color;
-      tctx.fillRect(x, lane[0] + 2, w, lane[1] - 4);
-      tctx.strokeRect(x, lane[0] + 2, w, lane[1] - 4);
-      tctx.fillStyle = '#fff'; tctx.font = '9px Inter';
-      tctx.fillText(label, x + 3, lane[0] + 13);
-    }
-
-    // cut ranges diarsir gelap
-    tctx.fillStyle = 'rgba(0,0,0,.72)';
-    (ES.cut_ranges || []).forEach((c) => {
-      const x = X(Math.max(cs(), c[0])), w = (Math.min(ce(), c[1]) - Math.max(cs(), c[0])) * pxPerSec;
-      if (w > 0) {
-        tctx.fillRect(x, LANE.sprite[0], w, LANE.wave[0] + LANE.wave[1] - LANE.sprite[0]);
-        tctx.strokeStyle = '#F43F5E';
-        tctx.strokeRect(x, LANE.sprite[0], w, LANE.wave[0] + LANE.wave[1] - LANE.sprite[0]);
+    // blok media/broll/voiceover/text
+    const drawBlock = (item, lane, color, label, kind, idx) => {
+      const s = item.start || 0, e = item.end || (s + 3);
+      const x = X(o2s(s)), w = Math.max(8, (e - s) * pxPerSec);
+      const isSel = selItem && selItem.kind === kind && selItem.idx === idx;
+      c.fillStyle = color + (isSel ? 'CC' : '66');
+      c.strokeStyle = isSel ? '#FFFFFF' : color;
+      c.lineWidth = isSel ? 2 : 1;
+      c.fillRect(x, lane[0] + 2, w, lane[1] - 4);
+      c.strokeRect(x, lane[0] + 2, w, lane[1] - 4);
+      if (isSel) { // handle tepi utk resize
+        c.fillStyle = '#fff';
+        c.fillRect(x - 2, lane[0] + 1, 4, lane[1] - 2);
+        c.fillRect(x + w - 2, lane[0] + 1, 4, lane[1] - 2);
       }
+      c.lineWidth = 1;
+      c.fillStyle = '#fff'; c.font = '9px Inter';
+      c.fillText(label, x + 4, lane[0] + 13);
+    };
+    (ES.broll || []).forEach((b, i) => drawBlock(b, LANE.media, '#F59E0B', '🎞B' + (i + 1), 'broll', i));
+    (ES.overlays || []).forEach((o, i) => { if (o.type !== 'audio') drawBlock(o, LANE.media, '#06B6D4', '🖼M' + (i + 1), 'overlays', i); });
+    (ES.voiceovers || []).forEach((v, i) => drawBlock(v, LANE.media, '#22C55E', '🎙VO' + (i + 1), 'voiceovers', i));
+    (ES.texts || []).forEach((t2, i) => drawBlock(t2, LANE.text, '#EC4899', '🔤' + (t2.text || '').slice(0, 12), 'texts', i));
+
+    // cut ranges: diarsir gelap + garis split merah + bisa dipilih/digeser tepinya
+    (ES.cut_ranges || []).forEach((cut, ci) => {
+      const a = Math.max(cs(), cut[0]), b = Math.min(ce(), cut[1]);
+      if (b <= a) return;
+      const x = X(a), w = Math.max(2, (b - a) * pxPerSec);
+      const isSel = selItem && selItem.kind === 'cut' && selItem.idx === ci;
+      const yTop = LANE.sprite[0], yBot = LANE.wave[0] + LANE.wave[1];
+      c.fillStyle = isSel ? 'rgba(244,63,94,.35)' : 'rgba(0,0,0,.72)';
+      c.fillRect(x, yTop, w, yBot - yTop);
+      c.strokeStyle = '#F43F5E';
+      c.lineWidth = isSel ? 2.5 : 1.2;
+      c.strokeRect(x, yTop, w, yBot - yTop);
+      if (isSel) { // handle tepi
+        c.fillStyle = '#F43F5E';
+        c.fillRect(x - 3, yTop, 6, yBot - yTop);
+        c.fillRect(x + w - 3, yTop, 6, yBot - yTop);
+      }
+      c.lineWidth = 1;
+      // ikon gunting di tengah cut tipis (hasil split)
+      if (b - a < 0.5) { c.font = '11px Inter'; c.fillStyle = '#F43F5E'; c.fillText('✂', x - 4, yTop - 3); }
     });
 
     // segmen terpilih
     if (selSegment) {
       const x = X(selSegment[0]), w = (selSegment[1] - selSegment[0]) * pxPerSec;
-      tctx.strokeStyle = '#06B6D4'; tctx.lineWidth = 2;
-      tctx.strokeRect(x, LANE.sprite[0] - 1, w, LANE.wave[0] + LANE.wave[1] - LANE.sprite[0] + 2);
-      tctx.lineWidth = 1;
+      c.strokeStyle = '#06B6D4'; c.lineWidth = 2;
+      c.strokeRect(x, LANE.sprite[0] - 1, w, LANE.wave[0] + LANE.wave[1] - LANE.sprite[0] + 2);
+      c.lineWidth = 1;
     }
 
     // trim handles ujung klip
-    tctx.fillStyle = '#8B5CF6';
-    tctx.fillRect(X(cs()) - 5, LANE.sprite[0], 5, 82);
-    tctx.fillRect(X(ce()), LANE.sprite[0], 5, 82);
+    c.fillStyle = '#8B5CF6';
+    c.fillRect(X(cs()) - 5, LANE.sprite[0], 5, 82);
+    c.fillRect(X(ce()), LANE.sprite[0], 5, 82);
 
-    drawPlayhead(true);
+    compositeTimeline(true);
     updateTotals();
   }
+
   let phX = -1;
-  function drawPlayhead(force) {
+  function compositeTimeline(force) {
     const x = (vid.currentTime - cs()) * pxPerSec + 8;
-    if (!force && Math.abs(x - phX) < 0.5) return;
-    // redraw ringan: gunakan overlay? sederhananya redraw penuh saat playing tiap ~100ms
-    if (!force) {
-      if (!drawPlayhead._tick || performance.now() - drawPlayhead._tick > 100) {
-        drawPlayhead._tick = performance.now();
-        renderTimelineStatic();
-      }
-      return;
-    }
+    if (!force && Math.abs(x - phX) < 0.4) return;
     phX = x;
+    tctx.setTransform(1, 0, 0, 1, 0, 0);
+    tctx.clearRect(0, 0, tlCanvas.width, tlCanvas.height);
+    tctx.drawImage(tlStatic, 0, 0);
+    tctx.setTransform(devicePixelRatio, 0, 0, devicePixelRatio, 0, 0);
     tctx.strokeStyle = '#fff'; tctx.lineWidth = 1.6;
     tctx.beginPath(); tctx.moveTo(x, 0); tctx.lineTo(x, 170); tctx.stroke();
     tctx.fillStyle = '#fff';
     tctx.beginPath(); tctx.moveTo(x - 5, 0); tctx.lineTo(x + 5, 0); tctx.lineTo(x, 8); tctx.fill();
     tctx.lineWidth = 1;
   }
-  function renderTimelineStatic() { renderTimeline(); }
+  function drawPlayhead() { compositeTimeline(false); }
 
   function updateTotals() { $('tTot').textContent = fmtT(outDuration()); }
 
-  // interaksi timeline
-  let tlDrag = null; // {type:'seek'|'trimL'|'trimR'|'block', ...}
-  tlCanvas.addEventListener('pointerdown', (e) => {
-    const rect = tlCanvas.getBoundingClientRect();
-    const x = e.clientX - rect.left, y = e.clientY - rect.top;
-    const t = cs() + (x - 8) / pxPerSec;
-    const XL = (cs() - cs()) * pxPerSec + 8, XR = (ce() - cs()) * pxPerSec + 8;
-    if (Math.abs(x - XL) < 8 && y > LANE.sprite[0]) { tlDrag = { type: 'trimL' }; }
-    else if (Math.abs(x - XR) < 8 && y > LANE.sprite[0]) { tlDrag = { type: 'trimR' }; }
-    else {
-      // blok overlay?
-      const hitBlock = hitOverlayBlock(t, y);
-      if (hitBlock) { tlDrag = hitBlock; }
-      else {
-        tlDrag = { type: 'seek' };
-        // pilih segmen bila klik area sprite
-        if (y >= LANE.sprite[0] && y <= LANE.wave[0] + LANE.wave[1]) {
-          selSegment = keptSegments().find((s) => t >= s[0] && t <= s[1]) || null;
-        }
-        seek(t);
-        renderTimeline();
-      }
+  // ---- interaksi timeline: seleksi, drag blok/cut/trim, seek ----
+  let tlDrag = null;
+  const EDGE_PX = 7;
+
+  function hitTest(x, y, t) {
+    // 1) trim handle ujung klip
+    if (Math.abs(x - X(cs())) < EDGE_PX + 2 && y > LANE.sprite[0] && y < 150) return { type: 'trimL' };
+    if (Math.abs(x - X(ce())) < EDGE_PX + 2 && y > LANE.sprite[0] && y < 150) return { type: 'trimR' };
+    // 2) blok caption
+    if (y >= LANE.cap[0] && y <= LANE.cap[0] + LANE.cap[1]) {
+      const r = capRects.find((r2) => x >= r2.x - 2 && x <= r2.x + r2.w + 2);
+      if (r) return { type: 'cap', idx: r.pi };
     }
-    tlCanvas.setPointerCapture(e.pointerId);
-  });
-  function hitOverlayBlock(t, y) {
-    const segs = keptSegments();
-    const s2o = (tt) => srcToOut(tt);
+    // 3) blok media / text / voiceover (cek tepi utk resize)
     const lists = [
       { arr: ES.broll || [], lane: LANE.media, key: 'broll' },
       { arr: (ES.overlays || []).filter((o) => o.type !== 'audio'), lane: LANE.media, key: 'overlays' },
       { arr: ES.voiceovers || [], lane: LANE.media, key: 'voiceovers' },
       { arr: ES.texts || [], lane: LANE.text, key: 'texts' },
     ];
-    const to = s2o(t);
     for (const L of lists) {
       if (y < L.lane[0] || y > L.lane[0] + L.lane[1]) continue;
-      for (let i = 0; i < L.arr.length; i++) {
+      for (let i = L.arr.length - 1; i >= 0; i--) {
         const it = L.arr[i];
         const s = it.start || 0, e = it.end || s + 3;
-        if (to >= s - 0.15 && to <= e + 0.15) {
-          const edge = (to <= s + 0.25) ? 'L' : (to >= e - 0.25) ? 'R' : 'mid';
-          return { type: 'block', key: L.key, item: it, edge, grabbed: to };
-        }
+        const x1 = X(o2s(s)), x2 = x1 + Math.max(8, (e - s) * pxPerSec);
+        if (x < x1 - EDGE_PX || x > x2 + EDGE_PX) continue;
+        const edge = (Math.abs(x - x1) <= EDGE_PX) ? 'L' : (Math.abs(x - x2) <= EDGE_PX) ? 'R' : 'mid';
+        return { type: 'block', key: L.key, idx: i, item: it, edge };
       }
     }
-    return null;
+    // 4) cut range (area sprite/wave): tepi = resize, tengah = pilih
+    if (y >= LANE.sprite[0] && y <= LANE.wave[0] + LANE.wave[1]) {
+      const cuts = ES.cut_ranges || [];
+      for (let ci = cuts.length - 1; ci >= 0; ci--) {
+        const x1 = X(cuts[ci][0]), x2 = X(cuts[ci][1]);
+        if (Math.abs(x - x1) <= EDGE_PX) return { type: 'cut', idx: ci, edge: 'L' };
+        if (Math.abs(x - x2) <= EDGE_PX) return { type: 'cut', idx: ci, edge: 'R' };
+        if (x > x1 && x < x2) return { type: 'cut', idx: ci, edge: 'mid' };
+      }
+    }
+    return { type: 'seek' };
   }
-  tlCanvas.addEventListener('pointermove', (e) => {
-    if (!tlDrag) return;
+
+  tlCanvas.addEventListener('pointerdown', (e) => {
     const rect = tlCanvas.getBoundingClientRect();
-    const x = e.clientX - rect.left;
+    const x = e.clientX - rect.left, y = e.clientY - rect.top;
+    const t = cs() + (x - 8) / pxPerSec;
+    const hit = hitTest(x, y, t);
+
+    if (hit.type === 'cap') {
+      selItem = { kind: 'cap', idx: hit.idx };
+      selSegment = null;
+      const page = getPages()[hit.idx];
+      if (page) seek(page[0].start + 0.01);
+      renderTimeline();
+    } else if (hit.type === 'block') {
+      selItem = { kind: hit.key, idx: hit.idx };
+      selSegment = null;
+      tlDrag = { type: 'block', item: hit.item, edge: hit.edge,
+                 grabOff: srcToOut(clamp(t, cs(), ce())) - (hit.item.start || 0) };
+      renderTimeline();
+    } else if (hit.type === 'cut') {
+      selItem = { kind: 'cut', idx: hit.idx };
+      selSegment = null;
+      if (hit.edge !== 'mid') tlDrag = { type: 'cut', idx: hit.idx, edge: hit.edge };
+      renderTimeline();
+    } else if (hit.type === 'trimL' || hit.type === 'trimR') {
+      tlDrag = { type: hit.type };
+    } else {
+      selItem = null;
+      tlDrag = { type: 'seek' };
+      if (y >= LANE.sprite[0] && y <= LANE.wave[0] + LANE.wave[1]) {
+        selSegment = keptSegments().find((s) => t >= s[0] && t <= s[1]) || null;
+      }
+      seek(t);
+      renderTimeline();
+    }
+    tlCanvas.setPointerCapture(e.pointerId);
+  });
+
+  tlCanvas.addEventListener('pointermove', (e) => {
+    const rect = tlCanvas.getBoundingClientRect();
+    const x = e.clientX - rect.left, y = e.clientY - rect.top;
+    if (!tlDrag) {
+      // ubah kursor sesuai posisi (tepi blok/cut = resize)
+      const hit = hitTest(x, y, cs() + (x - 8) / pxPerSec);
+      tlCanvas.style.cursor =
+        (hit.type === 'trimL' || hit.type === 'trimR') ? 'ew-resize' :
+        (hit.type === 'cut' && hit.edge !== 'mid') ? 'ew-resize' :
+        (hit.type === 'block' && hit.edge !== 'mid') ? 'ew-resize' :
+        (hit.type === 'block' || hit.type === 'cut' || hit.type === 'cap') ? 'grab' : 'crosshair';
+      return;
+    }
     const t = clamp(cs() + (x - 8) / pxPerSec, 0, project.duration);
-    if (tlDrag.type === 'seek') { seek(t); drawPlayhead(true); }
+    if (tlDrag.type === 'seek') { seek(t); compositeTimeline(true); }
     else if (tlDrag.type === 'trimL') {
       ES.extend = ES.extend || {};
       ES.extend.start = clamp(t, 0, ce() - 1);
@@ -856,22 +982,117 @@
       ES.extend = ES.extend || {};
       ES.extend.end = clamp(t, cs() + 1, project.duration);
       renderTimeline(); renderTranscript();
+    } else if (tlDrag.type === 'cut') {
+      // geser tepi cut (hasil split bisa diatur bebas seperti CapCut)
+      const cut = ES.cut_ranges[tlDrag.idx];
+      if (cut) {
+        if (tlDrag.edge === 'L') cut[0] = clamp(Math.round(t * 100) / 100, cs(), cut[1] - 0.02);
+        else cut[1] = clamp(Math.round(t * 100) / 100, cut[0] + 0.02, ce());
+        invalidatePages();
+        renderTimeline();
+      }
     } else if (tlDrag.type === 'block') {
       const to = srcToOut(clamp(t, cs(), ce()));
       const it = tlDrag.item;
-      const dur = (it.end || it.start + 3) - (it.start || 0);
-      if (tlDrag.edge === 'L') it.start = clamp(to, 0, (it.end || 3) - 0.3);
-      else if (tlDrag.edge === 'R') it.end = Math.max((it.start || 0) + 0.3, to);
-      else { it.start = clamp(to - dur / 2, 0, outDuration()); it.end = it.start + dur; }
+      const dur = (it.end || (it.start || 0) + 3) - (it.start || 0);
+      if (tlDrag.edge === 'L') it.start = clamp(to, 0, (it.end || 3) - 0.2);
+      else if (tlDrag.edge === 'R') it.end = clamp(to, (it.start || 0) + 0.2, outDuration());
+      else {
+        it.start = clamp(to - tlDrag.grabOff, 0, Math.max(0, outDuration() - dur));
+        it.end = it.start + dur;
+      }
       renderTimeline();
     }
   });
+
   tlCanvas.addEventListener('pointerup', () => {
-    if (tlDrag && (tlDrag.type === 'trimL' || tlDrag.type === 'trimR' || tlDrag.type === 'block')) {
+    if (tlDrag && tlDrag.type !== 'seek') {
+      if (tlDrag.type === 'cut' || tlDrag.type === 'trimL' || tlDrag.type === 'trimR') renderTranscript();
       commit(); updateTotals();
     }
     tlDrag = null;
   });
+
+  // dblclick blok caption / text -> edit langsung
+  tlCanvas.addEventListener('dblclick', (e) => {
+    const rect = tlCanvas.getBoundingClientRect();
+    const x = e.clientX - rect.left, y = e.clientY - rect.top;
+    const hit = hitTest(x, y, cs() + (x - 8) / pxPerSec);
+    if (hit.type === 'cap') openCaptionEditor(hit.idx);
+    else if (hit.type === 'block' && hit.key === 'texts') {
+      const t2 = ES.texts[hit.idx];
+      const nv = prompt('Edit teks overlay:', t2.text || '');
+      if (nv != null) { t2.text = nv; commit(); renderTimeline(); }
+    }
+  });
+
+  // hapus item terpilih (blok / cut / caption page) — dipakai tombol & tombol Del
+  function deleteSelectedItem() {
+    if (!selItem) return false;
+    if (selItem.kind === 'cut') {
+      // hapus cut = kembalikan potongan; bila cut milik kata yang dihapus, pulihkan katanya
+      const cut = ES.cut_ranges[selItem.idx];
+      if (cut) {
+        const wcm = ES.word_cut_map || {};
+        for (const k of Object.keys(wcm)) {
+          if (Math.abs(wcm[k][0] - cut[0]) < 0.005 && Math.abs(wcm[k][1] - cut[1]) < 0.005) {
+            ES.deleted_words = (ES.deleted_words || []).filter((i) => i !== +k);
+            delete wcm[k];
+          }
+        }
+        ES.cut_ranges.splice(selItem.idx, 1);
+      }
+    } else if (selItem.kind === 'cap') {
+      // hapus caption page = hapus kata-kata page itu (video ikut terpotong)
+      const page = getPages()[selItem.idx];
+      if (page && confirm('Hapus ' + page.length + ' kata di caption ini? (video ikut terpotong)')) {
+        page.forEach((w) => deleteWordIdx(w.i));
+      } else { return true; }
+    } else if (ES[selItem.kind]) {
+      ES[selItem.kind].splice(selItem.idx, 1);
+      if (selItem.kind === 'voiceovers') voSyncReset();
+    }
+    selItem = null;
+    commit(); renderTranscript(); renderTimeline(); updateTotals();
+    return true;
+  }
+
+  // ---- editor caption per page (klik caption di preview / dblklik blok timeline) ----
+  function openCaptionEditor(pageIdx) {
+    const page = getPages()[pageIdx];
+    if (!page) return;
+    let rows = '';
+    page.forEach((w, j) => {
+      rows += '<div style="display:flex;align-items:center;gap:8px;margin-bottom:7px">' +
+        '<input data-wi="' + w.i + '" value="' + String(wordText(w.i)).replace(/"/g, '&quot;') + '"' +
+        ' style="flex:1;background:var(--card2);border:1px solid var(--border);border-radius:8px;padding:8px 10px;color:var(--text);font-size:.9rem;outline:none">' +
+        '<button data-delw="' + w.i + '" title="Hapus kata (video ikut terpotong)" style="background:none;border:1px solid var(--border);border-radius:8px;color:var(--muted);padding:7px 10px;cursor:pointer">🗑</button></div>';
+    });
+    openDialog(
+      '<h3>💬 Edit Caption</h3>' +
+      '<p style="font-size:.78rem;color:var(--muted);margin-bottom:10px">Ubah teks per kata (audio tidak berubah). Tombol 🗑 menghapus kata sekaligus memotong videonya.</p>' +
+      rows +
+      '<div class="row2"><button class="btn btn-g" data-x>Batal</button><button class="btn btn-p" id="capEdSave">💾 Simpan</button></div>'
+    );
+    document.querySelectorAll('#dlgRoot [data-delw]').forEach((b) => b.addEventListener('click', () => {
+      deleteWordIdx(+b.dataset.delw);
+      commit(); renderTranscript(); renderTimeline();
+      closeDialog();
+    }));
+    $('capEdSave').addEventListener('click', () => {
+      document.querySelectorAll('#dlgRoot [data-wi]').forEach((inp) => {
+        const i = +inp.dataset.wi;
+        const v = inp.value.trim();
+        if (v && v !== WORDS[i].word.trim()) {
+          ES.word_edits = ES.word_edits || {};
+          ES.word_edits[String(i)] = v;
+        }
+      });
+      lastCapKey = '';
+      commit(); renderTranscript(); renderTimeline();
+      closeDialog();
+    });
+  }
 
   // toolbar timeline
   $('btnPlay').addEventListener('click', () => playing ? pause() : play());
@@ -1386,17 +1607,29 @@
     });
   }
 
-  // --- AI Voice-over ---
+  // --- AI Voice-over + Dubbing ---
+  async function generateVO(text, voice) {
+    return api('/clips/' + clipId + '/voiceover', {
+      method: 'POST', headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ text, voice }),
+    });
+  }
   function panelVoiceover() {
     let list = '';
     (ES.voiceovers || []).forEach((v, i) => {
-      list += '<div class="itemrow"><span class="nm">🎙 ' + (v.text || 'voiceover') + ' @ ' + fmtT(v.start || 0) + '</span><button data-vi="' + i + '">✕</button></div>';
+      list += '<div class="itemrow"><span class="nm">🎙 ' + (v.text || 'voiceover') + ' @ ' + fmtT(v.start || 0) + '</span>' +
+        '<button data-revoice="' + i + '" title="Ganti pengisi suara (regenerate dgn suara terpilih)">🔁</button>' +
+        '<button data-vi="' + i + '" title="Hapus">✕</button></div>';
     });
+    const dubbed = ES.volume === 0;
     sbody.innerHTML = '<h3>🎙️ AI Voice-over</h3>' +
-      '<div class="fgroup"><label>Teks narasi</label><textarea id="voText" rows="3" placeholder="Tulis narasi yang ingin diucapkan AI..." style="width:100%;background:var(--card);border:1px solid var(--border);color:var(--text);border-radius:9px;padding:8px 10px;font-size:.85rem;outline:none;font-family:inherit"></textarea></div>' +
       '<div class="fgroup"><label>Suara</label><select id="voVoice"><option value="">memuat…</option></select></div>' +
-      '<button class="actionbtn primary" id="voGen">🎙 Generate & taruh di playhead</button>' + list +
-      '<p class="note">Voice-over tampil sebagai blok audio di timeline, dicampur otomatis dengan suara asli saat export. Preview di editor ikut memutarnya.</p>';
+      '<div class="fgroup"><label>Teks narasi</label><textarea id="voText" rows="3" placeholder="Tulis narasi yang ingin diucapkan AI..." style="width:100%;background:var(--card);border:1px solid var(--border);color:var(--text);border-radius:9px;padding:8px 10px;font-size:.85rem;outline:none;font-family:inherit"></textarea></div>' +
+      '<button class="actionbtn primary" id="voGen">🎙 Generate & taruh di playhead</button>' +
+      '<button class="actionbtn" id="voDub">🎬 Dubbing AI: ganti SELURUH suara video dgn suara terpilih' + (dubbed ? ' ✓ (aktif)' : '') + '</button>' +
+      (dubbed ? '<button class="actionbtn" id="voDubOff">↩ Kembalikan suara asli</button>' : '') +
+      list +
+      '<p class="note">🔁 = ganti pengisi suara item itu. Dubbing AI membaca seluruh teks caption klip dengan suara pilihan lalu MEME-MUTE suara asli — caption tetap sinkron dengan teks.</p>';
     api('/voices').then((d) => {
       $('voVoice').innerHTML = d.voices.map((v) => '<option value="' + v.id + '">' + v.name + '</option>').join('');
     });
@@ -1405,19 +1638,54 @@
       if (!txt) return;
       $('voGen').disabled = true; $('voGen').textContent = '⏳ AI merekam suara...';
       try {
-        const d = await api('/clips/' + clipId + '/voiceover', {
-          method: 'POST', headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ text: txt, voice: $('voVoice').value }),
-        });
+        const d = await generateVO(txt, $('voVoice').value);
         const t0 = srcToOut(vid.currentTime);
         ES.voiceovers = ES.voiceovers || [];
-        ES.voiceovers.push({ url: d.url, start: t0, end: Math.min(outDuration(), t0 + (d.duration || 3)), duration: d.duration, volume: 1.0, text: d.text });
+        ES.voiceovers.push({ url: d.url, start: t0, end: Math.min(outDuration(), t0 + (d.duration || 3)), duration: d.duration, volume: 1.0, text: d.text, voice: d.voice });
         voSyncReset();
         commit(); renderTimeline(); panelVoiceover();
-      } catch (e) { alert(e.message); }
-      if ($('voGen')) { $('voGen').disabled = false; $('voGen').textContent = '🎙 Generate & taruh di playhead'; }
+      } catch (e) { alert(e.message); panelVoiceover(); }
     });
+    // Dubbing AI penuh: TTS seluruh teks caption -> mute suara asli
+    $('voDub').addEventListener('click', async () => {
+      const words = visibleCaptionWords();
+      if (!words.length) { alert('Tidak ada teks caption di klip ini.'); return; }
+      const fullText = words.map((w) => w.word).join(' ');
+      if (!confirm('Dubbing AI akan membaca seluruh teks klip (' + words.length + ' kata) dengan suara terpilih dan ME-MUTE suara asli. Lanjut?')) return;
+      $('voDub').disabled = true; $('voDub').textContent = '⏳ AI merekam dubbing penuh...';
+      try {
+        const d = await generateVO(fullText, $('voVoice').value);
+        ES.voiceovers = (ES.voiceovers || []).filter((v) => !v.is_dub);
+        ES.voiceovers.push({ url: d.url, start: 0, end: Math.min(outDuration(), d.duration || outDuration()), duration: d.duration, volume: 1.0, text: '[DUBBING] ' + d.text, voice: d.voice, is_dub: true });
+        ES.volume = 0;            // mute suara asli
+        vid.volume = 0; $('volRange').value = 0;
+        voSyncReset();
+        commit(); renderTimeline(); panelVoiceover();
+      } catch (e) { alert(e.message); panelVoiceover(); }
+    });
+    if ($('voDubOff')) $('voDubOff').addEventListener('click', () => {
+      ES.voiceovers = (ES.voiceovers || []).filter((v) => !v.is_dub);
+      ES.volume = 1; vid.volume = 1; $('volRange').value = 100;
+      voSyncReset();
+      commit(); renderTimeline(); panelVoiceover();
+    });
+    // ganti pengisi suara item (regenerate teks yang sama dgn suara terpilih)
+    sbody.querySelectorAll('[data-revoice]').forEach((b) => b.addEventListener('click', async () => {
+      const i = +b.dataset.revoice;
+      const v = ES.voiceovers[i];
+      if (!v) return;
+      b.textContent = '⏳';
+      try {
+        const d = await generateVO((v.text || '').replace(/^\[DUBBING\] /, ''), $('voVoice').value);
+        v.url = d.url; v.duration = d.duration; v.voice = d.voice;
+        v.end = Math.min(outDuration(), (v.start || 0) + (d.duration || 3));
+        voSyncReset();
+        commit(); renderTimeline(); panelVoiceover();
+      } catch (e) { alert(e.message); panelVoiceover(); }
+    }));
     sbody.querySelectorAll('[data-vi]').forEach((b) => b.addEventListener('click', () => {
+      const v = ES.voiceovers[+b.dataset.vi];
+      if (v && v.is_dub) { ES.volume = 1; vid.volume = 1; $('volRange').value = 100; }
       ES.voiceovers.splice(+b.dataset.vi, 1);
       voSyncReset();
       commit(); renderTimeline(); panelVoiceover();
@@ -1640,7 +1908,10 @@
   document.addEventListener('keydown', (e) => {
     if (e.target.tagName === 'INPUT' || e.target.tagName === 'SELECT' || e.target.tagName === 'TEXTAREA') return;
     if (e.code === 'Space') { e.preventDefault(); playing ? pause() : play(); }
-    else if (e.key === 'Delete' || e.key === 'Backspace') { e.preventDefault(); deleteSelected(); }
+    else if (e.key === 'Delete' || e.key === 'Backspace') {
+      e.preventDefault();
+      if (!deleteSelectedItem()) deleteSelected();   // blok timeline terpilih dulu, lalu kata
+    }
     else if ((e.ctrlKey || e.metaKey) && !e.shiftKey && e.key.toLowerCase() === 'z') { e.preventDefault(); undo(); }
     else if ((e.ctrlKey || e.metaKey) && e.shiftKey && e.key.toLowerCase() === 'z') { e.preventDefault(); redo(); }
     else if (e.key === '+' || e.key === '=') { pxPerSec = clamp(pxPerSec * 1.25, 20, 400); $('zoomRange').value = pxPerSec; renderTimeline(); }
