@@ -4,9 +4,21 @@
 
 # Mengabaikan folder virtual environment Python jika ada
 venv/
+venv-win/
+.venv/
 __pycache__/
 
 # SaaS Backend
 .env
 *.db
+*.db-shm
+*.db-wal
 alembic/versions/
+
+# Clip Studio (Auto Klip VIP)
+storage/
+models_cache/
+tools/
+temp/
+tmp_redis/
+*.wav

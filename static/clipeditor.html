@@ -1,0 +1,250 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+<title>Editor Klip — Auto Klip VIP</title>
+<link href="https://fonts.googleapis.com/css2?family=Outfit:wght@600;700;800&family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+<style>
+:root{
+  --bg:#0B0B0F; --bg2:#101016; --card:#17171F; --card2:#1E1E28; --border:#2A2A36;
+  --text:#F4F4F6; --muted:#9A9AAB; --accent:#8B5CF6; --accent2:#06B6D4; --green:#39FF14;
+  --danger:#F43F5E; --warn:#F59E0B;
+}
+*{box-sizing:border-box;margin:0;padding:0}
+html,body{height:100%}
+body{background:var(--bg);color:var(--text);font-family:'Inter',sans-serif;display:flex;flex-direction:column;overflow:hidden}
+button{font-family:inherit;cursor:pointer}
+input,select{font-family:inherit}
+.hidden{display:none!important}
+
+/* ===== Header ===== */
+.hdr{display:flex;align-items:center;gap:10px;padding:8px 14px;border-bottom:1px solid var(--border);background:var(--bg2);flex-shrink:0;z-index:30}
+.hdr .back{background:none;border:1px solid var(--border);color:var(--text);border-radius:10px;padding:7px 12px;font-size:.9rem}
+.hdr .title{background:transparent;border:1px solid transparent;color:var(--text);font-weight:700;font-size:.95rem;padding:7px 10px;border-radius:8px;min-width:120px;max-width:420px;width:38vw;outline:none}
+.hdr .title:focus{border-color:var(--accent);background:var(--card)}
+.iconbtn{background:var(--card);border:1px solid var(--border);color:var(--text);border-radius:9px;padding:7px 11px;font-size:.85rem}
+.iconbtn:disabled{opacity:.35;cursor:default}
+.iconbtn:hover:not(:disabled){border-color:var(--accent)}
+.spacer{flex:1}
+.savestate{font-size:.72rem;color:var(--muted);white-space:nowrap}
+.btn-export{background:linear-gradient(135deg,var(--accent),var(--accent2));border:none;color:#fff;font-weight:700;border-radius:10px;padding:9px 20px;font-size:.9rem}
+.btn-export:hover{filter:brightness(1.15)}
+
+/* ===== Body 3 kolom ===== */
+.main{flex:1;display:flex;min-height:0}
+/* Panel transkrip kiri */
+.tpanel{width:330px;border-right:1px solid var(--border);background:var(--bg2);display:flex;flex-direction:column;min-height:0;flex-shrink:0}
+.tpanel .thead{padding:10px 12px;border-bottom:1px solid var(--border);display:flex;gap:8px;flex-wrap:wrap}
+.chipbtn{background:var(--card);border:1px solid var(--border);color:var(--text);font-size:.74rem;font-weight:600;border-radius:16px;padding:6px 12px}
+.chipbtn:hover{border-color:var(--accent)}
+.chipbtn.on{background:rgba(139,92,246,.2);border-color:var(--accent)}
+.twrap{flex:1;overflow-y:auto;padding:14px 14px 40px;line-height:2.1;font-size:.92rem;user-select:none}
+.w{padding:2px 3px;border-radius:5px;cursor:pointer;transition:background .1s}
+.w:hover{background:var(--card2)}
+.w.active{background:var(--accent);color:#fff}
+.w.sel{background:rgba(6,182,212,.35)}
+.w.del{text-decoration:line-through;color:var(--muted);opacity:.55}
+.w.filler{color:var(--warn)}
+.w.kw{outline:1px dashed var(--warn)}
+.w.dim{opacity:.35;cursor:pointer}
+.gap{display:inline-block;background:var(--card2);color:var(--muted);font-size:.62rem;border-radius:8px;padding:1px 7px;margin:0 3px;vertical-align:1px;cursor:pointer;white-space:nowrap}
+.gap:hover{background:var(--danger);color:#fff}
+.wedit{background:var(--card);border:1px solid var(--accent);color:var(--text);border-radius:6px;padding:2px 6px;font-size:.88rem;width:110px;outline:none}
+
+/* Preview tengah */
+.cpanel{flex:1;display:flex;flex-direction:column;align-items:center;justify-content:center;min-width:0;background:#0a0a0d;position:relative;padding:12px}
+.pv-controls{display:flex;gap:8px;align-items:center;margin-bottom:10px;flex-wrap:wrap;justify-content:center}
+.pv-controls select{background:var(--card);border:1px solid var(--border);color:var(--text);border-radius:8px;padding:6px 9px;font-size:.78rem}
+.stage{position:relative;background:#000;border-radius:14px;overflow:hidden;box-shadow:0 12px 40px rgba(0,0,0,.6);touch-action:none}
+.stage video{position:absolute;transform-origin:top left;pointer-events:none}
+#bgVideo{filter:blur(22px) brightness(.55);object-fit:cover;width:100%;height:100%;position:absolute;inset:0;display:none}
+#capOverlay{position:absolute;left:0;right:0;text-align:center;pointer-events:auto;cursor:grab;z-index:5;padding:0 14px;line-height:1.25}
+#capOverlay span{display:inline-block;margin:0 .14em}
+.playbig{position:absolute;inset:0;display:flex;align-items:center;justify-content:center;z-index:6;background:rgba(0,0,0,.001)}
+.playbig div{width:64px;height:64px;border-radius:50%;background:rgba(0,0,0,.55);display:flex;align-items:center;justify-content:center;font-size:1.5rem;opacity:0;transition:.2s}
+.stage:hover .playbig div{opacity:1}
+
+/* Sidebar kanan */
+.spanel{display:flex;border-left:1px solid var(--border);background:var(--bg2);min-height:0;flex-shrink:0}
+.srail{width:62px;display:flex;flex-direction:column;align-items:center;padding:8px 0;gap:2px;overflow-y:auto}
+.srail button{background:none;border:none;color:var(--muted);font-size:.62rem;display:flex;flex-direction:column;align-items:center;gap:3px;padding:9px 4px;border-radius:10px;width:56px}
+.srail button .i{font-size:1.15rem}
+.srail button.on{background:var(--card2);color:var(--text)}
+.sbody{width:295px;border-left:1px solid var(--border);overflow-y:auto;padding:14px;display:none}
+.sbody.open{display:block}
+.sbody h3{font-family:'Outfit',sans-serif;font-size:.95rem;margin-bottom:12px}
+.fgroup{margin-bottom:14px}
+.fgroup label{display:block;font-size:.7rem;color:var(--muted);font-weight:600;text-transform:uppercase;letter-spacing:.4px;margin-bottom:6px}
+.fgroup select,.fgroup input[type=text],.fgroup input[type=number],.fgroup input[type=search]{width:100%;background:var(--card);border:1px solid var(--border);color:var(--text);border-radius:9px;padding:8px 10px;font-size:.85rem;outline:none}
+.fgroup input[type=range]{width:100%}
+.fgroup input[type=color]{width:38px;height:30px;border:none;background:none;cursor:pointer}
+.colorrow{display:flex;gap:10px;align-items:center;font-size:.78rem;color:var(--muted)}
+.tplgrid{display:grid;grid-template-columns:1fr 1fr;gap:8px}
+.tplcard{background:var(--card);border:1.5px solid var(--border);border-radius:10px;padding:10px 6px;text-align:center;cursor:pointer;font-size:.7rem;color:var(--muted)}
+.tplcard.on{border-color:var(--accent)}
+.tplcard .demo{font-weight:800;font-size:.82rem;margin-bottom:5px;color:#fff}
+.actionbtn{width:100%;background:var(--card);border:1px solid var(--border);color:var(--text);border-radius:10px;padding:10px;font-size:.83rem;font-weight:600;margin-bottom:8px;text-align:left}
+.actionbtn:hover{border-color:var(--accent)}
+.actionbtn.primary{background:linear-gradient(135deg,var(--accent),var(--accent2));border:none;color:#fff;text-align:center}
+.mediagrid{display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-top:10px}
+.mediagrid .mi{position:relative;border-radius:9px;overflow:hidden;border:1px solid var(--border);cursor:pointer;background:#000;aspect-ratio:16/10}
+.mediagrid .mi img,.mediagrid .mi video{width:100%;height:100%;object-fit:cover}
+.mediagrid .mi .nm{position:absolute;bottom:0;left:0;right:0;font-size:.6rem;background:rgba(0,0,0,.7);padding:2px 5px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.kwchips{display:flex;flex-wrap:wrap;gap:6px;margin:8px 0}
+.kwchips span{background:var(--card2);border:1px solid var(--border);font-size:.72rem;padding:4px 10px;border-radius:14px;cursor:pointer}
+.kwchips span:hover{border-color:var(--accent2)}
+.itemrow{display:flex;align-items:center;gap:8px;background:var(--card);border:1px solid var(--border);border-radius:9px;padding:7px 9px;margin-bottom:7px;font-size:.76rem}
+.itemrow .nm{flex:1;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.itemrow button{background:none;border:none;color:var(--muted);font-size:.85rem}
+.itemrow button:hover{color:var(--danger)}
+.note{font-size:.68rem;color:var(--muted);line-height:1.5;margin-top:8px}
+.tabs2{display:flex;gap:6px;margin-bottom:10px}
+.tabs2 button{flex:1;background:var(--card);border:1px solid var(--border);color:var(--muted);border-radius:8px;padding:6px;font-size:.72rem}
+.tabs2 button.on{color:var(--text);border-color:var(--accent)}
+
+/* ===== Timeline ===== */
+.tl{border-top:1px solid var(--border);background:var(--bg2);flex-shrink:0;display:flex;flex-direction:column;z-index:20}
+.tlbar{display:flex;align-items:center;gap:8px;padding:6px 12px}
+.tlbar .time{font-variant-numeric:tabular-nums;font-size:.82rem;color:var(--muted)}
+.tlbar .time b{color:var(--text)}
+.tlbtn{background:var(--card);border:1px solid var(--border);color:var(--text);border-radius:8px;padding:5px 10px;font-size:.82rem}
+.tlbtn:hover{border-color:var(--accent)}
+.tlbtn.on{border-color:var(--accent2);color:var(--accent2)}
+#zoomRange{width:110px}
+.tlscroll{overflow-x:auto;overflow-y:hidden;position:relative}
+#tlCanvas{display:block;cursor:crosshair}
+.tlhidden .tlscroll{display:none}
+
+/* ===== Dialog ===== */
+.dlg{position:fixed;inset:0;background:rgba(0,0,0,.65);backdrop-filter:blur(4px);display:flex;align-items:center;justify-content:center;z-index:100;padding:16px}
+.dlg .box{background:var(--card);border:1px solid var(--border);border-radius:18px;padding:22px;width:100%;max-width:430px;max-height:86vh;overflow-y:auto}
+.dlg h3{font-family:'Outfit',sans-serif;margin-bottom:14px}
+.dlg .row2{display:flex;gap:10px;margin-top:16px}
+.dlg .row2 button{flex:1}
+.btn{border:none;border-radius:11px;padding:11px 18px;font-weight:700;font-size:.9rem}
+.btn-p{background:linear-gradient(135deg,var(--accent),var(--accent2));color:#fff}
+.btn-g{background:var(--card2);color:var(--text);border:1px solid var(--border)}
+.exp-pbar{background:var(--card2);height:10px;border-radius:6px;overflow:hidden;margin:14px 0 6px}
+.exp-pbar div{height:100%;background:linear-gradient(90deg,var(--accent),var(--accent2));width:0%;transition:width .4s}
+.cleanlist{max-height:200px;overflow-y:auto;background:var(--card2);border-radius:10px;padding:10px;font-size:.78rem;line-height:1.7;margin-top:10px}
+
+/* ===== Mobile ===== */
+.mtabs{display:none}
+@media(max-width:900px){
+  .main{flex-direction:column}
+  .tpanel,.sbody{width:100%;max-height:none}
+  .spanel{border-left:none}
+  .srail{flex-direction:row;width:100%;overflow-x:auto;overflow-y:hidden}
+  .mtabs{display:flex;border-bottom:1px solid var(--border);background:var(--bg2)}
+  .mtabs button{flex:1;background:none;border:none;color:var(--muted);padding:10px;font-size:.8rem;font-weight:600;border-bottom:2px solid transparent}
+  .mtabs button.on{color:var(--text);border-bottom-color:var(--accent)}
+  .tpanel,.spanel{display:none}
+  body.mtab-trans .tpanel{display:flex;flex:1;min-height:0}
+  body.mtab-trans .cpanel,body.mtab-trans .spanel{display:none}
+  body.mtab-prev .cpanel{display:flex}
+  body.mtab-menu .spanel{display:flex;flex:1;flex-direction:column;min-height:0}
+  body.mtab-menu .cpanel{display:none}
+  body.mtab-menu .sbody{flex:1}
+  .hdr .title{width:24vw;min-width:80px}
+  .stage{max-height:46vh}
+}
+</style>
+</head>
+<body>
+
+<!-- Header -->
+<div class="hdr">
+  <button class="back" id="btnBack">←</button>
+  <input class="title" id="clipTitle" value="Klip" spellcheck="false">
+  <button class="iconbtn" id="btnUndo" title="Undo (Ctrl+Z)">↩</button>
+  <button class="iconbtn" id="btnRedo" title="Redo (Ctrl+Shift+Z)">↪</button>
+  <div class="spacer"></div>
+  <span class="savestate" id="saveState">Tersimpan</span>
+  <button class="iconbtn" id="btnSave">💾 <span class="dtxt">Save changes</span></button>
+  <span class="savestate" id="creditsBox" title="1 menit video sumber = 1 credit">⚡ <b id="creditsVal">0</b></span>
+  <button class="btn-export" id="btnExport">Export</button>
+</div>
+
+<!-- Tab mobile -->
+<div class="mtabs">
+  <button data-mtab="trans">📝 Transkrip</button>
+  <button data-mtab="prev" class="on">▶️ Preview</button>
+  <button data-mtab="menu">🛠 Menu</button>
+</div>
+
+<div class="main" id="mainRow">
+
+  <!-- Panel kiri: transkrip -->
+  <div class="tpanel">
+    <div class="thead">
+      <button class="chipbtn" id="btnCleanup">🧹 Speech cleanup</button>
+      <button class="chipbtn" id="btnExtend">↔️ Extend a clip</button>
+      <button class="chipbtn" id="btnDelWord" title="Hapus kata terpilih (Del)">🗑 Hapus</button>
+    </div>
+    <div class="twrap" id="transcriptBox"></div>
+  </div>
+
+  <!-- Tengah: preview -->
+  <div class="cpanel">
+    <div class="pv-controls">
+      <select id="selAspect">
+        <option value="9:16">9:16</option><option value="1:1">1:1</option><option value="16:9">16:9</option>
+      </select>
+      <select id="selLayout">
+        <option value="fill">Layout: Fill</option><option value="fit">Layout: Fit</option><option value="split">Layout: Split</option>
+      </select>
+      <button class="tlbtn" id="btnTracker">🎯 Tracker: ON</button>
+    </div>
+    <div class="stage" id="stage">
+      <video id="bgVideo" muted playsinline preload="auto"></video>
+      <video id="vid" playsinline preload="auto" crossorigin="anonymous"></video>
+      <div id="mediaLayer" style="position:absolute;inset:0;z-index:4;pointer-events:none"></div>
+      <div id="textLayer" style="position:absolute;inset:0;z-index:5;pointer-events:none"></div>
+      <div id="capOverlay"></div>
+      <div class="playbig" id="playBig"><div>▶</div></div>
+    </div>
+  </div>
+
+  <!-- Kanan: sidebar menu -->
+  <div class="spanel">
+    <div class="sbody" id="sbody"></div>
+    <div class="srail" id="srail">
+      <button data-menu="ai"><span class="i">✨</span>AI enhance</button>
+      <button data-menu="captions"><span class="i">💬</span>Captions</button>
+      <button data-menu="media"><span class="i">🖼️</span>Media</button>
+      <button data-menu="brand"><span class="i">🏷️</span>Brand</button>
+      <button data-menu="broll"><span class="i">🎞️</span>B-Roll</button>
+      <button data-menu="trans"><span class="i">🔀</span>Transisi</button>
+      <button data-menu="text"><span class="i">🔤</span>Text</button>
+      <button data-menu="audio"><span class="i">🎵</span>Audio</button>
+      <button data-menu="hook"><span class="i">🪝</span>AI hook</button>
+    </div>
+  </div>
+</div>
+
+<!-- Timeline -->
+<div class="tl" id="tlRoot">
+  <div class="tlbar">
+    <button class="tlbtn" id="btnPlay">▶</button>
+    <button class="tlbtn" id="btnPrevF" title="Frame sebelumnya">⏮</button>
+    <button class="tlbtn" id="btnNextF" title="Frame berikutnya">⏭</button>
+    <span class="time"><b id="tCur">00:00.00</b> / <span id="tTot">00:00.00</span></span>
+    <button class="tlbtn" id="btnSplit" title="Split di playhead">✂️</button>
+    <button class="tlbtn" id="btnDelSeg" title="Hapus segmen terpilih">🗑</button>
+    <button class="tlbtn" id="btnMute" title="Mute/unmute">🔊</button>
+    <input type="range" id="volRange" min="0" max="100" value="100" style="width:74px" title="Volume original">
+    <div class="spacer"></div>
+    <button class="tlbtn" id="zoomOut">−</button>
+    <input type="range" id="zoomRange" min="20" max="400" value="60">
+    <button class="tlbtn" id="zoomIn">＋</button>
+    <button class="tlbtn" id="btnHideTl">▾ Timeline</button>
+  </div>
+  <div class="tlscroll" id="tlScroll"><canvas id="tlCanvas" height="170"></canvas></div>
+</div>
+
+<div id="dlgRoot"></div>
+
+<script src="/static/js/clipeditor.js"></script>
+</body>
+</html>

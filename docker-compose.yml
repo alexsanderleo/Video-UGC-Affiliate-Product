@@ -1,0 +1,59 @@
+# Clip Studio / Video SaaS — dev stack opsional (produksi memakai aaPanel supervisor).
+# Jalankan: docker compose up --build
+services:
+  api:
+    build:
+      context: .
+      dockerfile_inline: |
+        FROM python:3.12-slim
+        RUN apt-get update && apt-get install -y ffmpeg git && rm -rf /var/lib/apt/lists/*
+        WORKDIR /app
+        COPY requirements-saas.txt .
+        RUN pip install --no-cache-dir -r requirements-saas.txt yt-dlp faster-whisper opencv-python-headless anthropic
+        COPY . .
+        CMD ["uvicorn", "main:app", "--host", "0.0.0.0", "--port", "8000"]
+    ports: ["8000:8000"]
+    env_file: .env
+    environment:
+      DATABASE_URL: postgresql+asyncpg://clip:clip@postgres:5432/clipstudio
+      REDIS_URL: redis://redis:6379/0
+      CELERY_BROKER_URL: redis://redis:6379/0
+      CELERY_RESULT_BACKEND: redis://redis:6379/0
+      CLIP_USE_CELERY: "true"
+    volumes: [ "./storage:/app/storage", "./outputs:/app/outputs" ]
+    depends_on: [ redis, postgres ]
+
+  worker:
+    build:
+      context: .
+      dockerfile_inline: |
+        FROM python:3.12-slim
+        RUN apt-get update && apt-get install -y ffmpeg git && rm -rf /var/lib/apt/lists/*
+        WORKDIR /app
+        COPY requirements-saas.txt .
+        RUN pip install --no-cache-dir -r requirements-saas.txt yt-dlp faster-whisper opencv-python-headless anthropic
+        COPY . .
+        CMD ["celery", "-A", "core.celery_app", "worker", "--loglevel=info", "--concurrency=2"]
+    env_file: .env
+    environment:
+      DATABASE_URL: postgresql+asyncpg://clip:clip@postgres:5432/clipstudio
+      REDIS_URL: redis://redis:6379/0
+      CELERY_BROKER_URL: redis://redis:6379/0
+      CELERY_RESULT_BACKEND: redis://redis:6379/0
+      CLIP_USE_CELERY: "true"
+    volumes: [ "./storage:/app/storage", "./outputs:/app/outputs" ]
+    depends_on: [ redis, postgres ]
+
+  redis:
+    image: redis:7-alpine
+
+  postgres:
+    image: postgres:16-alpine
+    environment:
+      POSTGRES_USER: clip
+      POSTGRES_PASSWORD: clip
+      POSTGRES_DB: clipstudio
+    volumes: [ "pgdata:/var/lib/postgresql/data" ]
+
+volumes:
+  pgdata:

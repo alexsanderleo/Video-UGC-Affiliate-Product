@@ -1,0 +1,529 @@
+"""
+API Clip Studio (Auto Klip VIP) — clone Opus Clip.
+
+Alur: POST /clipstudio/projects (URL YouTube / upload) -> polling
+GET /clipstudio/projects/{id}/status tiap 2 detik -> GET detail (grid klip)
+-> editor pakai GET/PUT /clipstudio/clips/{id} -> POST export -> download.
+"""
+
+import json
+import re
+import uuid
+from pathlib import Path
+from typing import Optional
+
+import httpx
+from fastapi import APIRouter, Depends, File, Form, HTTPException, UploadFile, status
+from sqlalchemy import select
+from sqlalchemy.ext.asyncio import AsyncSession
+
+from api.deps import get_current_user, get_db
+from core.config import get_settings
+from core.clipstudio.ai import extract_json, llm_complete
+from core.clipstudio.captions import CAPTION_FONTS, CAPTION_TEMPLATES
+from core.clipstudio.runner import dispatch_export, dispatch_project
+from models.clipstudio import Clip, ClipExport, ClipProject, ClipTranscript
+from models.user import User
+
+router = APIRouter(prefix="/clipstudio", tags=["Clip Studio"])
+settings = get_settings()
+
+YOUTUBE_RE = re.compile(
+    r"^(https?://)?(www\.|m\.)?(youtube\.com/(watch\?|shorts/|live/)|youtu\.be/)", re.IGNORECASE
+)
+
+
+def _project_brief(p: ClipProject) -> dict:
+    return {
+        "id": p.id, "title": p.title, "source_type": p.source_type,
+        "source_url": p.source_url, "duration": p.duration,
+        "status": p.status, "percent": p.percent, "error_message": p.error_message,
+        "credits_used": p.credits_used,
+        "thumbnail": f"/storage/projects/{p.id}/thumbnail.jpg" if p.status == "done" or p.percent >= 25 else None,
+        "created_at": p.created_at.isoformat() if p.created_at else None,
+        "options": p.options or {},
+    }
+
+
+def _clip_brief(c: Clip) -> dict:
+    return {
+        "id": c.id, "project_id": c.project_id, "start": c.start, "end": c.end,
+        "duration": round(c.end - c.start, 2), "title": c.title, "score": c.score,
+        "reason": c.reason, "hashtags": c.hashtags or [], "aspect_ratio": c.aspect_ratio,
+        "layout_mode": c.layout_mode, "tracker_on": c.tracker_on, "status": c.status,
+        "thumbnail": c.thumbnail, "sprite": c.sprite,
+    }
+
+
+async def _get_owned_project(project_id: str, user: User, db: AsyncSession) -> ClipProject:
+    proj = await db.get(ClipProject, project_id)
+    if not proj:
+        raise HTTPException(status.HTTP_404_NOT_FOUND, "Project tidak ditemukan.")
+    if proj.user_id != user.id and not user.is_admin:
+        raise HTTPException(status.HTTP_403_FORBIDDEN, "Bukan project Anda.")
+    return proj
+
+
+async def _get_owned_clip(clip_id: str, user: User, db: AsyncSession) -> Clip:
+    clip = await db.get(Clip, clip_id)
+    if not clip:
+        raise HTTPException(status.HTTP_404_NOT_FOUND, "Klip tidak ditemukan.")
+    proj = await db.get(ClipProject, clip.project_id)
+    if proj.user_id != user.id and not user.is_admin:
+        raise HTTPException(status.HTTP_403_FORBIDDEN, "Bukan klip Anda.")
+    return clip
+
+
+# ---------- konfigurasi & template ----------
+
+@router.get("/templates")
+async def get_templates():
+    """Template caption + daftar font (dipakai input page & editor)."""
+    return {"templates": CAPTION_TEMPLATES, "fonts": CAPTION_FONTS}
+
+
+@router.get("/music")
+async def get_music_library(user: User = Depends(get_current_user)):
+    """Library musik bebas royalti (folder backsounds/)."""
+    tracks = []
+    bdir = settings.BASE_DIR / "backsounds"
+    if bdir.exists():
+        for f in sorted(bdir.glob("*.mp3")):
+            tracks.append({
+                "name": f.stem.replace(".mp3", "").replace("_", " ").title(),
+                "url": f"/backsounds/{f.name}",
+            })
+    return {"tracks": tracks}
+
+
+# ---------- projects ----------
+
+@router.post("/projects")
+async def create_project(
+    payload: dict,
+    user: User = Depends(get_current_user),
+    db: AsyncSession = Depends(get_db),
+):
+    """Buat project dari URL YouTube. Body: {source_url, options:{...}}."""
+    url = (payload.get("source_url") or "").strip()
+    if not url or not YOUTUBE_RE.search(url):
+        raise HTTPException(status.HTTP_422_UNPROCESSABLE_ENTITY,
+                            "Masukkan link YouTube yang valid (youtube.com / youtu.be).")
+    options = payload.get("options") or {}
+    pid = str(uuid.uuid4())
+    proj = ClipProject(
+        id=pid, user_id=user.id, source_url=url, source_type="youtube",
+        title="Memuat info video...", options=options, status="queued", percent=0,
+    )
+    db.add(proj)
+    await db.commit()
+    dispatch_project(pid)
+    return {"project_id": pid, "status": "queued"}
+
+
+@router.post("/projects/upload")
+async def create_project_upload(
+    file: UploadFile = File(...),
+    options: str = Form("{}"),
+    user: User = Depends(get_current_user),
+    db: AsyncSession = Depends(get_db),
+):
+    """Buat project dari file video upload user."""
+    try:
+        opts = json.loads(options or "{}")
+    except json.JSONDecodeError:
+        opts = {}
+    if not (file.filename or "").lower().endswith((".mp4", ".mov", ".mkv", ".webm", ".m4v")):
+        raise HTTPException(status.HTTP_422_UNPROCESSABLE_ENTITY,
+                            "Format file harus video (mp4/mov/mkv/webm).")
+    pid = str(uuid.uuid4())
+    from core.clipstudio.paths import project_dir
+    pdir = project_dir(pid)
+    dest = pdir / ("upload" + Path(file.filename).suffix.lower())
+    with open(dest, "wb") as f:
+        while chunk := await file.read(1024 * 1024):
+            f.write(chunk)
+    opts["upload_path"] = str(dest)
+    opts["upload_name"] = file.filename
+    proj = ClipProject(
+        id=pid, user_id=user.id, source_url=None, source_type="upload",
+        title=file.filename, options=opts, status="queued", percent=0,
+    )
+    db.add(proj)
+    await db.commit()
+    dispatch_project(pid)
+    return {"project_id": pid, "status": "queued"}
+
+
+@router.get("/projects")
+async def list_projects(
+    user: User = Depends(get_current_user),
+    db: AsyncSession = Depends(get_db),
+):
+    rows = (await db.execute(
+        select(ClipProject).where(ClipProject.user_id == user.id)
+        .order_by(ClipProject.created_at.desc()).limit(50)
+    )).scalars().all()
+    return {"projects": [_project_brief(p) for p in rows]}
+
+
+@router.get("/projects/{project_id}/status")
+async def project_status(
+    project_id: str,
+    user: User = Depends(get_current_user),
+    db: AsyncSession = Depends(get_db),
+):
+    """Polling progress tiap 2 detik (Downloading -> ... -> Done)."""
+    proj = await _get_owned_project(project_id, user, db)
+    return {
+        "status": proj.status, "percent": proj.percent,
+        "error_message": proj.error_message, "title": proj.title,
+        "duration": proj.duration, "credits_used": proj.credits_used,
+    }
+
+
+@router.get("/projects/{project_id}")
+async def project_detail(
+    project_id: str,
+    user: User = Depends(get_current_user),
+    db: AsyncSession = Depends(get_db),
+):
+    proj = await _get_owned_project(project_id, user, db)
+    clips = (await db.execute(
+        select(Clip).where(Clip.project_id == project_id).order_by(Clip.score.desc())
+    )).scalars().all()
+    tr = (await db.execute(
+        select(ClipTranscript).where(ClipTranscript.project_id == project_id)
+    )).scalar_one_or_none()
+    words = (tr.words if tr else []) or []
+
+    def snippet(c: Clip) -> str:
+        toks = [w["word"].strip() for w in words if w["start"] >= c.start and w["end"] <= c.end]
+        s = " ".join(toks[:30])
+        return s + ("..." if len(toks) > 30 else "")
+
+    out = []
+    for c in clips:
+        d = _clip_brief(c)
+        d["snippet"] = snippet(c)
+        out.append(d)
+    return {"project": _project_brief(proj), "clips": out}
+
+
+@router.delete("/projects/{project_id}")
+async def delete_project(
+    project_id: str,
+    user: User = Depends(get_current_user),
+    db: AsyncSession = Depends(get_db),
+):
+    proj = await _get_owned_project(project_id, user, db)
+    await db.delete(proj)
+    await db.commit()
+    import shutil
+    from core.clipstudio.paths import PROJECTS_DIR
+    shutil.rmtree(PROJECTS_DIR / project_id, ignore_errors=True)
+    return {"ok": True}
+
+
+# ---------- clips (editor) ----------
+
+@router.get("/clips/{clip_id}")
+async def clip_detail(
+    clip_id: str,
+    user: User = Depends(get_current_user),
+    db: AsyncSession = Depends(get_db),
+):
+    """Data lengkap untuk editor: klip + transkrip word-level + info sumber."""
+    clip = await _get_owned_clip(clip_id, user, db)
+    proj = await db.get(ClipProject, clip.project_id)
+    tr = (await db.execute(
+        select(ClipTranscript).where(ClipTranscript.project_id == proj.id)
+    )).scalar_one_or_none()
+
+    sprite_meta = {}
+    if clip.sprite:
+        from core.clipstudio.paths import STORAGE_DIR
+        meta_file = STORAGE_DIR / clip.sprite[len("/storage/"):].replace("sprite.jpg", "sprite.json")
+        if meta_file.exists():
+            sprite_meta = json.loads(meta_file.read_text(encoding="utf-8"))
+
+    return {
+        "clip": {
+            **_clip_brief(clip),
+            "crop_keyframes": clip.crop_keyframes or [],
+            "caption_style": clip.caption_style or {},
+            "edit_state": clip.edit_state or {},
+            "sprite_meta": sprite_meta,
+        },
+        "project": {
+            "id": proj.id, "title": proj.title, "duration": proj.duration,
+            "fps": proj.fps, "width": proj.width, "height": proj.height,
+            "source": f"/storage/projects/{proj.id}/source.mp4",
+            "waveform_audio": f"/storage/projects/{proj.id}/audio.8k.wav",
+        },
+        "words": (tr.words if tr else []) or [],
+        "language": tr.language if tr else "id",
+    }
+
+
+@router.put("/clips/{clip_id}")
+async def update_clip(
+    clip_id: str,
+    payload: dict,
+    user: User = Depends(get_current_user),
+    db: AsyncSession = Depends(get_db),
+):
+    """Autosave editor: edit_state, caption_style, title, aspect/layout/tracker."""
+    clip = await _get_owned_clip(clip_id, user, db)
+    allowed = {"title", "aspect_ratio", "layout_mode", "tracker_on",
+               "caption_style", "edit_state", "crop_keyframes", "start", "end"}
+    for k, v in payload.items():
+        if k in allowed:
+            setattr(clip, k, v)
+    await db.commit()
+    return {"ok": True, "saved_at": __import__("datetime").datetime.utcnow().isoformat()}
+
+
+# ---------- export ----------
+
+@router.post("/clips/{clip_id}/export")
+async def export_clip(
+    clip_id: str,
+    payload: dict,
+    user: User = Depends(get_current_user),
+    db: AsyncSession = Depends(get_db),
+):
+    clip = await _get_owned_clip(clip_id, user, db)
+    eid = str(uuid.uuid4())
+    exp = ClipExport(
+        id=eid, clip_id=clip.id,
+        resolution=payload.get("resolution", "1080p"),
+        watermark=bool(payload.get("watermark", False)),
+        status="queued", percent=0,
+    )
+    db.add(exp)
+    await db.commit()
+    dispatch_export(eid)
+    return {"export_id": eid, "status": "queued"}
+
+
+@router.get("/exports/{export_id}")
+async def export_status(
+    export_id: str,
+    user: User = Depends(get_current_user),
+    db: AsyncSession = Depends(get_db),
+):
+    exp = await db.get(ClipExport, export_id)
+    if not exp:
+        raise HTTPException(status.HTTP_404_NOT_FOUND, "Export tidak ditemukan.")
+    return {
+        "id": exp.id, "status": exp.status, "percent": exp.percent,
+        "error_message": exp.error_message, "file_path": exp.file_path,
+        "file_size": exp.file_size, "resolution": exp.resolution,
+        "created_at": exp.created_at.isoformat() if exp.created_at else None,
+    }
+
+
+@router.get("/clips/{clip_id}/exports")
+async def export_history(
+    clip_id: str,
+    user: User = Depends(get_current_user),
+    db: AsyncSession = Depends(get_db),
+):
+    await _get_owned_clip(clip_id, user, db)
+    rows = (await db.execute(
+        select(ClipExport).where(ClipExport.clip_id == clip_id)
+        .order_by(ClipExport.created_at.desc())
+    )).scalars().all()
+    return {"exports": [{
+        "id": e.id, "status": e.status, "percent": e.percent,
+        "file_path": e.file_path, "resolution": e.resolution,
+        "created_at": e.created_at.isoformat() if e.created_at else None,
+    } for e in rows]}
+
+
+# ---------- media upload user ----------
+
+@router.post("/projects/{project_id}/media")
+async def upload_media(
+    project_id: str,
+    file: UploadFile = File(...),
+    user: User = Depends(get_current_user),
+    db: AsyncSession = Depends(get_db),
+):
+    """Upload gambar/video/audio user untuk overlay (menu Media)."""
+    await _get_owned_project(project_id, user, db)
+    ext = Path(file.filename or "").suffix.lower()
+    kinds = {".jpg": "image", ".jpeg": "image", ".png": "image", ".webp": "image", ".gif": "image",
+             ".mp4": "video", ".webm": "video", ".mov": "video",
+             ".mp3": "audio", ".wav": "audio", ".m4a": "audio"}
+    if ext not in kinds:
+        raise HTTPException(status.HTTP_422_UNPROCESSABLE_ENTITY, "Format file tidak didukung.")
+    from core.clipstudio.paths import project_dir, rel_storage
+    mdir = project_dir(project_id) / "media"
+    mdir.mkdir(exist_ok=True)
+    safe = re.sub(r"[^A-Za-z0-9._-]", "_", file.filename)
+    dest = mdir / f"{uuid.uuid4().hex[:8]}_{safe}"
+    with open(dest, "wb") as f:
+        while chunk := await file.read(1024 * 1024):
+            f.write(chunk)
+    return {"url": rel_storage(dest), "type": kinds[ext], "name": file.filename,
+            "note": "File media disimpan 30 hari, otomatis terhapus saat project dihapus."}
+
+
+@router.get("/projects/{project_id}/media")
+async def list_media(
+    project_id: str,
+    user: User = Depends(get_current_user),
+    db: AsyncSession = Depends(get_db),
+):
+    await _get_owned_project(project_id, user, db)
+    from core.clipstudio.paths import project_dir, rel_storage
+    mdir = project_dir(project_id) / "media"
+    items = []
+    if mdir.exists():
+        kinds = {".jpg": "image", ".jpeg": "image", ".png": "image", ".webp": "image", ".gif": "image",
+                 ".mp4": "video", ".webm": "video", ".mov": "video",
+                 ".mp3": "audio", ".wav": "audio", ".m4a": "audio"}
+        for f in sorted(mdir.iterdir()):
+            k = kinds.get(f.suffix.lower())
+            if k:
+                items.append({"url": rel_storage(f), "type": k, "name": f.name})
+    return {"media": items}
+
+
+# ---------- B-roll (Pexels) ----------
+
+@router.get("/broll")
+async def search_broll(
+    q: str,
+    media_type: str = "videos",
+    user: User = Depends(get_current_user),
+):
+    """Cari stock footage/gambar Pexels (gratis). Butuh PEXELS_API_KEY di .env."""
+    import os
+    key = settings.PEXELS_API_KEY or os.getenv("PEXELS_API_KEY", "")
+    if not key:
+        return {"items": [], "error": "PEXELS_API_KEY belum diisi di .env — fitur B-roll stock nonaktif. "
+                                      "Daftar gratis di https://www.pexels.com/api/"}
+    headers = {"Authorization": key}
+    async with httpx.AsyncClient(timeout=20) as client:
+        if media_type == "photos":
+            r = await client.get("https://api.pexels.com/v1/search",
+                                 params={"query": q, "per_page": 12}, headers=headers)
+            data = r.json()
+            items = [{
+                "type": "image", "thumb": p["src"]["medium"], "url": p["src"]["large"],
+                "by": p.get("photographer", ""),
+            } for p in data.get("photos", [])]
+        else:
+            r = await client.get("https://api.pexels.com/videos/search",
+                                 params={"query": q, "per_page": 12}, headers=headers)
+            data = r.json()
+            items = []
+            for v in data.get("videos", []):
+                files = sorted(v.get("video_files", []), key=lambda f: f.get("width") or 0)
+                pick = next((f for f in files if (f.get("width") or 0) >= 720), files[-1] if files else None)
+                if pick:
+                    items.append({"type": "video", "thumb": v.get("image"),
+                                  "url": pick["link"], "by": v.get("user", {}).get("name", "")})
+    return {"items": items}
+
+
+# ---------- AI tools (hook, emoji, keyword, b-roll keywords) ----------
+
+@router.post("/clips/{clip_id}/ai")
+async def clip_ai_tools(
+    clip_id: str,
+    payload: dict,
+    user: User = Depends(get_current_user),
+    db: AsyncSession = Depends(get_db),
+):
+    """
+    action: hooks | emoji | keywords | broll_keywords
+    Mengembalikan saran AI; frontend yang menerapkan ke edit_state (undo-able).
+    """
+    clip = await _get_owned_clip(clip_id, user, db)
+    tr = (await db.execute(
+        select(ClipTranscript).where(ClipTranscript.project_id == clip.project_id)
+    )).scalar_one_or_none()
+    words = (tr.words if tr else []) or []
+    lang = tr.language if tr else "id"
+    lang_label = "bahasa Indonesia" if (lang or "id").startswith("id") else "English"
+
+    es = clip.edit_state or {}
+    cstart = float(es.get("extend", {}).get("start", clip.start))
+    cend = float(es.get("extend", {}).get("end", clip.end))
+    indexed = [(i, w) for i, w in enumerate(words)
+               if w["end"] > cstart and w["start"] < cend]
+    text = " ".join(w["word"].strip() for _, w in indexed)[:6000]
+    action = payload.get("action")
+
+    if action == "hooks":
+        raw = llm_complete(
+            "Kamu copywriter video viral. Jawab HANYA JSON murni.",
+            f"Transkrip klip ({lang_label}): \"{text}\"\n\n"
+            f"Buat 3 alternatif kalimat HOOK pembuka yang sangat menarik (max 9 kata) "
+            f"untuk text overlay 3 detik pertama. Output: [\"hook1\", \"hook2\", \"hook3\"]",
+            max_tokens=400,
+        )
+        hooks = extract_json(raw) or []
+        if not isinstance(hooks, list) or not hooks:
+            hooks = ["Tonton sampai habis!", "Kamu wajib tahu ini", "Jangan skip bagian ini"]
+        return {"hooks": [str(h)[:120] for h in hooks[:3]]}
+
+    if action == "emoji":
+        numbered = " ".join(f"[{i}]{w['word'].strip()}" for i, w in indexed)
+        raw = llm_complete(
+            "Kamu editor caption video. Jawab HANYA JSON murni.",
+            f"Kata-kata klip dengan index: {numbered[:6000]}\n\n"
+            f"Pilih kata di AKHIR kalimat yang cocok diberi 1 emoji relevan (max 6 kata). "
+            f'Output: {{"index_kata": "emoji"}} contoh {{"12": "🔥", "27": "😱"}}',
+            max_tokens=400,
+        )
+        data = extract_json(raw) or {}
+        edits = {}
+        for k, v in (data.items() if isinstance(data, dict) else []):
+            try:
+                i = int(k)
+            except ValueError:
+                continue
+            if 0 <= i < len(words):
+                edits[str(i)] = words[i]["word"].strip() + " " + str(v)[:4]
+        return {"word_edits": edits}
+
+    if action == "keywords":
+        numbered = " ".join(f"[{i}]{w['word'].strip()}" for i, w in indexed)
+        raw = llm_complete(
+            "Kamu editor caption video. Jawab HANYA JSON murni.",
+            f"Kata-kata klip dengan index: {numbered[:6000]}\n\n"
+            f"Tandai 1-2 kata PENTING per kalimat untuk di-highlight warna. "
+            f'Output: {{"index_kata": "#FFD400"}} (boleh #FFD400 kuning atau #FF3CAC pink)',
+            max_tokens=500,
+        )
+        data = extract_json(raw) or {}
+        kw = {}
+        for k, v in (data.items() if isinstance(data, dict) else []):
+            try:
+                i = int(k)
+            except ValueError:
+                continue
+            color = str(v) if re.match(r"^#[0-9A-Fa-f]{6}$", str(v)) else "#FFD400"
+            if 0 <= i < len(words):
+                kw[str(i)] = color
+        return {"keyword_colors": kw}
+
+    if action == "broll_keywords":
+        raw = llm_complete(
+            "Kamu video editor. Jawab HANYA JSON murni.",
+            f"Transkrip klip: \"{text}\"\n\n"
+            f"Sarankan 5 kata kunci pencarian stock footage B-roll dalam English "
+            f"(Pexels) yang relevan dengan isi pembicaraan. Output: [\"kw1\", ...]",
+            max_tokens=200,
+        )
+        kws = extract_json(raw) or []
+        if not isinstance(kws, list) or not kws:
+            kws = ["business meeting", "city timelapse", "nature landscape"]
+        return {"keywords": [str(k)[:50] for k in kws[:6]]}
+
+    raise HTTPException(status.HTTP_422_UNPROCESSABLE_ENTITY, "action tidak dikenal.")

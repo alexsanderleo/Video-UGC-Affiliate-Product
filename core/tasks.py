@@ -659,6 +659,21 @@ async def async_render_video(
                 pass
 
 
+# ---------- Clip Studio (Auto Klip VIP) ----------
+# Worker celery menjalankan pipeline yang sama dengan thread lokal (core/clipstudio/runner.py).
+
+@shared_task(name="core.tasks.clipstudio_process_project")
+def clipstudio_process_project_task(project_id: str):
+    from core.clipstudio.runner import process_project
+    return process_project(project_id)
+
+
+@shared_task(name="core.tasks.clipstudio_process_export")
+def clipstudio_process_export_task(export_id: str):
+    from core.clipstudio.runner import process_export
+    return process_export(export_id)
+
+
 @shared_task(name="core.tasks.convert_video")
 def convert_video_task(
     job_id: str,

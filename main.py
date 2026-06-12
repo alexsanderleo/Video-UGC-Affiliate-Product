@@ -88,9 +88,14 @@ async def legacy_generate_video(response=Depends(generate_video)):
 # Ensure directories exist
 os.makedirs("static", exist_ok=True)
 os.makedirs("outputs", exist_ok=True)
+os.makedirs(os.path.join("storage", "projects"), exist_ok=True)
 
 app.mount("/static", StaticFiles(directory="static"), name="static")
 app.mount("/outputs", StaticFiles(directory="outputs"), name="outputs")
+# Clip Studio: media sumber + hasil (StaticFiles mendukung HTTP Range utk <video> seek)
+app.mount("/storage", StaticFiles(directory="storage"), name="storage")
+if os.path.isdir("backsounds"):
+    app.mount("/backsounds", StaticFiles(directory="backsounds"), name="backsounds")
 
 
 @app.get("/", tags=["UI"], summary="Serve frontend homepage")
@@ -100,6 +105,24 @@ async def serve_index():
     if os.path.exists(index_path):
         return FileResponse(index_path)
     return HTMLResponse("<h3>Static folder index.html not found.</h3>", status_code=404)
+
+
+@app.get("/clipstudio", tags=["UI"], summary="Serve Clip Studio (Auto Klip VIP)")
+async def serve_clipstudio():
+    """Halaman utama Clip Studio: input URL, progress, grid hasil klip."""
+    path = os.path.join("static", "clipstudio.html")
+    if os.path.exists(path):
+        return FileResponse(path)
+    return HTMLResponse("<h3>clipstudio.html not found.</h3>", status_code=404)
+
+
+@app.get("/clipstudio/editor", tags=["UI"], summary="Serve Clip Editor")
+async def serve_clipeditor():
+    """Editor klip lengkap ala Opus Clip (transkrip, preview, timeline, caption)."""
+    path = os.path.join("static", "clipeditor.html")
+    if os.path.exists(path):
+        return FileResponse(path)
+    return HTMLResponse("<h3>clipeditor.html not found.</h3>", status_code=404)
 
 
 @app.get("/mimin", tags=["UI"], summary="Serve admin dashboard")

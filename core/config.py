@@ -52,6 +52,17 @@ class Settings(BaseSettings):
     AGOMART_TOOL_SLUG: str = "video"          # slug produk di agomart untuk app ini
     AGOMART_AUTH_ENABLED: bool = True         # set False untuk pakai auth lokal sepenuhnya
 
+    # --- Clip Studio (Auto Klip VIP) ---
+    STORAGE_DIR: Path = BASE_DIR / "storage"          # storage/projects/{id}/...
+    CLIP_USE_CELERY: bool = False                     # True di VPS (worker celery); False = thread lokal
+    CLIP_MAX_SOURCE_SECONDS: int = 7200               # tolak video > 2 jam
+    WHISPER_MODEL: str = "small"                      # small utk dev CPU; medium/large-v3 di server kuat
+    WHISPER_DEVICE: str = "cpu"
+    WHISPER_COMPUTE: str = "int8"
+    ANTHROPIC_API_KEY: str = ""                       # AI curation utama (Claude)
+    ANTHROPIC_MODEL: str = "claude-sonnet-4-6"
+    PEXELS_API_KEY: str = ""                          # B-roll stock footage (gratis)
+
     model_config = {
         "env_file": ".env",
         "env_file_encoding": "utf-8",
