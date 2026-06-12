@@ -459,6 +459,30 @@
     return '';
   }
 
+  // ---------------- MOTION sinematik B-roll (Ken Burns) — preview CSS = export ffmpeg ----------------
+  const BROLL_MOTION = [
+    ['none', 'Diam'], ['kenburns', '🎬 Ken Burns (zoom halus)'], ['zoom-in', 'Zoom In'],
+    ['zoom-out', 'Zoom Out'], ['pan-left', 'Geser Kiri'], ['pan-right', 'Geser Kanan'],
+    ['pan-up', 'Geser Atas'], ['pan-down', 'Geser Bawah'],
+  ];
+  function brollMotion(it, t) {
+    // progress 0..1 dalam rentang broll; return {scale, tx, ty} (tx/ty dalam % stage)
+    const m = it.motion || 'none';
+    if (m === 'none') return { scale: 1, tx: 0, ty: 0 };
+    const s = it.start || 0, e = it.end || s + 2;
+    const p = clamp((t - s) / Math.max(0.2, e - s), 0, 1);
+    const Z = 0.16;   // amplitudo zoom, P = pan
+    if (m === 'zoom-in') return { scale: 1 + Z * p, tx: 0, ty: 0 };
+    if (m === 'zoom-out') return { scale: 1 + Z * (1 - p), tx: 0, ty: 0 };
+    if (m === 'kenburns') return { scale: 1.08 + Z * p, tx: (p - 0.5) * 4, ty: (p - 0.5) * 3 };
+    const PZ = 1.16, P = 6;   // pan butuh sedikit zoom agar ada ruang geser
+    if (m === 'pan-left') return { scale: PZ, tx: (0.5 - p) * P, ty: 0 };
+    if (m === 'pan-right') return { scale: PZ, tx: (p - 0.5) * P, ty: 0 };
+    if (m === 'pan-up') return { scale: PZ, tx: 0, ty: (0.5 - p) * P };
+    if (m === 'pan-down') return { scale: PZ, tx: 0, ty: (p - 0.5) * P };
+    return { scale: 1, tx: 0, ty: 0 };
+  }
+
   // ---------------- TEXT OVERLAY ber-style ala Opus (bg rounded, align, italic) ----------------
   // Preview = CSS live; untuk export, teks dirender PNG LOKAL via canvas (tanpa API eksternal)
   // lalu diupload sbg media project — ffmpeg drawtext tidak bisa bg rounded/wrap/align.
@@ -618,6 +642,11 @@
           (it.rot ? ' rotate(' + it.rot + 'deg)' : '');
       } else if (v.kind === 'texts') {
         el.style.transform = 'translate(' + an.dx + 'px,' + an.dy + 'px)';
+      } else if (v.kind === 'broll') {
+        const mo = brollMotion(it, t);
+        el.style.transformOrigin = 'center center';
+        el.style.transform = 'translate(' + mo.tx.toFixed(2) + '%,' + mo.ty.toFixed(2) + '%) scale(' + mo.scale.toFixed(3) + ')';
+        // fade transisi masuk/keluar (anim_in/out) sudah lewat opacity di animState
       }
     }
     const tl2 = $('textLayer');
@@ -761,7 +790,165 @@
     });
     tbox.innerHTML = '';
     tbox.appendChild(frag);
+    updateSelToolbar();
   }
+
+  // ---------------- toolbar mengambang saat sorot kata (ala Opus) ----------------
+  function selRangeOut() {
+    // rentang waktu OUTPUT dari kata-kata terpilih (utk taruh B-roll tepat di sana)
+    const idxs = [...selWords].sort((a2, b2) => a2 - b2);
+    if (!idxs.length) return null;
+    const ws = idxs.map((i) => WORDS[i]).filter(Boolean);
+    if (!ws.length) return null;
+    const s0 = Math.min(...ws.map((w) => w.start));
+    const e0 = Math.max(...ws.map((w) => w.end));
+    return { idxs, text: idxs.map((i) => wordText(i)).join(' ').trim(),
+             start: srcToOut(s0), end: srcToOut(e0) };
+  }
+  function closeSelMenu() { const m = $('selMenuEl'); if (m) m.remove(); }
+  function updateSelToolbar() {
+    const tp = tbox.parentElement;          // .tpanel (position:relative)
+    let bar = $('selToolEl');
+    closeSelMenu();
+    if (!selWords.size || extendMode) { if (bar) bar.remove(); return; }
+    if (!bar) {
+      bar = document.createElement('div');
+      bar.className = 'seltool'; bar.id = 'selToolEl';
+      tp.appendChild(bar);
+    }
+    bar.innerHTML =
+      '<button data-m="add">＋ Add ▾</button><span class="sep"></span>' +
+      '<button data-m="hl">🖍 Highlight ▾</button><span class="sep"></span>' +
+      '<button data-m="del" title="Hapus kata (video ikut terpotong)">🗑</button>';
+    // posisikan di atas kata terpilih pertama yang terlihat
+    const first = tbox.querySelector('.w.sel');
+    if (first) {
+      const cr = first.getBoundingClientRect(), pr = tp.getBoundingClientRect();
+      let left = cr.left - pr.left + cr.width / 2;
+      let top = cr.top - pr.top - 8;
+      left = clamp(left, 84, tp.clientWidth - 84);
+      if (top < 40) top = cr.bottom - pr.top + 36;   // kalau mepet atas, taruh di bawah
+      bar.style.left = left + 'px';
+      bar.style.top = top + 'px';
+    }
+    bar.querySelectorAll('[data-m]').forEach((b) => b.addEventListener('click', (e) => {
+      e.stopPropagation();
+      if (b.dataset.m === 'del') { deleteSelected(); return; }
+      openSelMenu(b.dataset.m, b);
+    }));
+  }
+  function openSelMenu(kind, anchorBtn) {
+    closeSelMenu();
+    const tp = tbox.parentElement;
+    const menu = document.createElement('div');
+    menu.className = 'selmenu'; menu.id = 'selMenuEl';
+    if (kind === 'add') {
+      menu.innerHTML =
+        '<button data-a="aibroll">🪄 AI B-Roll <span style="opacity:.6;font-size:.72rem">(gambar AI)</span></button>' +
+        '<button data-a="stock">🎞️ Stock B-Roll</button>' +
+        '<button data-a="emoji">😊 Emoji</button>' +
+        '<button data-a="hook">🎙 AI hook</button>';
+    } else {
+      menu.innerHTML =
+        '<button data-c=""><span class="dot" style="background:#fff"></span> Font color (hapus highlight)</button>' +
+        '<button data-c="#39FF14"><span class="dot" style="background:#39FF14"></span> Highlight 1 (hijau)</button>' +
+        '<button data-c="#FFE600"><span class="dot" style="background:#FFE600"></span> Highlight 2 (kuning)</button>' +
+        '<button data-c="__custom"><span class="dot" style="background:linear-gradient(135deg,#f0f,#0ff)"></span> Warna lain…</button>';
+    }
+    tp.appendChild(menu);
+    const ar = anchorBtn.getBoundingClientRect(), pr = tp.getBoundingClientRect();
+    menu.style.left = clamp(ar.left - pr.left, 6, tp.clientWidth - 178) + 'px';
+    menu.style.top = (ar.bottom - pr.top + 6) + 'px';
+    if (kind === 'add') {
+      menu.querySelectorAll('[data-a]').forEach((b) => b.addEventListener('click', (e) => {
+        e.stopPropagation(); selAddAction(b.dataset.a);
+      }));
+    } else {
+      menu.querySelectorAll('[data-c]').forEach((b) => b.addEventListener('click', (e) => {
+        e.stopPropagation();
+        let c = b.dataset.c;
+        if (c === '__custom') {
+          const inp = document.createElement('input');
+          inp.type = 'color'; inp.value = '#FF3CAC'; inp.style.cssText = 'position:fixed;left:-999px';
+          document.body.appendChild(inp);
+          inp.addEventListener('input', () => { applyHighlight(inp.value); inp.remove(); });
+          inp.click();
+          return;
+        }
+        applyHighlight(c);
+      }));
+    }
+  }
+  function applyHighlight(color) {
+    ES.keyword_colors = ES.keyword_colors || {};
+    selWords.forEach((i) => {
+      if (color) ES.keyword_colors[String(i)] = color;
+      else delete ES.keyword_colors[String(i)];
+    });
+    lastCapKey = '';
+    commit(); renderTranscript();
+  }
+  async function selAddAction(a) {
+    const sel = selRangeOut();
+    closeSelMenu();
+    if (!sel) return;
+    if (a === 'stock') {
+      openPanelByName('broll');
+      setTimeout(() => { const q = $('brQ'); if (q) { q.value = sel.text.slice(0, 60); q.dispatchEvent(new KeyboardEvent('keydown', { key: 'Enter' })); } }, 120);
+      return;
+    }
+    if (a === 'hook') {
+      openPanelByName('hook');
+      setTimeout(() => { const t = $('hkText'); if (t) t.value = sel.text; }, 120);
+      return;
+    }
+    if (a === 'emoji') {
+      openEmojiPicker(sel);
+      return;
+    }
+    if (a === 'aibroll') {
+      const bar = $('selToolEl');
+      if (bar) bar.querySelector('[data-m="add"]').textContent = '⏳ AI menggambar…';
+      try {
+        const d = await api('/clips/' + clipId + '/broll-image', {
+          method: 'POST', headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ text: sel.text }),
+        });
+        ES.broll = ES.broll || [];
+        ES.broll.push({ url: d.url, type: 'image', start: sel.start,
+                        end: Math.min(outDuration(), Math.max(sel.end, sel.start + 1.5)),
+                        ai: true, motion: 'kenburns', anim_in: 'fade', anim_out: 'fade' });
+        selWords.clear();
+        commit(); renderTimeline(); renderTranscript();
+      } catch (e) {
+        alert('AI B-Roll gagal: ' + e.message);
+        updateSelToolbar();
+      }
+    }
+  }
+  const EMOJI_PICK = ['😀', '😍', '🔥', '💯', '😂', '😮', '👏', '🙏', '💪', '✨', '👍', '❤️', '🤔', '😎', '🚀', '⭐', '💰', '🎯', '👀', '🤯'];
+  function openEmojiPicker(sel) {
+    const lastI = [...selWords].sort((a2, b2) => a2 - b2).pop();
+    openDialog(
+      '<h3>😊 Tambah Emoji</h3>' +
+      '<p style="font-size:.82rem;color:var(--muted);margin-bottom:8px">Disisipkan ke kata: <b>' + (wordText(lastI) || '') + '</b></p>' +
+      '<div style="display:grid;grid-template-columns:repeat(5,1fr);gap:6px">' +
+      EMOJI_PICK.map((em) => '<button class="btn btn-g" data-em="' + em + '" style="font-size:1.4rem;padding:8px">' + em + '</button>').join('') +
+      '</div><div class="row2" style="margin-top:10px"><button class="btn btn-g" data-x>Tutup</button></div>'
+    );
+    document.querySelectorAll('#dlgRoot [data-em]').forEach((b) => b.addEventListener('click', () => {
+      ES.word_edits = ES.word_edits || {};
+      ES.word_edits[String(lastI)] = (wordText(lastI) + ' ' + b.dataset.em).trim();
+      lastCapKey = '';
+      commit(); renderTranscript(); closeDialog();
+    }));
+  }
+  // tutup menu sorot saat klik di luar
+  document.addEventListener('click', (e) => {
+    if (e.target.closest('.selmenu') || e.target.closest('.seltool') || e.target.closest('.w')) return;
+    closeSelMenu();
+  });
+  tbox.addEventListener('scroll', () => { if (selWords.size && $('selToolEl')) updateSelToolbar(); });
 
   let lastActiveEl = null;
   function highlightActiveWord() {
@@ -1467,6 +1654,11 @@
     });
   });
   function refreshOpenPanel() { if (openMenu) renderPanel(openMenu); }
+  function openPanelByName(m) {
+    openMenu = m; sbody.classList.add('open');
+    document.querySelectorAll('#srail button').forEach((x) => x.classList.toggle('on', x.dataset.menu === m));
+    renderPanel(m); setTimeout(layoutStage, 50);
+  }
 
   function renderPanel(m) {
     if (m === 'ai') return panelAI();
@@ -1933,8 +2125,19 @@
       (ES.broll || []).forEach((b, i) => {
         const r = document.createElement('div');
         r.className = 'itemrow';
-        r.innerHTML = '<span class="nm">' + (b.ai ? '✨ AI' : '🎞') + ' B-roll ' + (i + 1) + ' (' + fmtT(b.start) + '–' + fmtT(b.end) + ')</span><button>✕</button>';
-        r.querySelector('button').addEventListener('click', () => { ES.broll.splice(i, 1); commit(); renderTimeline(); renderUsed(); });
+        r.style.flexWrap = 'wrap';
+        const motOpts = BROLL_MOTION.map((m) => '<option value="' + m[0] + '"' + ((b.motion || 'none') === m[0] ? ' selected' : '') + '>' + m[1] + '</option>').join('');
+        r.innerHTML = '<span class="nm">' + (b.ai ? '✨ AI' : '🎞') + ' B-roll ' + (i + 1) + ' (' + fmtT(b.start) + '–' + fmtT(b.end) + ')</span>' +
+          '<button data-del>✕</button>' +
+          '<div style="flex-basis:100%;display:flex;gap:6px;margin-top:5px;align-items:center">' +
+          '<select data-mot style="flex:1;font-size:.72rem">' + motOpts + '</select>' +
+          '<label style="font-size:.66rem;white-space:nowrap"><input type="checkbox" data-fade ' + (b.anim_in ? 'checked' : '') + ' style="width:auto"> fade</label></div>';
+        r.querySelector('[data-del]').addEventListener('click', () => { ES.broll.splice(i, 1); commit(); renderTimeline(); renderUsed(); });
+        r.querySelector('[data-mot]').addEventListener('change', (ev) => { b.motion = ev.target.value; commit(); });
+        r.querySelector('[data-fade]').addEventListener('change', (ev) => {
+          if (ev.target.checked) { b.anim_in = 'fade'; b.anim_out = 'fade'; } else { b.anim_in = null; b.anim_out = null; }
+          commit();
+        });
         used.appendChild(r);
       });
     };

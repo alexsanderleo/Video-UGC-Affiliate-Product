@@ -99,6 +99,41 @@ def _esc_drawtext(s: str) -> str:
     return s.replace("\\", "").replace("'", "’").replace(":", "\\:").replace("%", "\\%")
 
 
+def _kenburns_chain(motion: str, ts: float, te: float, out_w: int, out_h: int) -> str:
+    """
+    Rantai filter Ken Burns (setara preview brollMotion di JS): oversample 2x lalu
+    zoompan. Basis zoom B=2 → 'cover pas' = zoom 2.0, zoom-in ke 2*(1+Z).
+    `on`/fv = progres 0..1 sepanjang jendela broll (input sudah windowed @30fps).
+    """
+    B = 2.0
+    Z = 0.18
+    fv = max(1, round((te - ts) * 30))
+    p = f"min(on/{fv}\\,1)"                    # progres 0..1 (koma di-escape utk script)
+    bw, bh = int(out_w * B), int(out_h * B)
+    xc = "iw/2-(iw/zoom/2)"
+    yc = "ih/2-(ih/zoom/2)"
+    if motion == "zoom-in":
+        z, x, y = f"{B}*(1+{Z}*{p})", xc, yc
+    elif motion == "zoom-out":
+        z, x, y = f"{B}*(1+{Z}*(1-{p}))", xc, yc
+    elif motion == "kenburns":
+        z = f"{B}*(1.04+{Z*0.7:.4f}*{p})"
+        x = f"{xc}+({p}-0.5)*iw*0.05"
+        y = f"{yc}+({p}-0.5)*ih*0.04"
+    elif motion == "pan-left":
+        z, x, y = f"{B}*1.1", f"{xc}+(0.5-{p})*iw*0.10", yc
+    elif motion == "pan-right":
+        z, x, y = f"{B}*1.1", f"{xc}+({p}-0.5)*iw*0.10", yc
+    elif motion == "pan-up":
+        z, x, y = f"{B}*1.1", xc, f"{yc}+(0.5-{p})*ih*0.10"
+    elif motion == "pan-down":
+        z, x, y = f"{B}*1.1", xc, f"{yc}+({p}-0.5)*ih*0.10"
+    else:
+        return f"scale={out_w}:{out_h}:force_original_aspect_ratio=increase,crop={out_w}:{out_h}"
+    return (f"scale={bw}:{bh}:force_original_aspect_ratio=increase,crop={bw}:{bh},"
+            f"zoompan=z='{z}':x='{x}':y='{y}':d=1:s={out_w}x{out_h}:fps=30")
+
+
 def _has_audio(path: Path) -> bool:
     r = subprocess.run(["ffprobe", "-v", "error", "-select_streams", "a",
                         "-show_entries", "stream=codec_type", "-of", "csv=p=0", str(path)],
@@ -338,7 +373,14 @@ def render_clip_export(project, clip, export, words: list, progress_cb=None) -> 
         if not p:
             continue
         kind = item.get("type") or ("video" if p.suffix.lower() in (".mp4", ".webm", ".mov") else "image")
-        if kind == "image":
+        if kind == "image" and group == "broll":
+            # B-roll gambar: input WINDOWED (hanya selama tampil) + 30fps tetap supaya
+            # motion Ken Burns (zoompan) mulus & murah. setpts nanti geser ke start.
+            bts = float(item.get("start") or 0)
+            bte = float(item.get("end") or bts + 2)
+            bdur = max(0.2, bte - bts)
+            inputs += ["-loop", "1", "-t", f"{bdur:.3f}", "-r", "30", "-i", str(p)]
+        elif kind == "image":
             inputs += ["-loop", "1", "-t", str(out_duration), "-i", str(p)]
         else:
             inputs += ["-stream_loop", "0", "-i", str(p)]
@@ -481,7 +523,11 @@ def render_clip_export(project, clip, export, words: list, progress_cb=None) -> 
             in_idx, kind = op["in_idx"], op["kind"]
             # rantai pra-proses overlay: scale -> mask -> rotasi -> border -> fade alpha
             pre = []
-            if kind.startswith("broll"):
+            motion = (item.get("motion") or "none").lower()
+            if kind == "broll-image" and motion != "none":
+                # Ken Burns sinematik (setara preview): oversample lalu zoompan.
+                pre.append(_kenburns_chain(motion, ts, te, out_w, out_h))
+            elif kind.startswith("broll"):
                 pre.append(f"scale={out_w}:{out_h}:force_original_aspect_ratio=increase,crop={out_w}:{out_h}")
             else:
                 ow = int(out_w * (float(item.get("w_pct") or 40) / 100))
