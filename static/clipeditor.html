@@ -61,8 +61,8 @@ input,select{font-family:inherit}
 #bgVideo{filter:blur(22px) brightness(.55);object-fit:cover;width:100%;height:100%;position:absolute;inset:0;display:none}
 #capOverlay{position:absolute;left:0;right:0;text-align:center;pointer-events:auto;cursor:grab;z-index:5;padding:0 14px;line-height:1.25}
 #capOverlay span{display:inline-block;margin:0 .14em}
-.playbig{position:absolute;inset:0;display:flex;align-items:center;justify-content:center;z-index:6;background:rgba(0,0,0,.001)}
-.playbig div{width:64px;height:64px;border-radius:50%;background:rgba(0,0,0,.55);display:flex;align-items:center;justify-content:center;font-size:1.5rem;opacity:0;transition:.2s}
+.playbig{position:absolute;inset:0;display:flex;align-items:center;justify-content:center;z-index:6;background:rgba(0,0,0,.001);pointer-events:none}
+.playbig div{width:64px;height:64px;border-radius:50%;background:rgba(0,0,0,.55);display:flex;align-items:center;justify-content:center;font-size:1.5rem;opacity:.85;transition:.2s}
 .stage:hover .playbig div{opacity:1}
 
 /* Sidebar kanan */

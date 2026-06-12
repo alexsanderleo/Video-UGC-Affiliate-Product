@@ -269,24 +269,36 @@
     vid.style.top = (-y * scale) + 'px';
   }
 
-  // drag crop manual (override AI per keyframe)
+  // Interaksi stage: KLIK (tanpa geser) = play/pause; GESER = pindah crop manual.
+  // (pola CapCut/YouTube — tombol play besar hanya visual, pointer-events none)
   let dragCrop = null;
   stage.addEventListener('pointerdown', (e) => {
-    if (e.target.closest('#capOverlay')) return;
-    if (layout !== 'fill') return;
+    if (e.target.closest('#capOverlay')) return;          // caption: drag posisi / klik edit
+    if (e.target.closest('[data-oi]')) return;            // overlay media: drag sendiri
     const [cx, cy] = interpCenter(vid.currentTime);
-    dragCrop = { x0: e.clientX, y0: e.clientY, cx, cy };
+    dragCrop = { x0: e.clientX, y0: e.clientY, cx, cy, moved: false };
     stage.setPointerCapture(e.pointerId);
   });
   stage.addEventListener('pointermove', (e) => {
     if (!dragCrop) return;
+    if (!dragCrop.moved &&
+        Math.abs(e.clientX - dragCrop.x0) < 5 && Math.abs(e.clientY - dragCrop.y0) < 5) return;
+    dragCrop.moved = true;
+    if (layout !== 'fill') return;                        // crop drag hanya mode Fill
     const [, , w] = cropWindow(dragCrop.cx, dragCrop.cy);
     const scale = stageW / w;
     const ncx = clamp(dragCrop.cx - (e.clientX - dragCrop.x0) / scale, 0, project.width);
     const ncy = clamp(dragCrop.cy - (e.clientY - dragCrop.y0) / scale, 0, project.height);
     setKeyframeAt(vid.currentTime, ncx, ncy, false);
   });
-  stage.addEventListener('pointerup', () => { if (dragCrop) { dragCrop = null; commit(); } });
+  stage.addEventListener('pointerup', () => {
+    if (!dragCrop) return;
+    const wasClick = !dragCrop.moved;
+    const didCrop = dragCrop.moved && layout === 'fill';
+    dragCrop = null;
+    if (wasClick) { playing ? pause() : play(); }         // klik = play/pause
+    else if (didCrop) { commit(); }
+  });
   function setKeyframeAt(t, cx, cy, doCommit) {
     let kfs = (ES.crop_keyframes && ES.crop_keyframes.length ? ES.crop_keyframes
       : JSON.parse(JSON.stringify(clip.crop_keyframes || []))) || [];
@@ -470,11 +482,13 @@
     if (vid.currentTime < cs() || vid.currentTime >= ce() - 0.05) vid.currentTime = keptSegments()[0] ? keptSegments()[0][0] : cs();
     vid.play(); if (layout === 'fit') bgVid.play().catch(() => {});
     playing = true; $('btnPlay').textContent = '⏸';
+    $('playBig').style.display = 'none';
   }
   function pause() {
     vid.pause(); bgVid.pause();
     voAudios.forEach((a) => { try { a.el.pause(); } catch (e) {} });
     playing = false; $('btnPlay').textContent = '▶';
+    $('playBig').style.display = 'flex';
   }
   function seek(t) {
     t = clamp(t, cs(), ce() - 0.03);
