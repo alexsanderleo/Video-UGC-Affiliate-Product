@@ -22,3 +22,7 @@ tools/
 temp/
 tmp_redis/
 *.wav
+
+# Model TTS lokal (Supertonic/Piper) — diunduh otomatis saat pertama dipakai
+models/piper/
+*.onnx

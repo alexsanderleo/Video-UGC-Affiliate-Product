@@ -612,20 +612,51 @@ async def clip_ai_tools(
     raise HTTPException(status.HTTP_422_UNPROCESSABLE_ENTITY, "action tidak dikenal.")
 
 
-# ---------- AI Voice-over (edge-tts) ----------
+# ---------- AI Voice-over (multi-engine: Edge / Supertonic 3 OFFLINE / Piper OFFLINE / gTTS) ----------
 
-VOICEOVER_VOICES = [
-    {"id": "id-ID-ArdiNeural", "name": "Ardi (Pria, Indonesia)"},
-    {"id": "id-ID-GadisNeural", "name": "Gadis (Wanita, Indonesia)"},
-    {"id": "en-US-ChristopherNeural", "name": "Christopher (Male, English)"},
-    {"id": "en-US-JennyNeural", "name": "Jenny (Female, English)"},
-    {"id": "en-US-AnaNeural", "name": "Ana (Child, English)"},
+EDGE_VOICES = [
+    {"id": "edge:id-ID-ArdiNeural", "name": "Ardi (Pria, Indonesia)"},
+    {"id": "edge:id-ID-GadisNeural", "name": "Gadis (Wanita, Indonesia)"},
+    {"id": "edge:ms-MY-OsmanNeural", "name": "Osman (Pria, Melayu)"},
+    {"id": "edge:ms-MY-YasminNeural", "name": "Yasmin (Wanita, Melayu)"},
+    {"id": "edge:en-US-ChristopherNeural", "name": "Christopher (Male, English)"},
+    {"id": "edge:en-US-JennyNeural", "name": "Jenny (Female, English)"},
+    {"id": "edge:en-US-GuyNeural", "name": "Guy (Male, English)"},
+    {"id": "edge:en-US-AnaNeural", "name": "Ana (Child, English)"},
+    {"id": "edge:ja-JP-NanamiNeural", "name": "Nanami (Wanita, Jepang)"},
+    {"id": "edge:ko-KR-SunHiNeural", "name": "SunHi (Wanita, Korea)"},
 ]
+SUPERTONIC_VOICES = (
+    [{"id": f"supertonic:F{i}", "name": f"Supertonic F{i} (Wanita {i}, Indonesia)"} for i in range(1, 6)] +
+    [{"id": f"supertonic:M{i}", "name": f"Supertonic M{i} (Pria {i}, Indonesia)"} for i in range(1, 6)]
+)
+
+
+def _engine_available(mod: str) -> bool:
+    import importlib.util
+    try:
+        return importlib.util.find_spec(mod) is not None
+    except Exception:
+        return False
 
 
 @router.get("/voices")
 async def list_voices():
-    return {"voices": VOICEOVER_VOICES}
+    """Daftar suara TTS per engine — hanya engine yang terpasang di server ini."""
+    groups = [{"engine": "edge", "label": "Edge TTS (online, gratis)", "offline": False,
+               "voices": EDGE_VOICES}]
+    if _engine_available("supertonic"):
+        groups.append({"engine": "supertonic", "label": "Supertonic 3 (OFFLINE, natural)",
+                       "offline": True, "voices": SUPERTONIC_VOICES})
+    if _engine_available("piper"):
+        groups.append({"engine": "piper", "label": "Piper (OFFLINE)", "offline": True,
+                       "voices": [{"id": "piper:id_news", "name": "Piper News (Indonesia)"}]})
+    if _engine_available("gtts"):
+        groups.append({"engine": "gtts", "label": "Google Translate TTS (online)", "offline": False,
+                       "voices": [{"id": "gtts:id", "name": "Google TTS (Indonesia)"}]})
+    # kompatibilitas lama: daftar datar
+    flat = [v for g in groups for v in g["voices"]]
+    return {"groups": groups, "voices": flat}
 
 
 @router.post("/clips/{clip_id}/voiceover")
@@ -635,27 +666,41 @@ async def generate_voiceover(
     user: User = Depends(get_current_user),
     db: AsyncSession = Depends(get_db),
 ):
-    """AI Voice-over: teks -> audio narasi (edge-tts). Frontend menaruhnya di timeline."""
+    """AI Voice-over multi-engine: teks -> audio narasi. Frontend menaruhnya di timeline."""
     clip = await _get_owned_clip(clip_id, user, db)
     text = (payload.get("text") or "").strip()
     if not text:
         raise HTTPException(status.HTTP_422_UNPROCESSABLE_ENTITY, "Teks voice-over kosong.")
-    voice = payload.get("voice") or "id-ID-ArdiNeural"
-    if voice not in {v["id"] for v in VOICEOVER_VOICES}:
-        voice = "id-ID-ArdiNeural"
+    voice = payload.get("voice") or "edge:id-ID-ArdiNeural"
+    if ":" not in voice:                      # kompat: id lama tanpa prefix = edge
+        voice = "edge:" + voice
+    engine, _, vname = voice.partition(":")
 
     from core.clipstudio.paths import project_dir, rel_storage
     mdir = project_dir(clip.project_id) / "media"
     mdir.mkdir(exist_ok=True)
     dest = mdir / f"vo_{uuid.uuid4().hex[:8]}.mp3"
+    text = text[:8000]   # cukup utk dubbing penuh klip 90 detik
 
     try:
-        import edge_tts
-        # 8000 char cukup utk dubbing penuh klip 90 detik
-        com = edge_tts.Communicate(text[:8000], voice)
-        await com.save(str(dest))
+        if engine == "supertonic":
+            # Supertonic 3 OFFLINE (sudah punya fallback edge/gtts internal)
+            from core.tts_local import generate_supertonic
+            await generate_supertonic(text, str(dest), vname)
+        elif engine == "piper":
+            from core.tts_local import generate_piper
+            await generate_piper(text, str(dest), "ffmpeg")
+        elif engine == "gtts":
+            from core.tts_local import generate_gtts
+            await generate_gtts(text, str(dest))
+        else:
+            import edge_tts
+            com = edge_tts.Communicate(text, vname)
+            await com.save(str(dest))
+        if not dest.exists() or dest.stat().st_size < 500:
+            raise RuntimeError(f"Engine {engine} tidak menghasilkan audio.")
     except Exception as e:
-        raise HTTPException(status.HTTP_502_BAD_GATEWAY, f"Gagal generate voice-over: {e}")
+        raise HTTPException(status.HTTP_502_BAD_GATEWAY, f"Gagal generate voice-over ({engine}): {e}")
 
     # durasi via ffprobe
     import subprocess as sp

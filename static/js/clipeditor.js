@@ -1959,7 +1959,15 @@
       list +
       '<p class="note">🔁 = ganti pengisi suara item itu. Dubbing AI membaca seluruh teks caption klip dengan suara pilihan lalu MEME-MUTE suara asli — caption tetap sinkron dengan teks.</p>';
     api('/voices').then((d) => {
-      $('voVoice').innerHTML = d.voices.map((v) => '<option value="' + v.id + '">' + v.name + '</option>').join('');
+      // dropdown berkelompok per engine (Edge / Supertonic 3 OFFLINE / Piper / gTTS)
+      if (d.groups) {
+        $('voVoice').innerHTML = d.groups.map((g) =>
+          '<optgroup label="' + (g.offline ? '📦 ' : '🌐 ') + g.label + '">' +
+          g.voices.map((v) => '<option value="' + v.id + '">' + v.name + '</option>').join('') +
+          '</optgroup>').join('');
+      } else {
+        $('voVoice').innerHTML = d.voices.map((v) => '<option value="' + v.id + '">' + v.name + '</option>').join('');
+      }
     });
     $('voGen').addEventListener('click', async () => {
       const txt = $('voText').value.trim();
