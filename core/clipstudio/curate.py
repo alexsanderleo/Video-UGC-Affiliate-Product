@@ -66,8 +66,12 @@ def _fallback_segments(words: list, dur_range: tuple, max_clips: int) -> list:
 
 
 def curate_clips(words: list, language: str, clip_length: str = "auto",
-                 max_clips: int = 10) -> list:
-    """Pilih segmen klip viral. Return list {start,end,title,score,reason,hashtags}."""
+                 max_clips: int = 10, prompt: str = "") -> list:
+    """
+    Pilih segmen klip viral. Return list {start,end,title,score,reason,hashtags,breakdown}.
+    prompt = instruksi ClipAnything dari user (mis. "cari momen tentang tips bisnis")
+    breakdown = komponen skor ala Opus: {hook, flow, value, trend} masing-masing 0-100.
+    """
     dur_range = DURATION_TARGETS.get(clip_length, DURATION_TARGETS["auto"])
     lo, hi = dur_range
     if not words:
@@ -84,16 +88,26 @@ def curate_clips(words: list, language: str, clip_length: str = "auto",
         "Tugasmu memilih segmen terbaik dari transkrip video untuk dijadikan klip pendek viral. "
         "Jawab HANYA dengan JSON murni tanpa teks lain."
     )
+    prompt_line = ""
+    if (prompt or "").strip():
+        prompt_line = (
+            f"\nINSTRUKSI KHUSUS DARI USER (ClipAnything — WAJIB diprioritaskan): "
+            f"\"{prompt.strip()[:500]}\". Pilih hanya momen yang sesuai instruksi ini.\n"
+        )
     user = (
-        f"Transkrip video (format [detik_mulai - detik_selesai] teks):\n\n{transcript_lines}\n\n"
+        f"Transkrip video (format [detik_mulai - detik_selesai] teks):\n\n{transcript_lines}\n"
+        f"{prompt_line}\n"
         f"Pilih MAKSIMAL {max_clips} segmen berdurasi {lo}-{hi} detik. Syarat tiap segmen:\n"
         f"- Punya HOOK kuat di 3 detik pertama.\n"
         f"- Satu ide utuh — JANGAN memotong di tengah kalimat; gunakan batas waktu kalimat di atas.\n"
-        f"- Beri skor viralitas 0-100 beserta alasan singkat (hook kuat / topik tren / punchline).\n"
+        f"- Beri skor viralitas total 0-100 beserta alasan singkat (hook kuat / topik tren / punchline).\n"
+        f"- Breakdown skor 0-100 per komponen: hook (daya tarik 3 dtk pertama), flow (kelancaran alur), "
+        f"value (nilai/insight bagi penonton), trend (relevansi topik tren).\n"
         f"- Judul clickbait dalam {lang_label}.\n"
         f"- 3 hashtag relevan.\n\n"
         f'Output JSON murni: [{{"start": 12.40, "end": 58.92, "title": "...", "score": 87, '
-        f'"reason": "...", "hashtags": ["#a", "#b", "#c"]}}]'
+        f'"reason": "...", "hashtags": ["#a", "#b", "#c"], '
+        f'"breakdown": {{"hook": 92, "flow": 85, "value": 80, "trend": 88}}}}]'
     )
 
     raw = llm_complete(system, user, max_tokens=4000)
@@ -114,17 +128,24 @@ def curate_clips(words: list, language: str, clip_length: str = "auto",
             end = _snap_to_word_boundary(end, words, "end")
             if end - start < max(5, lo * 0.5) or end - start > hi * 1.5:
                 continue
+            score = max(0, min(100, int(item.get("score") or 50)))
+            bd = item.get("breakdown") or {}
+            breakdown = {k: max(0, min(100, int(bd.get(k) or score)))
+                         for k in ("hook", "flow", "value", "trend")}
             segs.append({
                 "start": start, "end": end,
                 "title": str(item.get("title") or "Klip Viral")[:300],
-                "score": max(0, min(100, int(item.get("score") or 50))),
+                "score": score,
                 "reason": str(item.get("reason") or "")[:1000],
                 "hashtags": [str(h) for h in (item.get("hashtags") or [])][:5],
+                "breakdown": breakdown,
             })
 
     if not segs:
         logger.warning("[ClipStudio] AI curation kosong/gagal — pakai fallback per ~45s.")
         segs = _fallback_segments(words, dur_range, max_clips)
+        for s in segs:
+            s.setdefault("breakdown", {"hook": 50, "flow": 50, "value": 50, "trend": 50})
 
     segs.sort(key=lambda x: -x["score"])
     return segs[:max_clips]

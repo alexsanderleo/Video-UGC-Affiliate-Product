@@ -107,6 +107,15 @@ async def init_db():
                 connection.execute(text("ALTER TABLE generation_logs ADD COLUMN video_name VARCHAR(255) NULL;"))
             if "ingress_bytes" not in gen_columns:
                 connection.execute(text("ALTER TABLE generation_logs ADD COLUMN ingress_bytes BIGINT DEFAULT 0;"))
+
+            # Check clips table (Clip Studio) — kolom baru ditambah belakangan
+            try:
+                clip_columns = [c["name"] for c in inspector.get_columns("clips")]
+                if "score_breakdown" not in clip_columns:
+                    col_type = "JSON" if is_mysql else "TEXT"
+                    connection.execute(text(f"ALTER TABLE clips ADD COLUMN score_breakdown {col_type} NULL;"))
+            except Exception:
+                pass  # tabel belum ada pada boot pertama — create_all yang membuatnya
             
         await conn.run_sync(check_and_add_columns)
 

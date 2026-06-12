@@ -109,6 +109,7 @@
   function applySnap(s) {
     const o = JSON.parse(s);
     ES = o.ES; STYLE = o.STYLE; title = o.title; aspect = o.aspect; layout = o.layout; trackerOn = o.trackerOn;
+    voSyncReset();
     $('clipTitle').value = title;
     $('selAspect').value = aspect; $('selLayout').value = layout;
     $('btnTracker').textContent = '🎯 Tracker: ' + (trackerOn ? 'ON' : 'OFF');
@@ -161,13 +162,23 @@
     const we = (ES.word_edits || {})[String(i)];
     return (we != null ? we : WORDS[i].word).trim();
   }
+  function maskWord(t) {
+    let core = t, tail = '';
+    while (core && !/[a-z0-9]/i.test(core[core.length - 1])) { tail = core[core.length - 1] + tail; core = core.slice(0, -1); }
+    if (core.length <= 1) return '*' + tail;
+    return core[0] + '*'.repeat(core.length - 1) + tail;
+  }
+  function isCensored(i) { return (ES.censored_words || []).indexOf(i) !== -1; }
   function visibleCaptionWords() {
     const del = new Set(ES.deleted_words || []);
     return clipWordEntries().filter(({ i, w }) => {
       if (del.has(i)) return false;
       const mid = (w.start + w.end) / 2;
       return !inCut(mid);
-    }).map(({ i, w }) => ({ i, word: wordText(i), start: w.start, end: w.end }));
+    }).map(({ i, w }) => ({
+      i, word: isCensored(i) ? maskWord(wordText(i)) : wordText(i),
+      start: w.start, end: w.end,
+    }));
   }
 
   // ---------------- caption pages (sinkron dgn backend group_pages) ----------------
@@ -409,6 +420,7 @@
   }
   function pause() {
     vid.pause(); bgVid.pause();
+    voAudios.forEach((a) => { try { a.el.pause(); } catch (e) {} });
     playing = false; $('btnPlay').textContent = '▶';
   }
   function seek(t) {
@@ -436,6 +448,7 @@
     applyCropTransform();
     renderCaption();
     renderOverlays();
+    voSync();
     highlightActiveWord();
     drawPlayhead();
     $('tCur').textContent = fmtT(srcToOut(vid.currentTime));
@@ -466,7 +479,8 @@
       const span = document.createElement('span');
       span.className = 'w';
       span.dataset.i = i;
-      span.textContent = wordText(i);
+      span.textContent = isCensored(i) ? maskWord(wordText(i)) : wordText(i);
+      if (isCensored(i)) span.style.cssText += 'color:#F59E0B;border-bottom:1px dashed #F59E0B';
       const inRange = w.end > a && w.start < b;
       if (!inRange) span.classList.add('dim');
       if (del.has(i)) span.classList.add('del');
@@ -712,9 +726,10 @@
       tctx.fillRect(x, LANE.cap[0] + 3, w - 1, LANE.cap[1] - 6);
     });
 
-    // blok media/broll
+    // blok media/broll/voiceover
     (ES.broll || []).forEach((b, bi) => drawBlock(b, LANE.media, '#F59E0B', 'B' + (bi + 1)));
     (ES.overlays || []).forEach((o, oi) => { if (o.type !== 'audio') drawBlock(o, LANE.media, '#06B6D4', 'M' + (oi + 1)); });
+    (ES.voiceovers || []).forEach((v, vi) => drawBlock(v, LANE.media, '#22C55E', 'VO' + (vi + 1)));
     (ES.texts || []).forEach((x, xi) => drawBlock(x, LANE.text, '#EC4899', 'T' + (xi + 1)));
     function drawBlock(item, lane, color, label) {
       // item start/end dlm waktu OUTPUT -> mapping kasar ke sumber utk digambar
@@ -810,6 +825,7 @@
     const lists = [
       { arr: ES.broll || [], lane: LANE.media, key: 'broll' },
       { arr: (ES.overlays || []).filter((o) => o.type !== 'audio'), lane: LANE.media, key: 'overlays' },
+      { arr: ES.voiceovers || [], lane: LANE.media, key: 'voiceovers' },
       { arr: ES.texts || [], lane: LANE.text, key: 'texts' },
     ];
     const to = s2o(t);
@@ -916,6 +932,9 @@
     if (m === 'text') return panelText();
     if (m === 'audio') return panelAudio();
     if (m === 'hook') return panelHook();
+    if (m === 'voiceover') return panelVoiceover();
+    if (m === 'post') return panelPost();
+    if (m === 'thumb') return panelThumb();
   }
 
   // --- AI enhance ---
@@ -976,7 +995,9 @@
       '<div class="fgroup"><label><input type="checkbox" id="capUpper" ' + (st.uppercase ? 'checked' : '') + ' style="width:auto;margin-right:6px">HURUF BESAR semua</label></div>' +
       '<div class="fgroup"><label>Max kata per baris: <span id="capMaxVal">' + (st.max_words || 4) + '</span></label><input type="range" id="capMax" min="1" max="8" value="' + (st.max_words || 4) + '"></div>' +
       '<button class="actionbtn" id="btnEmoji">😀 Auto emoji (AI)</button>' +
-      '<button class="actionbtn" id="btnKeyword">🖍 Keyword highlight (AI)</button>';
+      '<button class="actionbtn" id="btnKeyword">🖍 Keyword highlight (AI)</button>' +
+      '<button class="actionbtn" id="btnFontUp">🔠 Upload font custom (.ttf/.otf)</button>' +
+      '<input type="file" id="fontUpInput" accept=".ttf,.otf" style="display:none">';
     sbody.querySelectorAll('.tplcard').forEach((c) => c.addEventListener('click', () => {
       STYLE = { template: c.dataset.tpl }; // reset override saat ganti template
       commit(); panelCaptions(); lastCapKey = '';
@@ -1017,6 +1038,25 @@
         $('btnKeyword').textContent = '✅ ' + Object.keys(d.keyword_colors || {}).length + ' keyword ditandai';
       } catch (e) { $('btnKeyword').textContent = '❌ ' + e.message; }
     });
+    $('btnFontUp').addEventListener('click', () => $('fontUpInput').click());
+    $('fontUpInput').addEventListener('change', async (e) => {
+      const f = e.target.files[0];
+      if (!f) return;
+      $('btnFontUp').textContent = '⏳ mengupload...';
+      const fd = new FormData(); fd.append('file', f);
+      try {
+        const d = await api('/fonts', { method: 'POST', body: fd });
+        injectCustomFont(d.family, d.url);
+        if (window.__fonts.indexOf(d.family) === -1) window.__fonts.push(d.family);
+        STYLE.font = d.family;
+        lastCapKey = ''; commit(); panelCaptions();
+      } catch (err) { alert(err.message); $('btnFontUp').textContent = '🔠 Upload font custom (.ttf/.otf)'; }
+    });
+  }
+  function injectCustomFont(family, url) {
+    const st = document.createElement('style');
+    st.textContent = '@font-face{font-family:"' + family + '";src:url("' + url + '")}';
+    document.head.appendChild(st);
   }
 
   // --- Media ---
@@ -1085,12 +1125,31 @@
         '<button data-all="' + i + '" title="Terapkan ke SEMUA klip project">⇶</button>' +
         '<button data-del="' + i + '">✕</button></div>';
     });
+    const brand = ES.brand || {};
     sbody.innerHTML = '<h3>🏷️ Brand Template</h3>' +
       '<p class="note" style="margin-bottom:10px">Simpan preset caption + watermark, lalu terapkan 1 klik ke semua klip.</p>' +
       '<div class="fgroup"><label>Nama preset</label><input type="text" id="brandName" placeholder="Brand saya"></div>' +
       '<div class="fgroup"><label>Teks watermark (opsional)</label><input type="text" id="brandWm" value="' + (ES.watermark_text || '') + '" placeholder="@username"></div>' +
       '<button class="actionbtn primary" id="brandSave">💾 Simpan preset dari style sekarang</button>' +
-      (list || '<p class="note">Belum ada preset.</p>') + (list ? '<div id="brandList"></div>' : '');
+      (list || '<p class="note">Belum ada preset.</p>') + (list ? '<div id="brandList"></div>' : '') +
+      '<h3 style="font-size:.85rem;margin-top:16px">🎬 Intro / Outro card</h3>' +
+      '<p class="note">Pilih gambar/video dari menu Media (upload dulu di sana) — dipasang otomatis di awal/akhir saat export.</p>' +
+      '<div class="fgroup"><label>Intro</label><select id="brandIntro"><option value="">— tidak ada —</option></select></div>' +
+      '<div class="fgroup"><label>Outro</label><select id="brandOutro"><option value="">— tidak ada —</option></select></div>';
+    api('/projects/' + project.id + '/media').then((d) => {
+      const opts = (d.media || []).filter((m) => m.type !== 'audio')
+        .map((m) => '<option value="' + m.url + '">' + m.name + '</option>').join('');
+      $('brandIntro').innerHTML = '<option value="">— tidak ada —</option>' + opts;
+      $('brandOutro').innerHTML = '<option value="">— tidak ada —</option>' + opts;
+      if (brand.intro) $('brandIntro').value = brand.intro;
+      if (brand.outro) $('brandOutro').value = brand.outro;
+      const upd = () => {
+        ES.brand = { intro: $('brandIntro').value || null, outro: $('brandOutro').value || null };
+        commit();
+      };
+      $('brandIntro').addEventListener('change', upd);
+      $('brandOutro').addEventListener('change', upd);
+    });
     $('brandSave').addEventListener('click', () => {
       const name = $('brandName').value.trim() || 'Preset ' + (presets.length + 1);
       presets.push({ name, style: effStyle(), watermark_text: $('brandWm').value.trim() });
@@ -1233,6 +1292,8 @@
     sbody.innerHTML = '<h3>🎵 Audio</h3>' +
       '<div class="fgroup"><label>Volume suara asli: <span id="aVolVal">' + Math.round((ES.volume != null ? ES.volume : 1) * 100) + '%</span></label>' +
       '<input type="range" id="aVol" min="0" max="150" value="' + Math.round((ES.volume != null ? ES.volume : 1) * 100) + '"></div>' +
+      '<div class="fgroup"><label><input type="checkbox" id="aEnhance" ' + (ES.audio_enhance ? 'checked' : '') + ' style="width:auto;margin-right:6px">✨ AI Speech enhancement (denoise + perjernih suara saat export)</label></div>' +
+      '<button class="actionbtn" id="aCensor">🤬 Auto censor kata kasar' + ((ES.censored_words || []).length ? ' (' + ES.censored_words.length + ' aktif)' : '') + '</button>' +
       '<h3 style="font-size:.85rem">Background music</h3>' +
       (ES.music ? '<div class="itemrow"><span class="nm">🎶 ' + (ES.music.name || 'musik') + '</span><button id="musDel">✕</button></div>' : '') +
       '<div id="musList">⏳</div>' +
@@ -1249,6 +1310,23 @@
       markDirty();
     });
     $('aVol').addEventListener('pointerup', commit);
+    $('aEnhance').addEventListener('change', () => { ES.audio_enhance = $('aEnhance').checked; commit(); });
+    $('aCensor').addEventListener('click', async () => {
+      $('aCensor').textContent = '⏳ memindai...';
+      try {
+        const d = await api('/clips/' + clipId + '/ai', {
+          method: 'POST', headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ action: 'censor' }),
+        });
+        const found = d.censored_words || [];
+        if (!found.length) { $('aCensor').textContent = '✅ Tidak ada kata kasar terdeteksi'; return; }
+        const names = Object.values(d.preview || {}).join(', ');
+        if (confirm('Ditemukan ' + found.length + ' kata kasar: ' + names + '\n\nSensor semuanya? (audio di-mute + caption tersensor saat export)')) {
+          ES.censored_words = found;
+          commit(); renderTranscript(); panelAudio();
+        } else $('aCensor').textContent = '🤬 Auto censor kata kasar';
+      } catch (e) { $('aCensor').textContent = '❌ ' + e.message; }
+    });
     api('/music').then((d) => {
       const box = $('musList'); box.innerHTML = '';
       d.tracks.forEach((tr) => {
@@ -1308,6 +1386,167 @@
     });
   }
 
+  // --- AI Voice-over ---
+  function panelVoiceover() {
+    let list = '';
+    (ES.voiceovers || []).forEach((v, i) => {
+      list += '<div class="itemrow"><span class="nm">🎙 ' + (v.text || 'voiceover') + ' @ ' + fmtT(v.start || 0) + '</span><button data-vi="' + i + '">✕</button></div>';
+    });
+    sbody.innerHTML = '<h3>🎙️ AI Voice-over</h3>' +
+      '<div class="fgroup"><label>Teks narasi</label><textarea id="voText" rows="3" placeholder="Tulis narasi yang ingin diucapkan AI..." style="width:100%;background:var(--card);border:1px solid var(--border);color:var(--text);border-radius:9px;padding:8px 10px;font-size:.85rem;outline:none;font-family:inherit"></textarea></div>' +
+      '<div class="fgroup"><label>Suara</label><select id="voVoice"><option value="">memuat…</option></select></div>' +
+      '<button class="actionbtn primary" id="voGen">🎙 Generate & taruh di playhead</button>' + list +
+      '<p class="note">Voice-over tampil sebagai blok audio di timeline, dicampur otomatis dengan suara asli saat export. Preview di editor ikut memutarnya.</p>';
+    api('/voices').then((d) => {
+      $('voVoice').innerHTML = d.voices.map((v) => '<option value="' + v.id + '">' + v.name + '</option>').join('');
+    });
+    $('voGen').addEventListener('click', async () => {
+      const txt = $('voText').value.trim();
+      if (!txt) return;
+      $('voGen').disabled = true; $('voGen').textContent = '⏳ AI merekam suara...';
+      try {
+        const d = await api('/clips/' + clipId + '/voiceover', {
+          method: 'POST', headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ text: txt, voice: $('voVoice').value }),
+        });
+        const t0 = srcToOut(vid.currentTime);
+        ES.voiceovers = ES.voiceovers || [];
+        ES.voiceovers.push({ url: d.url, start: t0, end: Math.min(outDuration(), t0 + (d.duration || 3)), duration: d.duration, volume: 1.0, text: d.text });
+        voSyncReset();
+        commit(); renderTimeline(); panelVoiceover();
+      } catch (e) { alert(e.message); }
+      if ($('voGen')) { $('voGen').disabled = false; $('voGen').textContent = '🎙 Generate & taruh di playhead'; }
+    });
+    sbody.querySelectorAll('[data-vi]').forEach((b) => b.addEventListener('click', () => {
+      ES.voiceovers.splice(+b.dataset.vi, 1);
+      voSyncReset();
+      commit(); renderTimeline(); panelVoiceover();
+    }));
+  }
+
+  // preview playback voice-over (Audio elements sinkron dgn waktu output)
+  let voAudios = [];
+  function voSyncReset() {
+    voAudios.forEach((a) => { try { a.el.pause(); } catch (e) {} });
+    voAudios = (ES.voiceovers || []).map((v) => ({ v, el: new Audio(v.url) }));
+    voAudios.forEach((a) => { a.el.preload = 'auto'; });
+  }
+  function voSync() {
+    if (!voAudios.length) return;
+    const t = srcToOut(vid.currentTime);
+    voAudios.forEach(({ v, el }) => {
+      const dur = v.duration || ((v.end || 0) - (v.start || 0)) || 3;
+      const within = playing && t >= (v.start || 0) && t < (v.start || 0) + dur;
+      if (within) {
+        const want = t - (v.start || 0);
+        if (el.paused) { el.currentTime = want; el.volume = Math.min(1, v.volume || 1); el.play().catch(() => {}); }
+        else if (Math.abs(el.currentTime - want) > 0.35) el.currentTime = want;
+      } else if (!el.paused) el.pause();
+    });
+  }
+
+  // --- Post sosial (Customize Your Post ala Opus) ---
+  function panelPost() {
+    sbody.innerHTML = '<h3>📣 Post ke Sosial Media</h3>' +
+      '<button class="actionbtn primary" id="postGen">🧠 AI buatkan caption per platform</button>' +
+      '<div id="postOut"></div>' +
+      '<h3 style="font-size:.85rem;margin-top:14px">🔗 Share link</h3>' +
+      '<button class="actionbtn" id="shareBtn">Salin link export terakhir</button>' +
+      '<h3 style="font-size:.85rem;margin-top:14px">🗓 Jadwalkan posting</h3>' +
+      '<p class="note">Auto-post & scheduler ke TikTok/YouTube/IG membutuhkan koneksi akun resmi (OAuth) — '
+      + 'segera hadir (TODO: butuh app credentials tiap platform). Sementara: download MP4 + salin caption di atas.</p>';
+    $('postGen').addEventListener('click', async () => {
+      $('postGen').disabled = true; $('postGen').textContent = '⏳ AI menulis...';
+      try {
+        const d = await api('/clips/' + clipId + '/ai', {
+          method: 'POST', headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ action: 'post_copy' }),
+        });
+        const pc = d.post_copy || {};
+        const yt = pc.youtube || {};
+        const block = (label, text) =>
+          '<div class="fgroup" style="margin-top:10px"><label>' + label + '</label>' +
+          '<div style="background:var(--card);border:1px solid var(--border);border-radius:9px;padding:9px;font-size:.78rem;line-height:1.5;white-space:pre-wrap">' + (text || '-') + '</div>' +
+          '<button class="actionbtn" style="margin-top:6px" data-copy>📋 Salin</button></div>';
+        $('postOut').innerHTML =
+          block('TikTok', pc.tiktok) +
+          block('YouTube Shorts', (yt.title ? yt.title + '\n\n' : '') + (yt.description || '')) +
+          block('Instagram Reels', pc.instagram);
+        $('postOut').querySelectorAll('[data-copy]').forEach((b) => b.addEventListener('click', () => {
+          navigator.clipboard.writeText(b.previousElementSibling.textContent).then(() => { b.textContent = '✅ Tersalin'; });
+        }));
+      } catch (e) { alert(e.message); }
+      $('postGen').disabled = false; $('postGen').textContent = '🧠 AI buatkan caption per platform';
+    });
+    $('shareBtn').addEventListener('click', async () => {
+      try {
+        const h = await api('/clips/' + clipId + '/exports');
+        const done = (h.exports || []).find((e) => e.status === 'done' && e.file_path);
+        if (!done) { alert('Belum ada export selesai. Render dulu lewat tombol Export.'); return; }
+        const url = location.origin + done.file_path;
+        await navigator.clipboard.writeText(url);
+        $('shareBtn').textContent = '✅ Link tersalin!';
+      } catch (e) { alert(e.message); }
+    });
+  }
+
+  // --- Thumbnail generator ---
+  function panelThumb() {
+    sbody.innerHTML = '<h3>📸 Thumbnail Generator</h3>' +
+      '<p class="note" style="margin-bottom:10px">Geser playhead ke frame terbaik, tulis judul, lalu unduh thumbnail siap pakai.</p>' +
+      '<div class="fgroup"><label>Teks judul di thumbnail</label><input type="text" id="thTitle" value="' + (title || '').replace(/"/g, '&quot;') + '"></div>' +
+      '<div class="fgroup colorrow"><span>Warna <input type="color" id="thColor" value="#FFE600"></span>' +
+      '<span style="flex:1">Ukuran <input type="range" id="thSize" min="40" max="140" value="84" style="width:100%"></span></div>' +
+      '<button class="actionbtn primary" id="thGen">📥 Buat & unduh thumbnail (frame saat ini)</button>' +
+      '<canvas id="thCanvas" style="width:100%;border-radius:10px;margin-top:10px;border:1px solid var(--border)"></canvas>';
+    const draw = () => {
+      const cv = $('thCanvas');
+      const [aw, ah] = aspectWH();
+      cv.width = aw >= ah ? 1280 : 1080;
+      cv.height = aw >= ah ? 720 : 1920;
+      if (aspect === '1:1') { cv.width = 1080; cv.height = 1080; }
+      const ctx = cv.getContext('2d');
+      // gambar frame video dengan crop aktif
+      const [cx, cy] = interpCenter(vid.currentTime);
+      const [x, y, w, h] = cropWindow(cx, cy);
+      try { ctx.drawImage(vid, x, y, w, h, 0, 0, cv.width, cv.height); }
+      catch (e) { ctx.fillStyle = '#000'; ctx.fillRect(0, 0, cv.width, cv.height); }
+      // judul
+      const txt = ($('thTitle').value || '').toUpperCase();
+      if (txt) {
+        const size = +$('thSize').value * cv.height / 1000;
+        ctx.font = '900 ' + size + 'px Impact, Arial Black, sans-serif';
+        ctx.textAlign = 'center';
+        ctx.lineWidth = size / 7;
+        ctx.strokeStyle = '#000';
+        ctx.fillStyle = $('thColor').value;
+        const words = txt.split(' ');
+        const lines = [];
+        let cur = '';
+        words.forEach((w2) => {
+          if (ctx.measureText(cur + ' ' + w2).width > cv.width * 0.9 && cur) { lines.push(cur); cur = w2; }
+          else cur = cur ? cur + ' ' + w2 : w2;
+        });
+        if (cur) lines.push(cur);
+        const y0 = cv.height * 0.82 - (lines.length - 1) * size * 1.1;
+        lines.forEach((ln, i) => {
+          ctx.strokeText(ln, cv.width / 2, y0 + i * size * 1.1);
+          ctx.fillText(ln, cv.width / 2, y0 + i * size * 1.1);
+        });
+      }
+      return cv;
+    };
+    ['thTitle', 'thColor', 'thSize'].forEach((id) => $(id).addEventListener('input', draw));
+    draw();
+    $('thGen').addEventListener('click', () => {
+      const cv = draw();
+      const a = document.createElement('a');
+      a.download = 'thumbnail.jpg';
+      a.href = cv.toDataURL('image/jpeg', 0.92);
+      a.click();
+    });
+  }
+
   // ---------------- export ----------------
   function openDialog(html) {
     $('dlgRoot').innerHTML = '<div class="dlg"><div class="box">' + html + '</div></div>';
@@ -1332,8 +1571,23 @@
       '<div class="fgroup"><label><input type="checkbox" id="expWm" style="width:auto;margin-right:6px">Tambahkan watermark</label></div>' +
       '<div id="expProg" class="hidden"><div class="exp-pbar"><div id="expBar"></div></div><p style="font-size:.8rem;color:var(--muted)" id="expStat">Menyiapkan render…</p></div>' +
       '<div class="row2"><button class="btn btn-g" data-x>Batal</button><button class="btn btn-p" id="expGo">🚀 Render</button></div>' +
+      '<button class="actionbtn" id="expXml" style="margin-top:12px">📐 Export to XML — Adobe Premiere / DaVinci Resolve</button>' +
       (histHtml ? '<h3 style="font-size:.85rem;margin-top:16px">Riwayat export</h3>' + histHtml : '')
     );
+    $('expXml').addEventListener('click', async () => {
+      $('expXml').textContent = '⏳ membuat XML...';
+      try {
+        const r = await fetch(API + '/clips/' + clipId + '/xml', { headers: { 'Authorization': 'Bearer ' + token() } });
+        if (!r.ok) throw new Error('HTTP ' + r.status);
+        const blob = await r.blob();
+        const a = document.createElement('a');
+        a.href = URL.createObjectURL(blob);
+        a.download = (title || 'klip') + '.xml';
+        a.click();
+        URL.revokeObjectURL(a.href);
+        $('expXml').textContent = '✅ XML terunduh — import di Premiere/Resolve';
+      } catch (e) { $('expXml').textContent = '❌ ' + e.message; }
+    });
     $('expGo').addEventListener('click', async () => {
       $('expGo').disabled = true;
       $('expProg').classList.remove('hidden');
@@ -1447,7 +1701,9 @@
     try {
       const t = await api('/templates');
       TPLS = t.templates; window.__fonts = t.fonts;
+      (t.custom_fonts || []).forEach((f) => injectCustomFont(f.family, f.url));
     } catch (e) { TPLS = []; }
+    voSyncReset();   // siapkan preview audio voice-over yang sudah tersimpan
 
     vid.src = project.source;
     bgVid.src = project.source;

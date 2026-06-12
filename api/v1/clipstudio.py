@@ -28,8 +28,16 @@ from models.user import User
 router = APIRouter(prefix="/clipstudio", tags=["Clip Studio"])
 settings = get_settings()
 
-YOUTUBE_RE = re.compile(
-    r"^(https?://)?(www\.|m\.)?(youtube\.com/(watch\?|shorts/|live/)|youtu\.be/)", re.IGNORECASE
+# Sumber video yang didukung (semua ditangani yt-dlp, seperti Opus: YouTube,
+# Google Drive, Vimeo, Zoom, Rumble, Twitch, Facebook, Loom, dll)
+SUPPORTED_URL_RE = re.compile(
+    r"^(https?://)?(www\.|m\.)?("
+    r"youtube\.com/(watch\?|shorts/|live/)|youtu\.be/"
+    r"|vimeo\.com/|twitch\.tv/|rumble\.com/|drive\.google\.com/"
+    r"|facebook\.com/|fb\.watch/|loom\.com/|dailymotion\.com/"
+    r"|streamable\.com/|tiktok\.com/|instagram\.com/(reel|p|tv)/"
+    r"|x\.com/|twitter\.com/"
+    r")", re.IGNORECASE
 )
 
 
@@ -49,6 +57,7 @@ def _clip_brief(c: Clip) -> dict:
     return {
         "id": c.id, "project_id": c.project_id, "start": c.start, "end": c.end,
         "duration": round(c.end - c.start, 2), "title": c.title, "score": c.score,
+        "score_breakdown": c.score_breakdown or {},
         "reason": c.reason, "hashtags": c.hashtags or [], "aspect_ratio": c.aspect_ratio,
         "layout_mode": c.layout_mode, "tracker_on": c.tracker_on, "status": c.status,
         "thumbnail": c.thumbnail, "sprite": c.sprite,
@@ -78,8 +87,16 @@ async def _get_owned_clip(clip_id: str, user: User, db: AsyncSession) -> Clip:
 
 @router.get("/templates")
 async def get_templates():
-    """Template caption + daftar font (dipakai input page & editor)."""
-    return {"templates": CAPTION_TEMPLATES, "fonts": CAPTION_FONTS}
+    """Template caption + daftar font bawaan & custom (dipakai input page & editor)."""
+    from core.clipstudio.paths import STORAGE_DIR
+    custom = []
+    fdir = STORAGE_DIR / "fonts"
+    if fdir.exists():
+        for f in sorted(fdir.glob("*.[ot]tf")):
+            family = _ttf_family_name(f.read_bytes()) or f.stem
+            custom.append({"family": family, "url": f"/storage/fonts/{f.name}"})
+    fonts = CAPTION_FONTS + [c["family"] for c in custom if c["family"] not in CAPTION_FONTS]
+    return {"templates": CAPTION_TEMPLATES, "fonts": fonts, "custom_fonts": custom}
 
 
 @router.get("/music")
@@ -106,9 +123,10 @@ async def create_project(
 ):
     """Buat project dari URL YouTube. Body: {source_url, options:{...}}."""
     url = (payload.get("source_url") or "").strip()
-    if not url or not YOUTUBE_RE.search(url):
+    if not url or not SUPPORTED_URL_RE.search(url):
         raise HTTPException(status.HTTP_422_UNPROCESSABLE_ENTITY,
-                            "Masukkan link YouTube yang valid (youtube.com / youtu.be).")
+                            "Masukkan link video yang valid (YouTube, Vimeo, Twitch, "
+                            "Facebook, Google Drive, TikTok, dll).")
     options = payload.get("options") or {}
     pid = str(uuid.uuid4())
     proj = ClipProject(
@@ -208,6 +226,35 @@ async def project_detail(
         d["snippet"] = snippet(c)
         out.append(d)
     return {"project": _project_brief(proj), "clips": out}
+
+
+@router.post("/projects/{project_id}/reprompt")
+async def reprompt_project(
+    project_id: str,
+    payload: dict,
+    user: User = Depends(get_current_user),
+    db: AsyncSession = Depends(get_db),
+):
+    """
+    Reprompting ala Opus (ClipAnything): kurasi ulang klip dengan prompt/opsi baru
+    memakai transkrip yang sudah ada — tanpa download & transkripsi ulang.
+    Body: {prompt, clip_length?, max_clips?}
+    """
+    proj = await _get_owned_project(project_id, user, db)
+    if proj.status not in ("done", "error"):
+        raise HTTPException(status.HTTP_409_CONFLICT, "Project masih diproses — tunggu selesai dulu.")
+    new_options = {
+        "prompt": (payload.get("prompt") or "").strip()[:500],
+        "clip_length": payload.get("clip_length"),
+        "max_clips": payload.get("max_clips"),
+    }
+    proj.status = "analyzing"
+    proj.percent = 56
+    proj.error_message = None
+    await db.commit()
+    from core.clipstudio.runner import dispatch_reprompt
+    dispatch_reprompt(project_id, new_options)
+    return {"project_id": project_id, "status": "analyzing"}
 
 
 @router.delete("/projects/{project_id}")
@@ -513,6 +560,42 @@ async def clip_ai_tools(
                 kw[str(i)] = color
         return {"keyword_colors": kw}
 
+    if action == "censor":
+        # Auto censor (tanpa LLM): scan daftar kata kasar ID/EN pada rentang klip
+        from core.clipstudio.captions import CENSOR_WORDS
+        import re as _re
+        found = {}
+        for i, w in indexed:
+            tok = _re.sub(r"[^\w]", "", w["word"].strip().lower())
+            if tok in CENSOR_WORDS:
+                found[str(i)] = w["word"].strip()
+        return {"censored_words": list(map(int, found.keys())), "preview": found}
+
+    if action == "post_copy":
+        # AI title/description/hashtag per platform (fitur "Customize Your Post" Opus)
+        raw = llm_complete(
+            "Kamu social media manager profesional. Jawab HANYA JSON murni.",
+            f"Transkrip klip ({lang_label}): \"{text}\"\n"
+            f"Judul klip: \"{clip.title or ''}\"\n\n"
+            f"Buat copy posting untuk 3 platform dalam {lang_label}:\n"
+            f"- tiktok: caption pendek catchy + 4 hashtag\n"
+            f"- youtube: judul Shorts (max 90 char) + deskripsi 2 kalimat + 4 hashtag\n"
+            f"- instagram: caption reels engaging + 5 hashtag\n"
+            f'Output: {{"tiktok": "...", "youtube": {{"title": "...", "description": "..."}}, '
+            f'"instagram": "..."}}',
+            max_tokens=800,
+        )
+        data = extract_json(raw) or {}
+        if not data:
+            tags = " ".join((clip.hashtags or [])[:4])
+            data = {
+                "tiktok": f"{clip.title or 'Klip viral'} {tags}",
+                "youtube": {"title": (clip.title or "Klip Viral")[:90],
+                            "description": f"{clip.reason or ''} {tags}"},
+                "instagram": f"{clip.title or 'Klip viral'} ✨ {tags}",
+            }
+        return {"post_copy": data}
+
     if action == "broll_keywords":
         raw = llm_complete(
             "Kamu video editor. Jawab HANYA JSON murni.",
@@ -527,3 +610,150 @@ async def clip_ai_tools(
         return {"keywords": [str(k)[:50] for k in kws[:6]]}
 
     raise HTTPException(status.HTTP_422_UNPROCESSABLE_ENTITY, "action tidak dikenal.")
+
+
+# ---------- AI Voice-over (edge-tts) ----------
+
+VOICEOVER_VOICES = [
+    {"id": "id-ID-ArdiNeural", "name": "Ardi (Pria, Indonesia)"},
+    {"id": "id-ID-GadisNeural", "name": "Gadis (Wanita, Indonesia)"},
+    {"id": "en-US-ChristopherNeural", "name": "Christopher (Male, English)"},
+    {"id": "en-US-JennyNeural", "name": "Jenny (Female, English)"},
+    {"id": "en-US-AnaNeural", "name": "Ana (Child, English)"},
+]
+
+
+@router.get("/voices")
+async def list_voices():
+    return {"voices": VOICEOVER_VOICES}
+
+
+@router.post("/clips/{clip_id}/voiceover")
+async def generate_voiceover(
+    clip_id: str,
+    payload: dict,
+    user: User = Depends(get_current_user),
+    db: AsyncSession = Depends(get_db),
+):
+    """AI Voice-over: teks -> audio narasi (edge-tts). Frontend menaruhnya di timeline."""
+    clip = await _get_owned_clip(clip_id, user, db)
+    text = (payload.get("text") or "").strip()
+    if not text:
+        raise HTTPException(status.HTTP_422_UNPROCESSABLE_ENTITY, "Teks voice-over kosong.")
+    voice = payload.get("voice") or "id-ID-ArdiNeural"
+    if voice not in {v["id"] for v in VOICEOVER_VOICES}:
+        voice = "id-ID-ArdiNeural"
+
+    from core.clipstudio.paths import project_dir, rel_storage
+    mdir = project_dir(clip.project_id) / "media"
+    mdir.mkdir(exist_ok=True)
+    dest = mdir / f"vo_{uuid.uuid4().hex[:8]}.mp3"
+
+    try:
+        import edge_tts
+        com = edge_tts.Communicate(text[:1500], voice)
+        await com.save(str(dest))
+    except Exception as e:
+        raise HTTPException(status.HTTP_502_BAD_GATEWAY, f"Gagal generate voice-over: {e}")
+
+    # durasi via ffprobe
+    import subprocess as sp
+    dur = 0.0
+    try:
+        out = sp.run(["ffprobe", "-v", "error", "-show_entries", "format=duration",
+                      "-of", "csv=p=0", str(dest)], capture_output=True, text=True).stdout
+        dur = float(out.strip() or 0)
+    except Exception:
+        pass
+    return {"url": rel_storage(dest), "duration": round(dur, 2), "voice": voice,
+            "text": text[:120]}
+
+
+# ---------- Export to XML (Premiere / DaVinci) ----------
+
+@router.get("/clips/{clip_id}/xml")
+async def export_xml(
+    clip_id: str,
+    user: User = Depends(get_current_user),
+    db: AsyncSession = Depends(get_db),
+):
+    """Download timeline FCP7 XML — bisa di-import ke Premiere Pro / DaVinci Resolve."""
+    from fastapi.responses import Response
+    clip = await _get_owned_clip(clip_id, user, db)
+    proj = await db.get(ClipProject, clip.project_id)
+    from core.clipstudio.xml_export import build_xmeml
+    xml = build_xmeml(proj, clip, clip.edit_state or {})
+    safe = re.sub(r"[^A-Za-z0-9 _-]", "", (clip.title or "klip"))[:60].strip() or "klip"
+    return Response(
+        content=xml, media_type="application/xml",
+        headers={"Content-Disposition": f'attachment; filename="{safe}.xml"'},
+    )
+
+
+# ---------- Custom fonts (Brand) ----------
+
+def _ttf_family_name(data: bytes) -> Optional[str]:
+    """Parser minimal tabel 'name' TTF/OTF — ambil family name (nameID 1)."""
+    import struct
+    try:
+        num_tables = struct.unpack(">H", data[4:6])[0]
+        name_off = None
+        for i in range(num_tables):
+            rec = data[12 + i * 16: 12 + i * 16 + 16]
+            tag = rec[0:4]
+            if tag == b"name":
+                name_off = struct.unpack(">I", rec[8:12])[0]
+                break
+        if name_off is None:
+            return None
+        count, str_off = struct.unpack(">HH", data[name_off + 2: name_off + 6])
+        storage = name_off + str_off
+        best = None
+        for i in range(count):
+            r = data[name_off + 6 + i * 12: name_off + 6 + i * 12 + 12]
+            plat, enc, lang, nid, length, off = struct.unpack(">HHHHHH", r)
+            if nid != 1:
+                continue
+            raw = data[storage + off: storage + off + length]
+            if plat == 3:  # Windows, UTF-16BE
+                best = raw.decode("utf-16-be", "ignore")
+            elif best is None:
+                best = raw.decode("latin-1", "ignore")
+        return (best or "").strip() or None
+    except Exception:
+        return None
+
+
+@router.post("/fonts")
+async def upload_font(
+    file: UploadFile = File(...),
+    user: User = Depends(get_current_user),
+):
+    """Upload font custom (.ttf/.otf) — dipakai caption preview & burn export."""
+    ext = Path(file.filename or "").suffix.lower()
+    if ext not in (".ttf", ".otf"):
+        raise HTTPException(status.HTTP_422_UNPROCESSABLE_ENTITY, "Hanya file .ttf / .otf.")
+    data = await file.read()
+    if len(data) > 8 * 1024 * 1024:
+        raise HTTPException(status.HTTP_422_UNPROCESSABLE_ENTITY, "Font maksimal 8MB.")
+    family = _ttf_family_name(data) or Path(file.filename).stem
+    from core.clipstudio.paths import STORAGE_DIR
+    fdir = STORAGE_DIR / "fonts"
+    fdir.mkdir(parents=True, exist_ok=True)
+    safe = re.sub(r"[^A-Za-z0-9._-]", "_", file.filename)
+    dest = fdir / safe
+    dest.write_bytes(data)
+    return {"family": family, "url": f"/storage/fonts/{safe}", "name": file.filename}
+
+
+@router.get("/fonts")
+async def list_fonts(user: User = Depends(get_current_user)):
+    """Font custom yang sudah diupload (family + url utk @font-face frontend)."""
+    from core.clipstudio.paths import STORAGE_DIR
+    fdir = STORAGE_DIR / "fonts"
+    out = []
+    if fdir.exists():
+        for f in sorted(fdir.glob("*.[ot]tf")):
+            family = _ttf_family_name(f.read_bytes()) or f.stem
+            out.append({"family": family, "url": f"/storage/fonts/{f.name}"})
+    return {"fonts": out}

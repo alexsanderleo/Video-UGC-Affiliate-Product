@@ -56,7 +56,51 @@ CAPTION_TEMPLATES = [
         "outline_color": "#1E1B4B", "outline": 4, "shadow": 1,
         "box_color": None, "pos_pct": 72,
     },
+    {
+        "id": "beasty-red", "name": "Beasty Merah", "mode": "highlight",
+        "font": "Impact", "size": 70, "uppercase": True, "max_words": 3,
+        "text_color": "#FFFFFF", "highlight_color": "#FF1A1A",
+        "outline_color": "#000000", "outline": 5, "shadow": 2,
+        "box_color": None, "pos_pct": 68,
+    },
+    {
+        "id": "podcast-cyan", "name": "Podcast Cyan", "mode": "box",
+        "font": "Verdana", "size": 52, "uppercase": False, "max_words": 5,
+        "text_color": "#FFFFFF", "highlight_color": "#22D3EE",
+        "outline_color": "#000000", "outline": 0, "shadow": 0,
+        "box_color": "#0F172AC8", "pos_pct": 75,
+    },
+    {
+        "id": "mrwhos-purple", "name": "Glow Ungu", "mode": "pop",
+        "font": "Arial Black", "size": 72, "uppercase": True, "max_words": 2,
+        "text_color": "#F4F4F6", "highlight_color": "#C084FC",
+        "outline_color": "#3B0764", "outline": 4, "shadow": 2,
+        "box_color": None, "pos_pct": 66,
+    },
 ]
+
+# Daftar kata yang dimask fitur Auto Censor (ID + EN). Export: audio di-mute,
+# caption tampil tersensor (k****). User bisa menambah via edit manual.
+CENSOR_WORDS = {
+    # Indonesia
+    "anjing", "bangsat", "babi", "kontol", "memek", "ngentot", "jancok", "jancuk",
+    "asu", "goblok", "tolol", "bajingan", "kampret", "tai", "bego", "perek", "lonte",
+    # English
+    "fuck", "fucking", "fucked", "shit", "bitch", "asshole", "dick", "pussy",
+    "bastard", "cunt", "motherfucker", "nigga", "whore", "slut",
+}
+
+
+def mask_word(token: str) -> str:
+    """'kontol' -> 'k*****' (mempertahankan tanda baca akhir)."""
+    core = token.strip()
+    tail = ""
+    while core and not core[-1].isalnum():
+        tail = core[-1] + tail
+        core = core[:-1]
+    if len(core) <= 1:
+        return "*" + tail
+    return core[0] + "*" * (len(core) - 1) + tail
 
 CAPTION_FONTS = ["Impact", "Arial", "Arial Black", "Verdana", "Trebuchet MS",
                  "Georgia", "Tahoma", "Comic Sans MS", "Courier New"]

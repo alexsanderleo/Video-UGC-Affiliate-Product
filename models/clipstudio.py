@@ -92,6 +92,7 @@ class Clip(TimestampMixin, Base):
     end = Column(Float, default=0.0, nullable=False)
     title = Column(String(500), nullable=True)
     score = Column(Integer, default=0, nullable=False)        # virality score 0-100
+    score_breakdown = Column(JSON, nullable=True)             # {hook, flow, value, trend} ala Opus
     reason = Column(Text, nullable=True)                       # alasan singkat skor
     hashtags = Column(JSON, nullable=True)                     # ["#a", "#b", "#c"]
 

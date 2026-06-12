@@ -71,17 +71,35 @@ ffmpeg & ffprobe wajib ada di PATH. Model Whisper & YuNet di-download otomatis s
 - **PostgreSQL → SQLite (dev) / MySQL (VPS)**: mengikuti infra DB existing app; skema portable.
 - **MediaPipe → YuNet OpenCV**: MediaPipe belum support Python 3.13; YuNet setara & ringan.
 
+## Fitur paritas Opus (batch 2 — hasil riset detail opus.pro)
+
+- **ClipAnything**: prompt natural di halaman input ("cari momen tentang X") +
+  **Reprompting** di halaman hasil (kurasi ulang tanpa download/transkrip ulang).
+- **Virality score breakdown**: hook / flow / value / trend per klip (bar di kartu).
+- **AI Voice-over**: teks -> suara (edge-tts, 5 voice ID/EN), blok di timeline,
+  preview ikut bunyi, dicampur otomatis saat export.
+- **AI Speech enhancement**: toggle di menu Audio (highpass + denoise afftdn + loudnorm).
+- **Auto censor**: scan kata kasar ID/EN -> audio di-mute + caption tersensor (k****).
+- **Export to XML**: timeline FCP7 xmeml utk Adobe Premiere Pro / DaVinci Resolve.
+- **Post sosial**: AI caption per platform (TikTok/YT Shorts/IG Reels) + tombol salin
+  + share link export. (Auto-post OAuth = TODO, butuh app credentials platform.)
+- **Thumbnail generator**: frame pilihan + judul besar -> unduh JPG.
+- **Brand intro/outro cards**: gambar/video dipasang di awal/akhir export.
+- **Custom font upload** (.ttf/.otf): dipakai di preview (@font-face) & burn (fontsdir).
+- **Sumber import luas**: YouTube, Vimeo, Twitch, Facebook, Google Drive, TikTok,
+  Instagram, X/Twitter, Loom, Rumble, dll (via yt-dlp).
+- **Bulk export**: render semua klip 1 klik dari halaman hasil.
+
 ## TODO / stub yang dicatat (tidak dihilangkan diam-diam)
 
 - [ ] Transisi `zoom` & `slide` saat export dirender sebagai fade halus (TODO: chain xfade).
-- [ ] Brand template: intro/outro video belum (logo watermark, font, warna sudah jalan).
+- [ ] Auto-post / social scheduler OAuth (TikTok/YT/IG) — butuh app credentials resmi tiap
+      platform; UI & AI caption sudah siap di menu Post.
 - [ ] Credits: tampil di header & dihitung (1 menit sumber = 1 credit) — enforcement
       limit per plan belum (semua user bisa proses).
-- [ ] Media user: posisi/resize overlay via timeline & nilai default; drag visual di preview
-      baru untuk caption & crop (overlay media TODO).
+- [ ] AI B-roll *generatif* (Opus Pro punya text-to-video) — saat ini stock Pexels.
+- [ ] Team workspace, folder, analytics, API publik — di luar scope v1.
 - [ ] `docker-compose.yml` tersedia untuk dev non-Windows; produksi tetap aaPanel supervisor.
-- [ ] Seed contoh project: jalankan 1x lewat UI (YouTube pendek) — seed otomatis dilewati
-      agar startup VPS tidak men-download video.
 - [ ] Auto-cleanup storage project lama (retensi 30 hari) belum dijadwalkan.
 
 ## Acceptance criteria (status uji lokal)

@@ -99,6 +99,13 @@ def _esc_drawtext(s: str) -> str:
     return s.replace("\\", "").replace("'", "’").replace(":", "\\:").replace("%", "\\%")
 
 
+def _has_audio(path: Path) -> bool:
+    r = subprocess.run(["ffprobe", "-v", "error", "-select_streams", "a",
+                        "-show_entries", "stream=codec_type", "-of", "csv=p=0", str(path)],
+                       capture_output=True, text=True)
+    return "audio" in (r.stdout or "")
+
+
 def _resolve_local(url_or_path: str, dl_dir: Path) -> Path | None:
     """URL /storage/... atau http(s) -> path file lokal (download bila remote)."""
     if not url_or_path:
@@ -131,8 +138,10 @@ def _resolve_local(url_or_path: str, dl_dir: Path) -> Path | None:
 def caption_words_for_export(words: list, clip_start: float, clip_end: float,
                              segs: list, edit_state: dict) -> list:
     """Kata transkrip dalam klip -> timeline output, terapkan edit teks & penghapusan."""
+    from core.clipstudio.captions import mask_word
     es = edit_state or {}
     deleted = set(es.get("deleted_words") or [])
+    censored = set(es.get("censored_words") or [])
     word_edits = {int(k): v for k, v in (es.get("word_edits") or {}).items()}
     out = []
     for idx, w in enumerate(words):
@@ -152,8 +161,103 @@ def caption_words_for_export(words: list, clip_start: float, clip_end: float,
         text = word_edits.get(idx, w["word"])
         if not str(text).strip():
             continue
+        if idx in censored:
+            text = mask_word(str(text))   # auto censor: caption tersensor (k****)
         out.append({"word": str(text), "start": round(t0, 3), "end": round(t1, 3), "idx": idx})
     return out
+
+
+def censor_out_ranges(words: list, edit_state: dict, segs: list) -> list:
+    """Rentang waktu OUTPUT yang harus di-mute (kata tersensor)."""
+    out = []
+    for idx in (edit_state or {}).get("censored_words") or []:
+        if not (0 <= int(idx) < len(words)):
+            continue
+        w = words[int(idx)]
+        t0, t1 = src_to_out(w["start"], segs), src_to_out(w["end"], segs)
+        if t0 is None or t1 is None or t1 <= t0:
+            continue
+        out.append((max(0, t0 - 0.03), t1 + 0.03))
+    return out
+
+
+def _prepend_append_cards(main_file: Path, work: Path, es: dict,
+                          out_w: int, out_h: int) -> Path:
+    """Brand intro/outro: gambar (1.8 dtk) atau video dinormalisasi lalu di-concat."""
+    intro = _resolve_local((es.get("brand") or {}).get("intro"), work)
+    outro = _resolve_local((es.get("brand") or {}).get("outro"), work)
+    if not intro and not outro:
+        return main_file
+
+    def normalize(src: Path, tag: str) -> Path | None:
+        dst = work / f"card_{tag}.mp4"
+        is_img = src.suffix.lower() in (".jpg", ".jpeg", ".png", ".webp")
+        if is_img:
+            inputs = ["-loop", "1", "-t", "1.8", "-i", str(src),
+                      "-f", "lavfi", "-t", "1.8", "-i", "anullsrc=r=48000:cl=stereo"]
+            amap = "[1:a]anull[a]"
+        else:
+            inputs = ["-i", str(src), "-f", "lavfi", "-i", "anullsrc=r=48000:cl=stereo"]
+            # pakai audio asli bila ada; bila tidak, silent track menjadi fallback via amix
+            amap = "[0:a]anull[a]" if _has_audio(src) else "[1:a]anull[a]"
+        cmd = ["ffmpeg", "-y", *inputs, "-filter_complex",
+               f"[0:v]scale={out_w}:{out_h}:force_original_aspect_ratio=decrease,"
+               f"pad={out_w}:{out_h}:(ow-iw)/2:(oh-ih)/2:color=black,setsar=1,fps=30[v];{amap}",
+               "-map", "[v]", "-map", "[a]",
+               "-c:v", "libx264", "-preset", "veryfast", "-crf", "21",
+               "-pix_fmt", "yuv420p", "-c:a", "aac", "-b:a", "160k",
+               "-shortest", str(dst)]
+        r = subprocess.run(cmd, capture_output=True, text=True)
+        if r.returncode != 0 or not dst.exists():
+            logger.warning("[Export] normalisasi kartu %s gagal — dilewati", tag)
+            return None
+        return dst
+
+    parts = []
+    if intro:
+        p = normalize(intro, "intro")
+        if p:
+            parts.append(p)
+    parts.append(main_file)
+    if outro:
+        p = normalize(outro, "outro")
+        if p:
+            parts.append(p)
+    if len(parts) == 1:
+        return main_file
+
+    listfile = work / "concat.txt"
+    listfile.write_text("\n".join(f"file '{str(p).replace(chr(92), '/')}'" for p in parts),
+                        encoding="utf-8")
+    final = main_file.with_name(main_file.stem + "_final.mp4")
+    r = subprocess.run(["ffmpeg", "-y", "-f", "concat", "-safe", "0", "-i", str(listfile),
+                        "-c", "copy", str(final)], capture_output=True, text=True)
+    if r.returncode != 0 or not final.exists():
+        # codec mismatch -> re-encode
+        r = subprocess.run(["ffmpeg", "-y", "-f", "concat", "-safe", "0", "-i", str(listfile),
+                            "-c:v", "libx264", "-preset", "veryfast", "-crf", "21",
+                            "-pix_fmt", "yuv420p", "-c:a", "aac", str(final)],
+                           capture_output=True, text=True)
+        if r.returncode != 0:
+            logger.warning("[Export] concat intro/outro gagal — pakai video utama saja")
+            return main_file
+    final.replace(main_file)
+    return main_file
+
+
+def _merged_fontsdir(work: Path) -> Path:
+    """Gabung static/fonts + storage/fonts (font custom user) untuk fontsdir ffmpeg."""
+    import shutil
+    fdir = work / "fonts"
+    fdir.mkdir(exist_ok=True)
+    for src_dir in (settings.BASE_DIR / "static" / "fonts", STORAGE_DIR / "fonts"):
+        if src_dir.exists():
+            for f in src_dir.glob("*.[ot]tf"):
+                try:
+                    shutil.copy2(f, fdir / f.name)
+                except Exception:
+                    pass
+    return fdir
 
 
 # ---------- main render ----------
@@ -250,6 +354,16 @@ def render_clip_export(project, clip, export, words: list, progress_cb=None) -> 
         music_idx = input_idx
         input_idx += 1
 
+    # AI voice-over: [{url, start, volume}] -> input audio tambahan
+    voiceover_specs = []
+    for vo in (es.get("voiceovers") or []):
+        p = _resolve_local(vo.get("url") or vo.get("path"), work)
+        if not p:
+            continue
+        inputs += ["-i", str(p)]
+        voiceover_specs.append((input_idx, vo))
+        input_idx += 1
+
     # --- filtergraph ---
     fg = []
     transitions = es.get("transitions") or []
@@ -344,9 +458,9 @@ def render_clip_export(project, clip, export, words: list, progress_cb=None) -> 
         )
         cur = lbl
 
-    # (d) burn caption
+    # (d) burn caption (fontsdir = static/fonts + font custom user)
     if ass_file:
-        fontsdir = settings.BASE_DIR / "static" / "fonts"
+        fontsdir = _merged_fontsdir(work)
         n_ov += 1
         lbl = f"ov{n_ov}"
         fg.append(f"[{cur}]subtitles=filename='{_esc_fpath(ass_file)}':fontsdir='{_esc_fpath(fontsdir)}'[{lbl}]")
@@ -364,9 +478,33 @@ def render_clip_export(project, clip, export, words: list, progress_cb=None) -> 
         )
         cur = lbl
 
-    # (e) audio: volume asli + musik dengan auto-duck (sidechaincompress) + fade
+    # (e) audio: volume asli + censor mute + enhancement + voice-over + musik ducking
     vol = float(es.get("volume", 1.0))
-    fg.append(f"[acat]volume={vol:.2f}[voice]")
+    voice_chain = f"volume={vol:.2f}"
+    # Auto censor: mute rentang kata tersensor
+    cranges = censor_out_ranges(words, es, segs)
+    if cranges:
+        expr = "+".join(f"between(t,{a:.3f},{b:.3f})" for a, b in cranges)
+        voice_chain += f",volume=enable='{expr}':volume=0"
+    # AI speech enhancement: denoise + highpass + loudness normalize
+    if es.get("audio_enhance"):
+        voice_chain += ",highpass=f=70,afftdn=nf=-22,loudnorm=I=-16:TP=-1.5:LRA=11"
+    fg.append(f"[acat]{voice_chain}[voice0]")
+
+    # Mix voice-over di atas suara asli
+    if voiceover_specs:
+        vo_labels = []
+        for k, (in_idx, vo) in enumerate(voiceover_specs):
+            delay_ms = max(0, int(float(vo.get("start") or 0) * 1000))
+            vvol = float(vo.get("volume", 1.0))
+            fg.append(f"[{in_idx}:a]volume={vvol:.2f},adelay={delay_ms}:all=1,"
+                      f"apad,atrim=0:{out_duration:.3f}[vo{k}]")
+            vo_labels.append(f"[vo{k}]")
+        fg.append(f"[voice0]{''.join(vo_labels)}amix=inputs={1 + len(vo_labels)}"
+                  f":duration=first:dropout_transition=0:normalize=0[voice]")
+    else:
+        fg.append("[voice0]anull[voice]")
+
     if music_idx is not None:
         mvol = float(music.get("volume", 0.25))
         mfade = ""
@@ -424,4 +562,6 @@ def render_clip_export(project, clip, export, words: list, progress_cb=None) -> 
     if proc.returncode != 0 or not out_file.exists():
         raise RuntimeError("FFmpeg export gagal:\n" + "".join(stderr_tail[-25:]))
 
+    # Brand intro/outro cards (Opus: Brand template)
+    out_file = _prepend_append_cards(out_file, work, es, out_w, out_h)
     return out_file

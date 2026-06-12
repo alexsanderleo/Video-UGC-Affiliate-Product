@@ -123,6 +123,7 @@
       max_clips: parseInt($('optMax').value, 10),
       aspect_ratio: $('optAspect').value,
       caption_template: $('optTemplate').value || 'opus-green',
+      prompt: ($('optPrompt') ? $('optPrompt').value.trim() : ''),   // ClipAnything
     };
   }
 
@@ -215,13 +216,24 @@
       d.clips.forEach((c) => {
         const card = document.createElement('div');
         card.className = 'clipcard';
+        // breakdown skor ala Opus (hook/flow/value/trend)
+        const bd = c.score_breakdown || {};
+        let bdHtml = '';
+        if (bd.hook != null) {
+          bdHtml = '<div style="display:grid;grid-template-columns:repeat(4,1fr);gap:5px;margin-top:8px">' +
+            [['Hook', bd.hook], ['Flow', bd.flow], ['Value', bd.value], ['Trend', bd.trend]].map(([n, v]) =>
+              '<div><div style="font-size:.58rem;color:var(--muted)">' + n + ' <b style="color:var(--text)">' + (v || 0) + '</b></div>' +
+              '<div style="background:var(--card2);height:4px;border-radius:3px;overflow:hidden">' +
+              '<div style="height:100%;width:' + (v || 0) + '%;background:linear-gradient(90deg,var(--accent),var(--accent2))"></div></div></div>'
+            ).join('') + '</div>';
+        }
         card.innerHTML =
           '<div class="thumbwrap">' +
             '<img loading="lazy" src="' + (c.thumbnail || '') + '" onerror="this.style.visibility=\'hidden\'">' +
             '<span class="scorebadge">🔥 ' + c.score + '</span>' +
             '<span class="durbadge">' + fmtDur(c.duration) + '</span>' +
           '</div>' +
-          '<div class="body"><h3></h3>' +
+          '<div class="body"><h3></h3>' + bdHtml +
           '<div class="reason"></div><div class="snip"></div><div class="tags"></div></div>';
         card.querySelector('h3').textContent = c.title || 'Klip';
         card.querySelector('.reason').textContent = c.reason ? '💡 ' + c.reason : '';
@@ -236,9 +248,72 @@
         });
         grid.appendChild(card);
       });
+      window.__lastClips = d.clips;
       loadHistory();
     } catch (e) { alert(e.message); }
   }
+
+  // ---------- reprompt (ClipAnything ulang) ----------
+  function openResDlg(html) {
+    $('resDlg').classList.remove('hidden');
+    $('resDlgBox').innerHTML = html;
+    $('resDlg').onclick = (e) => { if (e.target === $('resDlg')) $('resDlg').classList.add('hidden'); };
+  }
+  $('btnReprompt').addEventListener('click', () => {
+    openResDlg(
+      '<h3 style="font-family:Outfit,sans-serif;margin-bottom:10px">🪄 Reprompt AI</h3>' +
+      '<p style="font-size:.82rem;color:var(--muted);margin-bottom:10px">Kurasi ulang klip dengan instruksi baru — tanpa download & transkripsi ulang. Klip lama akan diganti.</p>' +
+      '<textarea id="repromptText" rows="3" placeholder="Contoh: fokus momen paling emosional / cari semua bagian tentang harga produk..." style="width:100%;background:var(--card2);border:1px solid var(--border);border-radius:10px;padding:10px;color:var(--text);font-size:.9rem;outline:none;font-family:inherit"></textarea>' +
+      '<div style="display:flex;gap:10px;margin-top:14px"><button class="btn btn-ghost" style="flex:1" onclick="document.getElementById(\'resDlg\').classList.add(\'hidden\')">Batal</button>' +
+      '<button class="btn btn-primary" style="flex:1" id="repromptGo">🚀 Jalankan</button></div>'
+    );
+    $('repromptGo').addEventListener('click', async () => {
+      const prompt = $('repromptText').value.trim();
+      $('repromptGo').disabled = true;
+      try {
+        await api('/projects/' + currentProject + '/reprompt', {
+          method: 'POST', headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ prompt }),
+        });
+        $('resDlg').classList.add('hidden');
+        watchProgress(currentProject);
+      } catch (e) { alert(e.message); $('repromptGo').disabled = false; }
+    });
+  });
+
+  // ---------- bulk export semua klip ----------
+  $('btnBulkExport').addEventListener('click', async () => {
+    const clips = window.__lastClips || [];
+    if (!clips.length) return;
+    if (!confirm('Render semua ' + clips.length + ' klip ke MP4 1080p? Proses berjalan berurutan.')) return;
+    let rows = clips.map((c, i) =>
+      '<div style="display:flex;align-items:center;gap:8px;font-size:.8rem;padding:6px 0;border-bottom:1px solid var(--border)">' +
+      '<span style="flex:1;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">' + (c.title || 'Klip ' + (i + 1)) + '</span>' +
+      '<span id="bx' + i + '" style="color:var(--muted)">antri…</span></div>').join('');
+    openResDlg('<h3 style="font-family:Outfit,sans-serif;margin-bottom:10px">📦 Export semua klip</h3>' + rows +
+      '<p style="font-size:.75rem;color:var(--muted);margin-top:10px">Biarkan halaman terbuka. File bisa diunduh dari tiap klip → Export → riwayat.</p>');
+    for (let i = 0; i < clips.length; i++) {
+      const el = () => document.getElementById('bx' + i);
+      try {
+        const e = await api('/clips/' + clips[i].id + '/export', {
+          method: 'POST', headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ resolution: '1080p', watermark: false }),
+        });
+        // poll sampai selesai (berurutan agar tidak membebani server)
+        for (;;) {
+          await new Promise((r) => setTimeout(r, 2500));
+          const st = await api('/exports/' + e.export_id);
+          if (!el()) return; // dialog ditutup
+          if (st.status === 'done') {
+            el().innerHTML = '<a href="' + st.file_path + '" download style="color:var(--accent2)">⬇ unduh</a>';
+            break;
+          }
+          if (st.status === 'error') { el().textContent = '❌ gagal'; break; }
+          el().textContent = (st.status === 'queued' ? 'antri ' : 'render ') + st.percent + '%';
+        }
+      } catch (err) { if (el()) el().textContent = '❌ ' + err.message; }
+    }
+  });
 
   // ---------- events ----------
   $('btnGo').addEventListener('click', startProject);

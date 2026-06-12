@@ -674,6 +674,12 @@ def clipstudio_process_export_task(export_id: str):
     return process_export(export_id)
 
 
+@shared_task(name="core.tasks.clipstudio_reprompt")
+def clipstudio_reprompt_task(project_id: str, new_options: dict):
+    from core.clipstudio.runner import reprocess_project
+    return reprocess_project(project_id, new_options)
+
+
 @shared_task(name="core.tasks.convert_video")
 def convert_video_task(
     job_id: str,
