@@ -22,8 +22,8 @@ import uuid
 from concurrent.futures import TimeoutError as FuturesTimeout
 from pathlib import Path
 
-GEMINI_TIMEOUT = 60
-OVERALL_TIMEOUT = 150          # batas total 1 permintaan (generate normal ±40 dtk)
+GEMINI_TIMEOUT = 120           # panggilan PERTAMA (cold start) bisa >60 dtk; normal ±25-40 dtk
+OVERALL_TIMEOUT = 300          # batas total 1 permintaan (termasuk failover antar akun)
 COOLDOWN_SECONDS = 300         # akun gagal diistirahatkan 5 menit, sisanya tetap dipakai
 
 _cooldown: dict = {}           # {server_id: epoch_until} — per proses
@@ -247,7 +247,8 @@ async def _generate(prompt: str) -> bytes:
             if COOLDOWN_SECONDS > 0:
                 _cooldown[sid] = time.time() + COOLDOWN_SECONDS
             continue
-    raise GenerateError(f"Semua akun Gemini gagal. Detail terakhir: {last}")
+    detail = str(last) or repr(last)   # TimeoutError dkk punya str kosong → pakai repr
+    raise GenerateError(f"Semua akun Gemini gagal. Detail terakhir: {detail}")
 
 
 def generate_image(prompt: str) -> bytes:
