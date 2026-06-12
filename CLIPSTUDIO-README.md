@@ -56,10 +56,25 @@ ffmpeg & ffprobe wajib ada di PATH. Model Whisper & YuNet di-download otomatis s
 | Var | Default | Keterangan |
 |---|---|---|
 | `CLIP_USE_CELERY` | `false` | `true` di VPS → pipeline lewat worker celery |
-| `WHISPER_MODEL` | `small` | small/medium/large-v3 (word_timestamps selalu aktif) |
-| `ANTHROPIC_API_KEY` | — | AI curation utama (Claude). Kosong → fallback Qwen DashScope |
+| `WHISPER_MODEL` | `small` | model whisper LOKAL (fallback) |
+| `GROQ_API_KEY` | — | Transcribe (Whisper API) + curation (Llama) super cepat |
+| `ANTHROPIC_API_KEY` | — | AI curation Claude (opsional) |
 | `PEXELS_API_KEY` | — | B-roll stock footage (gratis di pexels.com/api) |
 | `CLIP_MAX_SOURCE_SECONDS` | `7200` | Tolak video > 2 jam |
+
+## Switch provider AI dari ADMIN PANEL (/mimin → section "Clip Studio AI")
+
+Tanpa redeploy, admin bisa mengatur (disimpan di tabel `app_settings`):
+- **Transcribing**: `Groq Whisper API` (default bila ada key — video 3,5 mnt ≈ 8 detik)
+  atau `Whisper Lokal` (gratis, fallback otomatis bila Groq gagal/limit/audio >25MB).
+- **Analyzing**: `Auto (Groq→Claude→Qwen)` / `Groq Llama` / `Qwen` / `Claude` /
+  `Custom` (OpenAI-compatible: base_url + model + key — bisa OpenAI, Mistral, dll).
+- **Kriteria prompt kurasi**: textarea custom (placeholder `{bahasa}` otomatis diganti);
+  kontrak output JSON dikunci sistem agar parsing tidak rusak.
+
+Benchmark lokal (video TED 3,5 menit, 3 klip): **±18 detik end-to-end**
+(download 6s → transcribe Groq 8s → curation Groq ~2s → reframe+assets paralel ~4s).
+Sebelumnya whisper lokal CPU: ±5-6 menit.
 
 ## Keputusan teknis (deviasi dari spec, sesuai izin poin 1)
 

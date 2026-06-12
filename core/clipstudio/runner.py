@@ -70,15 +70,30 @@ def process_project(project_id: str):
             rng_end = max(rng_start + 1, min(rng_end, meta["duration"]))
 
             # --- B. Transcribe (25-55%) ---
+            # Provider dipilih dari admin panel: groq (API, super cepat) / local (whisper PC).
             update_project_progress(project_id, status="transcribing", percent=26)
             pdir = project_dir(project_id)
             lang_opt = options.get("language")
-            tr = transcribe_words(
-                str(pdir / "audio.16k.wav"),
-                language=None if lang_opt in (None, "", "auto") else lang_opt,
-                progress_cb=lambda p: update_project_progress(
-                    project_id, percent=26 + int(p * 0.29)),
-            )
+            lang = None if lang_opt in (None, "", "auto") else lang_opt
+            audio = str(pdir / "audio.16k.wav")
+            prog = lambda p: update_project_progress(project_id, percent=26 + int(p * 0.29))
+
+            from core.clipstudio.settings_store import get_clip_settings
+            cfg = get_clip_settings()
+            tr = None
+            if cfg["clip_transcribe_provider"] == "groq" and cfg["clip_groq_api_key"]:
+                try:
+                    from core.clipstudio.transcribe import transcribe_words_groq
+                    tr = transcribe_words_groq(
+                        audio, language=lang,
+                        api_key=cfg["clip_groq_api_key"],
+                        model=cfg["clip_transcribe_model"],
+                        progress_cb=prog,
+                    )
+                except Exception as e:
+                    logger.warning("[ClipStudio] Groq transcribe gagal (%s) — fallback whisper lokal", e)
+            if tr is None:
+                tr = transcribe_words(audio, language=lang, progress_cb=prog)
             words = [w for w in tr["words"] if w["start"] >= rng_start and w["end"] <= rng_end] \
                 if (rng_start > 0 or rng_end < meta["duration"]) else tr["words"]
             if not words:
@@ -144,12 +159,15 @@ def _create_clips_and_assets(project_id: str, segs: list, options: dict,
                 status="processing",
             ))
 
-    # --- D. Reframe per klip (65-85%) + E. Assets (85-99%) ---
+    # --- D. Reframe + E. Assets per klip (65-99%) — PARALEL antar klip ---
+    from concurrent.futures import ThreadPoolExecutor, as_completed
+
     update_project_progress(project_id, status="reframing", percent=66)
     source = str(project_dir(project_id) / "source.mp4")
     n = len(clip_ids)
-    for i, cid in enumerate(clip_ids):
-        seg = segs[i]
+
+    def _process_one(i: int):
+        cid, seg = clip_ids[i], segs[i]
         try:
             kfs = compute_crop_keyframes(source, seg["start"], seg["end"], src_w, src_h)
             with sync_session() as s:
@@ -157,11 +175,6 @@ def _create_clips_and_assets(project_id: str, segs: list, options: dict,
                 c.crop_keyframes = kfs
         except Exception as e:
             logger.warning("[ClipStudio] reframe klip %s gagal: %s", cid[:8], e)
-        update_project_progress(project_id, percent=66 + int((i + 1) / n * 19))
-
-    update_project_progress(project_id, status="rendering", percent=86)
-    for i, cid in enumerate(clip_ids):
-        seg = segs[i]
         try:
             assets = generate_clip_assets(project_id, cid, source, seg["start"], seg["end"])
             with sync_session() as s:
@@ -174,7 +187,15 @@ def _create_clips_and_assets(project_id: str, segs: list, options: dict,
             with sync_session() as s:
                 c = s.get(Clip, cid)
                 c.status = "ready"  # tetap bisa diedit walau thumbnail gagal
-        update_project_progress(project_id, percent=86 + int((i + 1) / n * 13))
+
+    done = 0
+    with ThreadPoolExecutor(max_workers=min(4, max(1, n))) as pool:
+        futures = [pool.submit(_process_one, i) for i in range(n)]
+        for _ in as_completed(futures):
+            done += 1
+            if done == max(1, n // 2):
+                update_project_progress(project_id, status="rendering")
+            update_project_progress(project_id, percent=66 + int(done / n * 33))
 
 
 def reprocess_project(project_id: str, new_options: dict):

@@ -82,6 +82,83 @@ def transcribe_words(audio_path: str, language: str = None, progress_cb=None) ->
     return {"language": info.language or (language or "id"), "words": words}
 
 
+def transcribe_words_groq(audio_path: str, language: str = None,
+                          api_key: str = "", model: str = "whisper-large-v3-turbo",
+                          progress_cb=None) -> dict:
+    """
+    Transkripsi via Groq Whisper API (jauh lebih cepat dari CPU lokal).
+    Audio dikompres dulu ke mp3 mono 32kbps agar muat limit upload (~25MB).
+    Raise exception bila gagal -> pemanggil fallback ke whisper lokal.
+    """
+    import subprocess
+    import httpx
+    from pathlib import Path
+
+    if not api_key:
+        raise RuntimeError("GROQ_API_KEY kosong")
+
+    src = Path(audio_path)
+    mp3 = src.with_suffix(".groq.mp3")
+    if progress_cb:
+        progress_cb(5)
+    subprocess.run(
+        ["ffmpeg", "-y", "-i", str(src), "-ac", "1", "-ar", "16000",
+         "-b:a", "32k", str(mp3)],
+        capture_output=True, text=True, check=True,
+    )
+    size_mb = mp3.stat().st_size / 1048576
+    if size_mb > 24:
+        mp3.unlink(missing_ok=True)
+        raise RuntimeError(f"Audio {size_mb:.0f}MB melebihi limit upload Groq (~25MB) — pakai lokal")
+
+    if progress_cb:
+        progress_cb(20)
+    data = {
+        "model": model or "whisper-large-v3-turbo",
+        "response_format": "verbose_json",
+        "timestamp_granularities[]": "word",
+    }
+    if language in ("id", "en"):
+        data["language"] = language
+    with open(mp3, "rb") as f:
+        resp = httpx.post(
+            "https://api.groq.com/openai/v1/audio/transcriptions",
+            headers={"Authorization": f"Bearer {api_key}"},
+            data=data,
+            files={"file": (mp3.name, f, "audio/mpeg")},
+            timeout=300,
+        )
+    mp3.unlink(missing_ok=True)
+    if resp.status_code != 200:
+        raise RuntimeError(f"Groq API {resp.status_code}: {resp.text[:300]}")
+    if progress_cb:
+        progress_cb(85)
+
+    payload = resp.json()
+    words = []
+    for w in (payload.get("words") or []):
+        token = (w.get("word") or "").strip()
+        if not token:
+            continue
+        words.append({
+            "word": token,
+            "start": round(float(w.get("start") or 0), 3),
+            "end": round(float(w.get("end") or 0), 3),
+            "conf": 1.0,
+            "is_filler": _clean(token) in FILLER_WORDS,
+        })
+    for i in range(1, len(words)):
+        if words[i]["start"] < words[i - 1]["end"]:
+            words[i]["start"] = words[i - 1]["end"]
+        if words[i]["end"] < words[i]["start"]:
+            words[i]["end"] = words[i]["start"] + 0.05
+    if progress_cb:
+        progress_cb(99)
+    lang = (payload.get("language") or language or "id").lower()
+    lang = {"english": "en", "indonesian": "id"}.get(lang, lang[:2])
+    return {"language": lang, "words": words}
+
+
 def words_to_sentences(words: list) -> list:
     """
     Kelompokkan kata jadi kalimat utk prompt AI curation.

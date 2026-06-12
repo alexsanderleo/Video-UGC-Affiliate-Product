@@ -50,7 +50,13 @@ def _moving_average(points: list, window: int) -> list:
 
 def compute_crop_keyframes(source_path: str, start: float, end: float,
                            width: int, height: int) -> list:
-    """Deteksi wajah pada rentang [start, end] -> [{t, cx, cy}] (sudah di-smooth)."""
+    """
+    Deteksi wajah pada rentang [start, end] -> [{t, cx, cy}] (sudah di-smooth).
+    Frame diambil lewat PIPE ffmpeg (fps=2 + scale 320) sekali jalan — jauh lebih
+    cepat daripada seek acak OpenCV per sampel (decode dari keyframe tiap seek).
+    """
+    import subprocess
+    import numpy as np
     import cv2
 
     cx_default, cy_default = width / 2, height / 2
@@ -61,26 +67,29 @@ def compute_crop_keyframes(source_path: str, start: float, end: float,
         logger.warning("[ClipStudio] YuNet tidak tersedia (%s) — center crop.", e)
         return [{"t": round(start, 2), "cx": cx_default, "cy": cy_default}]
 
-    cap = cv2.VideoCapture(str(source_path))
-    if not cap.isOpened():
-        return [{"t": round(start, 2), "cx": cx_default, "cy": cy_default}]
-
-    # Resize deteksi ke lebar 320 demi kecepatan
     det_w = 320
     scale = det_w / max(1, width)
-    det_h = max(1, int(height * scale))
+    det_h = max(2, int(height * scale) // 2 * 2)
     detector.setInputSize((det_w, det_h))
 
+    dur = max(0.1, end - start)
+    proc = subprocess.Popen(
+        ["ffmpeg", "-v", "error", "-ss", f"{start:.3f}", "-t", f"{dur:.3f}",
+         "-i", str(source_path),
+         "-vf", f"fps={SAMPLE_FPS},scale={det_w}:{det_h}",
+         "-f", "rawvideo", "-pix_fmt", "bgr24", "pipe:1"],
+        stdout=subprocess.PIPE, stderr=subprocess.DEVNULL,
+    )
+    frame_bytes = det_w * det_h * 3
     times, centers = [], []
     t = start
     step = 1.0 / SAMPLE_FPS
     last_center = (cx_default, cy_default)
     while t < end:
-        cap.set(cv2.CAP_PROP_POS_MSEC, t * 1000.0)
-        ok, frame = cap.read()
-        if not ok:
+        buf = proc.stdout.read(frame_bytes)
+        if not buf or len(buf) < frame_bytes:
             break
-        small = cv2.resize(frame, (det_w, det_h))
+        small = np.frombuffer(buf, dtype=np.uint8).reshape((det_h, det_w, 3))
         try:
             _, faces = detector.detect(small)
         except Exception:
@@ -93,7 +102,8 @@ def compute_crop_keyframes(source_path: str, start: float, end: float,
         times.append(round(t, 2))
         centers.append(last_center)
         t += step
-    cap.release()
+    proc.stdout.close()
+    proc.wait()
 
     if not centers:
         return [{"t": round(start, 2), "cx": cx_default, "cy": cy_default}]

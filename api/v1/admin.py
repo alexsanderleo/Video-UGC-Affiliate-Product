@@ -1363,3 +1363,140 @@ async def toggle_ai_rotation(
     await _set_setting(db, "ai_rotation_enabled", "0" if current == "1" else "1")
     await db.commit()
     return await _render_section(db)
+
+
+# =====================================================================
+# CLIP STUDIO (Auto Klip VIP) — switch provider Transcribe & Analyze
+# =====================================================================
+
+def _mask_key(k: str) -> str:
+    return (k[:6] + "..." + k[-4:]) if k and len(k) > 12 else ("(terisi)" if k else "(kosong)")
+
+
+def render_clipstudio_settings_fragment(vals: dict, saved: bool = False) -> str:
+    import html as _html
+    from core.clipstudio.settings_store import DEFAULT_CRITERIA
+
+    def sel(name, options, current):
+        opts = "".join(
+            f'<option value="{v}"{" selected" if v == current else ""}>{label}</option>'
+            for v, label in options
+        )
+        return (f'<select name="{name}" class="bg-slate-950 border border-slate-800 rounded-lg '
+                f'px-3 py-2 text-sm text-slate-200 focus:border-indigo-500 focus:outline-none w-full">{opts}</select>')
+
+    inp_cls = ("bg-slate-950 border border-slate-800 rounded-lg px-3 py-2 text-sm "
+               "text-slate-200 focus:border-indigo-500 focus:outline-none w-full")
+    saved_badge = ('<span class="px-2 py-0.5 rounded-full text-xs font-bold bg-emerald-500/20 '
+                   'text-emerald-400">✓ TERSIMPAN</span>' if saved else "")
+    criteria_val = _html.escape(vals.get("clip_curate_criteria") or "")
+    default_crit = _html.escape(DEFAULT_CRITERIA)
+
+    return f"""
+    <div id="clipstudio-settings-section">
+    <form hx-post="/api/v1/admin/clipstudio-settings/save"
+        hx-target="#clipstudio-settings-section" hx-swap="outerHTML"
+        class="bg-slate-900/40 border border-slate-800 rounded-xl p-5 space-y-4">
+        <div class="flex items-center justify-between">
+            <div class="text-sm font-bold text-slate-200">⚡ Provider pipeline Clip Studio</div>
+            {saved_badge}
+        </div>
+
+        <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+            <div class="space-y-2">
+                <div class="text-xs font-bold text-slate-400 uppercase">🎙️ Transcribing</div>
+                {sel("clip_transcribe_provider", [
+                    ("groq", "Groq Whisper API (super cepat)"),
+                    ("local", "Whisper Lokal (PC/server, gratis)"),
+                ], vals.get("clip_transcribe_provider", "groq"))}
+                {sel("clip_transcribe_model", [
+                    ("whisper-large-v3-turbo", "whisper-large-v3-turbo (tercepat)"),
+                    ("whisper-large-v3", "whisper-large-v3 (terakurat)"),
+                ], vals.get("clip_transcribe_model", "whisper-large-v3-turbo"))}
+                <input name="clip_groq_api_key" placeholder="Groq API Key — saat ini: {_mask_key(vals.get('clip_groq_api_key', ''))}"
+                    class="{inp_cls}" autocomplete="off">
+                <div class="text-[11px] text-slate-500">Kosongkan = pakai key tersimpan / env GROQ_API_KEY. Gagal/limit → fallback otomatis ke whisper lokal.</div>
+            </div>
+
+            <div class="space-y-2">
+                <div class="text-xs font-bold text-slate-400 uppercase">🧠 Analyzing (AI Curation)</div>
+                {sel("clip_curate_provider", [
+                    ("auto", "Auto (Groq → Claude → Qwen)"),
+                    ("groq", "Groq (Llama, cepat & murah)"),
+                    ("qwen", "Qwen DashScope"),
+                    ("anthropic", "Anthropic Claude"),
+                    ("custom", "Custom (OpenAI-compatible)"),
+                ], vals.get("clip_curate_provider", "auto"))}
+                <input name="clip_curate_model" value="{_html.escape(vals.get('clip_curate_model', ''))}"
+                    placeholder="Model override (kosong = default provider, mis. llama-3.3-70b-versatile)" class="{inp_cls}" autocomplete="off">
+                <input name="clip_curate_base_url" value="{_html.escape(vals.get('clip_curate_base_url', ''))}"
+                    placeholder="Base URL (khusus Custom, mis. https://api.openai.com/v1)" class="{inp_cls}" autocomplete="off">
+                <input name="clip_curate_api_key"
+                    placeholder="API Key Custom — saat ini: {_mask_key(vals.get('clip_curate_api_key', ''))}" class="{inp_cls}" autocomplete="off">
+            </div>
+        </div>
+
+        <div class="space-y-1">
+            <div class="text-xs font-bold text-slate-400 uppercase">📝 Kriteria pemilihan klip (prompt AI — bisa di-custom)</div>
+            <textarea name="clip_curate_criteria" rows="6" placeholder="Kosongkan untuk pakai kriteria bawaan (lihat di bawah)"
+                class="{inp_cls} font-mono text-xs">{criteria_val}</textarea>
+            <details class="text-[11px] text-slate-500">
+                <summary class="cursor-pointer">Lihat kriteria bawaan (default)</summary>
+                <pre class="mt-1 whitespace-pre-wrap bg-slate-950 border border-slate-800 rounded p-2">{default_crit}</pre>
+            </details>
+            <div class="text-[11px] text-slate-500">Placeholder <code>{{bahasa}}</code> otomatis diganti bahasa video. Format output JSON dikunci sistem — tidak perlu ditulis di sini.</div>
+        </div>
+
+        <div class="flex justify-end">
+            <button type="submit" class="bg-indigo-600 hover:bg-indigo-500 text-white text-sm font-bold px-6 py-2 rounded-lg transition">💾 Simpan</button>
+        </div>
+    </form>
+    </div>"""
+
+
+async def _clipstudio_settings_vals(db: AsyncSession) -> dict:
+    from core.clipstudio.settings_store import CLIP_SETTING_KEYS
+    import os
+    vals = {}
+    for k in CLIP_SETTING_KEYS:
+        vals[k] = await _get_setting(db, k, "")
+    if not vals.get("clip_groq_api_key"):
+        vals["clip_groq_api_key"] = os.getenv("GROQ_API_KEY", "")
+    return vals
+
+
+@router.get("/clipstudio-settings", response_class=HTMLResponse,
+            summary="Clip Studio AI settings fragment")
+async def get_clipstudio_settings(
+    db: AsyncSession = Depends(get_db),
+    admin: User = Depends(get_current_admin),
+):
+    return HTMLResponse(render_clipstudio_settings_fragment(await _clipstudio_settings_vals(db)))
+
+
+@router.post("/clipstudio-settings/save", response_class=HTMLResponse)
+async def save_clipstudio_settings(
+    clip_transcribe_provider: str = Form("groq"),
+    clip_transcribe_model: str = Form("whisper-large-v3-turbo"),
+    clip_groq_api_key: str = Form(""),
+    clip_curate_provider: str = Form("auto"),
+    clip_curate_model: str = Form(""),
+    clip_curate_base_url: str = Form(""),
+    clip_curate_api_key: str = Form(""),
+    clip_curate_criteria: str = Form(""),
+    db: AsyncSession = Depends(get_db),
+    admin: User = Depends(get_current_admin),
+):
+    await _set_setting(db, "clip_transcribe_provider", clip_transcribe_provider.strip())
+    await _set_setting(db, "clip_transcribe_model", clip_transcribe_model.strip())
+    if clip_groq_api_key.strip():   # kosong = jangan timpa key lama
+        await _set_setting(db, "clip_groq_api_key", clip_groq_api_key.strip())
+    await _set_setting(db, "clip_curate_provider", clip_curate_provider.strip())
+    await _set_setting(db, "clip_curate_model", clip_curate_model.strip())
+    await _set_setting(db, "clip_curate_base_url", clip_curate_base_url.strip())
+    if clip_curate_api_key.strip():
+        await _set_setting(db, "clip_curate_api_key", clip_curate_api_key.strip())
+    await _set_setting(db, "clip_curate_criteria", clip_curate_criteria.strip())
+    await db.commit()
+    return HTMLResponse(render_clipstudio_settings_fragment(
+        await _clipstudio_settings_vals(db), saved=True))

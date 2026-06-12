@@ -94,17 +94,20 @@ def curate_clips(words: list, language: str, clip_length: str = "auto",
             f"\nINSTRUKSI KHUSUS DARI USER (ClipAnything — WAJIB diprioritaskan): "
             f"\"{prompt.strip()[:500]}\". Pilih hanya momen yang sesuai instruksi ini.\n"
         )
+
+    # Kriteria pemilihan bisa di-custom dari ADMIN PANEL (app_settings.clip_curate_criteria).
+    # Kontrak output JSON tetap dikunci di bawah agar parsing tidak pernah rusak.
+    from core.clipstudio.settings_store import DEFAULT_CRITERIA, get_clip_settings
+    criteria = (get_clip_settings().get("clip_curate_criteria") or "").strip() or DEFAULT_CRITERIA
+    criteria = criteria.replace("{bahasa}", lang_label)
+
     user = (
         f"Transkrip video (format [detik_mulai - detik_selesai] teks):\n\n{transcript_lines}\n"
         f"{prompt_line}\n"
-        f"Pilih MAKSIMAL {max_clips} segmen berdurasi {lo}-{hi} detik. Syarat tiap segmen:\n"
-        f"- Punya HOOK kuat di 3 detik pertama.\n"
-        f"- Satu ide utuh — JANGAN memotong di tengah kalimat; gunakan batas waktu kalimat di atas.\n"
-        f"- Beri skor viralitas total 0-100 beserta alasan singkat (hook kuat / topik tren / punchline).\n"
-        f"- Breakdown skor 0-100 per komponen: hook (daya tarik 3 dtk pertama), flow (kelancaran alur), "
-        f"value (nilai/insight bagi penonton), trend (relevansi topik tren).\n"
-        f"- Judul clickbait dalam {lang_label}.\n"
-        f"- 3 hashtag relevan.\n\n"
+        f"Pilih MAKSIMAL {max_clips} segmen. DURASI TIAP SEGMEN WAJIB {lo}-{hi} DETIK "
+        f"(end - start harus >= {lo} dan <= {hi}; gabungkan beberapa kalimat berurutan bila perlu "
+        f"agar mencapai durasi minimum). Syarat tiap segmen:\n"
+        f"{criteria}\n\n"
         f'Output JSON murni: [{{"start": 12.40, "end": 58.92, "title": "...", "score": 87, '
         f'"reason": "...", "hashtags": ["#a", "#b", "#c"], '
         f'"breakdown": {{"hook": 92, "flow": 85, "value": 80, "trend": 88}}}}]'
@@ -112,8 +115,11 @@ def curate_clips(words: list, language: str, clip_length: str = "auto",
 
     raw = llm_complete(system, user, max_tokens=4000)
     data = extract_json(raw) if raw else None
+    if raw and data is None:
+        logger.warning("[ClipStudio] respons LLM tidak bisa diparse JSON: %s", (raw or "")[:200])
 
     segs = []
+    rejected = 0
     if isinstance(data, list):
         for item in data:
             try:
@@ -123,10 +129,13 @@ def curate_clips(words: list, language: str, clip_length: str = "auto",
                 continue
             if end <= start:
                 continue
-            # Validasi & snap ke boundary kata terdekat (wajib sesuai spec)
+            # Validasi & snap ke boundary kata terdekat (wajib sesuai spec).
+            # Toleransi durasi longgar: AI kadang memberi segmen sedikit di luar target —
+            # lebih baik diterima daripada jatuh ke fallback bodoh per-45 detik.
             start = _snap_to_word_boundary(start, words, "start")
             end = _snap_to_word_boundary(end, words, "end")
-            if end - start < max(5, lo * 0.5) or end - start > hi * 1.5:
+            if end - start < max(8, lo * 0.35) or end - start > hi * 2:
+                rejected += 1
                 continue
             score = max(0, min(100, int(item.get("score") or 50)))
             bd = item.get("breakdown") or {}
@@ -142,7 +151,11 @@ def curate_clips(words: list, language: str, clip_length: str = "auto",
             })
 
     if not segs:
-        logger.warning("[ClipStudio] AI curation kosong/gagal — pakai fallback per ~45s.")
+        logger.warning(
+            "[ClipStudio] AI curation kosong/gagal (raw=%s, parsed=%s, ditolak_durasi=%d) "
+            "— pakai fallback per ~45s.",
+            "ada" if raw else "None", type(data).__name__, rejected,
+        )
         segs = _fallback_segments(words, dur_range, max_clips)
         for s in segs:
             s.setdefault("breakdown", {"hook": 50, "flow": 50, "value": 50, "trend": 50})
