@@ -477,6 +477,66 @@ async def search_broll(
     return {"items": items}
 
 
+# ---------- AI B-Roll: generate GAMBAR dari caption terpilih (Gemini cookie sendiri) ----------
+
+@router.post("/clips/{clip_id}/broll-image")
+async def generate_broll_image(
+    clip_id: str,
+    payload: dict,
+    user: User = Depends(get_current_user),
+    db: AsyncSession = Depends(get_db),
+):
+    """
+    AI B-Roll ala Opus: caption/teks terpilih -> AI generate gambar -> simpan ke media
+    project. Frontend menaruhnya di timeline tepat pada rentang caption tsb.
+    Engine: gemini-webapi via cookie akun sendiri (diatur admin di /mimin),
+    port dari aplikasi klinik-bot-kecantikan-v3 milik user.
+    """
+    import asyncio as _asyncio
+    clip = await _get_owned_clip(clip_id, user, db)
+    text = (payload.get("text") or "").strip()[:600]
+    manual_prompt = (payload.get("prompt") or "").strip()[:800]
+    if not text and not manual_prompt:
+        raise HTTPException(status.HTTP_422_UNPROCESSABLE_ENTITY, "Teks caption / prompt kosong.")
+
+    # Susun prompt visual: manual dipakai apa adanya; dari caption, LLM merangkai
+    # deskripsi visual English (lebih akurat utk image model). Gagal LLM -> teks mentah.
+    if manual_prompt:
+        img_prompt = manual_prompt
+    else:
+        img_prompt = ""
+        try:
+            raw = llm_complete(
+                "You are a visual prompt writer for an image generator. Reply ONLY the prompt text.",
+                f'Caption from a talking video: "{text}"\n\n'
+                f"Write ONE short English image-generation prompt (max 40 words) that visually "
+                f"illustrates this caption for use as b-roll. Concrete scene, no text overlay, "
+                f"no captions, photorealistic.",
+                max_tokens=120,
+            )
+            img_prompt = (raw or "").strip().strip('"')[:800]
+        except Exception:
+            pass
+        if not img_prompt:
+            img_prompt = f"Photorealistic b-roll illustration of: {text}"
+    img_prompt += " Vertical 9:16 composition, high quality, no text, no watermark."
+
+    from core.clipstudio.imagegen import GenerateError, generate_image
+    try:
+        png = await _asyncio.to_thread(generate_image, img_prompt)
+    except GenerateError as e:
+        raise HTTPException(status.HTTP_502_BAD_GATEWAY, str(e))
+    except Exception as e:
+        raise HTTPException(status.HTTP_502_BAD_GATEWAY, f"Gagal generate gambar: {e}")
+
+    from core.clipstudio.paths import project_dir, rel_storage
+    mdir = project_dir(clip.project_id) / "media"
+    mdir.mkdir(exist_ok=True)
+    dest = mdir / f"broll_ai_{uuid.uuid4().hex[:8]}.png"
+    dest.write_bytes(png)
+    return {"url": rel_storage(dest), "prompt": img_prompt, "bytes": len(png)}
+
+
 # ---------- AI tools (hook, emoji, keyword, b-roll keywords) ----------
 
 @router.post("/clips/{clip_id}/ai")

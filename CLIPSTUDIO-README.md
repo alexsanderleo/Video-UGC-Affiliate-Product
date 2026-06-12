@@ -115,6 +115,17 @@ Sebelumnya whisper lokal CPU: ±5-6 menit.
   kiri/tengah/kanan, word's background color + radius + width %. Teks ber-style
   dirender PNG LOKAL via canvas browser (tanpa API eksternal) supaya export
   ffmpeg 100% identik dgn preview (drawtext tidak bisa bg rounded/wrap).
+- **AI B-Roll generate gambar** (menu B-Roll → ✨, ala "Auto Generate AI B-Roll"
+  Opus): pilih kalimat caption → LLM merangkai prompt visual → gambar digenerate
+  via **cookie akun Gemini sendiri** (library gemini-webapi, port dari repo
+  klinik-bot-kecantikan-v3 milik sendiri) → otomatis terpasang di timeline tepat
+  pada rentang caption tsb. Juga ada "Prompt B-Roll" manual di playhead.
+  Cookie multi-akun (failover + cooldown 5 menit) dikelola admin di **/mimin →
+  AI B-Roll (Gemini)**: import JSON output `cookies-grabber`, tambah manual
+  (__Secure-1PSID + __Secure-1PSIDTS), toggle/hapus, tombol 🧪 test generate.
+  Disimpan di `storage/gemini_servers.json` (ter-gitignore). CATATAN: gemini-webapi
+  tidak resmi & cookie bisa basi — fitur opsional; gagal → stock Pexels/media
+  lokal tetap jalan (error rapi, tidak mengganggu pipeline).
 
 ## Fitur editor ala CapCut (batch 3 — 100% BUATAN SENDIRI, NOL API eksternal)
 

@@ -2,3 +2,6 @@ flask>=3.0
 openai>=1.0
 edge-tts>=6.0
 python-dotenv>=1.0
+
+# AI B-Roll: generate gambar via cookie akun Gemini sendiri (WAJIB 2.0.0 - <2 gagal parse)
+gemini-webapi==2.0.0

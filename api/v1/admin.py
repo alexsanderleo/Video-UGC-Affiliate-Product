@@ -1500,3 +1500,162 @@ async def save_clipstudio_settings(
     await db.commit()
     return HTMLResponse(render_clipstudio_settings_fragment(
         await _clipstudio_settings_vals(db), saved=True))
+
+
+# =====================================================================
+# AI B-ROLL (Gemini via cookie akun sendiri — port dari klinik-bot-kecantikan-v3)
+# =====================================================================
+
+def render_gemini_broll_fragment(msg: str = "", err: str = "") -> str:
+    import html as _html
+    from core.clipstudio.imagegen import list_servers_masked
+    servers = list_servers_masked()
+
+    inp_cls = ("bg-slate-950 border border-slate-800 rounded-lg px-3 py-2 text-sm "
+               "text-slate-200 focus:border-indigo-500 focus:outline-none w-full")
+    badge = ""
+    if msg:
+        badge = (f'<div class="px-3 py-2 rounded-lg text-xs font-bold bg-emerald-500/15 '
+                 f'text-emerald-400">✓ {_html.escape(msg)}</div>')
+    elif err:
+        badge = (f'<div class="px-3 py-2 rounded-lg text-xs font-bold bg-rose-500/15 '
+                 f'text-rose-400 whitespace-pre-wrap">✗ {_html.escape(err)}</div>')
+
+    rows = ""
+    for s in servers:
+        st = ('<span class="text-emerald-400">aktif</span>' if s["enabled"]
+              else '<span class="text-slate-500">nonaktif</span>')
+        cd = (f' · 😴 cooldown {s["cooldown_left"]}s' if s["on_cooldown"] else "")
+        ok = "🍪" if s["has_psid"] else "⚠️ kosong"
+        rows += f"""
+        <div class="flex items-center gap-3 bg-slate-950/60 border border-slate-800 rounded-lg px-3 py-2 text-xs">
+            <div class="flex-1 min-w-0">
+                <div class="font-bold text-slate-200">{_html.escape(s['name'] or s['id'])}
+                    <span class="text-slate-500 font-normal">({_html.escape(s['id'])}{(' · ' + _html.escape(s['gmail'])) if s['gmail'] else ''})</span></div>
+                <div class="text-slate-500">{ok} {_html.escape(s['psid_preview'])} ·
+                    PSIDTS: {'ada' if s['has_psidts'] else 'tidak'} · {st}{cd}</div>
+            </div>
+            <button hx-post="/api/v1/admin/gemini-broll/toggle" hx-vals='{{"sid": "{_html.escape(s['id'])}"}}'
+                hx-target="#gemini-broll-section" hx-swap="outerHTML"
+                class="px-2 py-1 rounded bg-slate-800 hover:bg-slate-700 text-slate-300">{'⏸ Nonaktifkan' if s['enabled'] else '▶ Aktifkan'}</button>
+            <button hx-post="/api/v1/admin/gemini-broll/delete" hx-vals='{{"sid": "{_html.escape(s['id'])}"}}'
+                hx-confirm="Hapus akun cookie {_html.escape(s['id'])}?"
+                hx-target="#gemini-broll-section" hx-swap="outerHTML"
+                class="px-2 py-1 rounded bg-rose-900/40 hover:bg-rose-900/70 text-rose-300">✕</button>
+        </div>"""
+    if not rows:
+        rows = ('<div class="text-xs text-slate-500 italic">Belum ada akun. Import JSON dari '
+                'cookies-grabber (repo klinik-bot) atau isi manual di bawah.</div>')
+
+    return f"""
+    <div id="gemini-broll-section" class="bg-slate-900/40 border border-slate-800 rounded-xl p-5 space-y-4">
+        <div class="flex items-center justify-between">
+            <div class="text-sm font-bold text-slate-200">🖼️ AI B-Roll — akun Gemini (cookie sendiri)</div>
+            <button hx-post="/api/v1/admin/gemini-broll/test" hx-target="#gemini-broll-section" hx-swap="outerHTML"
+                hx-indicator="#gbr-busy"
+                class="px-3 py-1.5 rounded-lg bg-indigo-600 hover:bg-indigo-500 text-white text-xs font-bold">🧪 Test generate</button>
+        </div>
+        <div id="gbr-busy" class="htmx-indicator text-xs text-amber-400">⏳ Test generate berjalan (±40 detik)…</div>
+        {badge}
+        <div class="text-[11px] text-slate-500 leading-relaxed">
+            1 akun = 1 cookie <code>__Secure-1PSID</code> (+ <code>__Secure-1PSIDTS</code>). Ambil pakai
+            <b>cookies-grabber</b> di repo klinik-bot-kecantikan-v3 (<code>python grab_cookie.py s1</code>),
+            lalu tempel isi <code>output/servers.json</code> di bawah. Multi-akun = failover + cooldown otomatis.
+            Dipakai menu <b>B-Roll → ✨ AI Generate</b> di editor Auto Klip VIP.
+        </div>
+        <div class="space-y-2">{rows}</div>
+
+        <form hx-post="/api/v1/admin/gemini-broll/import" hx-target="#gemini-broll-section" hx-swap="outerHTML" class="space-y-2">
+            <div class="text-xs font-bold text-slate-400 uppercase">📥 Import JSON (output cookies-grabber)</div>
+            <textarea name="servers_json" rows="3" placeholder='[{{"id":"s1","secure_1psid":"g.a0...","secure_1psidts":"sidts-..."}}]'
+                class="{inp_cls} font-mono text-xs"></textarea>
+            <button type="submit" class="bg-slate-800 hover:bg-slate-700 text-slate-200 text-xs font-bold px-4 py-2 rounded-lg">Import / Update</button>
+        </form>
+
+        <form hx-post="/api/v1/admin/gemini-broll/add" hx-target="#gemini-broll-section" hx-swap="outerHTML" class="space-y-2">
+            <div class="text-xs font-bold text-slate-400 uppercase">➕ Tambah manual (tempel dari DevTools)</div>
+            <div class="grid grid-cols-1 md:grid-cols-2 gap-2">
+                <input name="sid" placeholder="ID (mis. s1)" class="{inp_cls}" autocomplete="off">
+                <input name="gmail" placeholder="Label gmail (opsional)" class="{inp_cls}" autocomplete="off">
+            </div>
+            <input name="psid" placeholder="__Secure-1PSID (wajib)" class="{inp_cls}" autocomplete="off">
+            <input name="psidts" placeholder="__Secure-1PSIDTS (disarankan — auto-refresh sesi)" class="{inp_cls}" autocomplete="off">
+            <button type="submit" class="bg-slate-800 hover:bg-slate-700 text-slate-200 text-xs font-bold px-4 py-2 rounded-lg">Simpan akun</button>
+        </form>
+    </div>"""
+
+
+@router.get("/gemini-broll", response_class=HTMLResponse, summary="Gemini B-Roll cookies fragment")
+async def get_gemini_broll(admin: User = Depends(get_current_admin)):
+    return HTMLResponse(render_gemini_broll_fragment())
+
+
+@router.post("/gemini-broll/import", response_class=HTMLResponse)
+async def gemini_broll_import(
+    servers_json: str = Form(""),
+    admin: User = Depends(get_current_admin),
+):
+    from core.clipstudio.imagegen import GenerateError, import_servers
+    try:
+        n = import_servers(servers_json)
+        return HTMLResponse(render_gemini_broll_fragment(msg=f"{n} akun diimport/diupdate."))
+    except GenerateError as e:
+        return HTMLResponse(render_gemini_broll_fragment(err=str(e)))
+
+
+@router.post("/gemini-broll/add", response_class=HTMLResponse)
+async def gemini_broll_add(
+    sid: str = Form(""),
+    psid: str = Form(""),
+    psidts: str = Form(""),
+    gmail: str = Form(""),
+    admin: User = Depends(get_current_admin),
+):
+    from core.clipstudio.imagegen import GenerateError, add_server
+    try:
+        add_server(sid, psid, psidts, gmail=gmail)
+        return HTMLResponse(render_gemini_broll_fragment(msg=f"Akun '{sid}' tersimpan."))
+    except GenerateError as e:
+        return HTMLResponse(render_gemini_broll_fragment(err=str(e)))
+
+
+@router.post("/gemini-broll/toggle", response_class=HTMLResponse)
+async def gemini_broll_toggle(
+    sid: str = Form(""),
+    admin: User = Depends(get_current_admin),
+):
+    from core.clipstudio.imagegen import GenerateError, list_servers_masked, set_enabled
+    try:
+        cur = next((s for s in list_servers_masked() if s["id"] == sid), None)
+        if not cur:
+            raise GenerateError(f"Server '{sid}' tidak ditemukan.")
+        set_enabled(sid, not cur["enabled"])
+        return HTMLResponse(render_gemini_broll_fragment(
+            msg=f"Akun '{sid}' {'diaktifkan' if not cur['enabled'] else 'dinonaktifkan'}."))
+    except GenerateError as e:
+        return HTMLResponse(render_gemini_broll_fragment(err=str(e)))
+
+
+@router.post("/gemini-broll/delete", response_class=HTMLResponse)
+async def gemini_broll_delete(
+    sid: str = Form(""),
+    admin: User = Depends(get_current_admin),
+):
+    from core.clipstudio.imagegen import delete_server
+    delete_server(sid)
+    return HTMLResponse(render_gemini_broll_fragment(msg=f"Akun '{sid}' dihapus."))
+
+
+@router.post("/gemini-broll/test", response_class=HTMLResponse)
+async def gemini_broll_test(admin: User = Depends(get_current_admin)):
+    import asyncio as _asyncio
+    from core.clipstudio.imagegen import GenerateError, generate_image
+    try:
+        png = await _asyncio.to_thread(
+            generate_image, "A simple red circle on white background, minimal test image.")
+        return HTMLResponse(render_gemini_broll_fragment(
+            msg=f"Test OK — gambar {len(png) // 1024} KB berhasil digenerate. Cookie sehat ✅"))
+    except GenerateError as e:
+        return HTMLResponse(render_gemini_broll_fragment(err=f"Test gagal: {e}"))
+    except Exception as e:
+        return HTMLResponse(render_gemini_broll_fragment(err=f"Test gagal: {e}"))

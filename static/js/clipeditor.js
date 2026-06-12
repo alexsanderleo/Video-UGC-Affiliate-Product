@@ -1810,14 +1810,81 @@
   }
 
   // --- B-Roll ---
+  // Kalimat caption (utk AI B-Roll per caption): gabung kata sampai tanda baca/jeda
+  function captionSentences() {
+    const words = visibleCaptionWords();
+    const sents = []; let cur = [];
+    for (let j = 0; j < words.length; j++) {
+      cur.push(words[j]);
+      const gap = j + 1 < words.length ? words[j + 1].start - words[j].end : 99;
+      if (/[.!?…]$/.test(words[j].word.trim()) || gap > 1.2 || cur.length >= 18) { sents.push(cur); cur = []; }
+    }
+    if (cur.length) sents.push(cur);
+    return sents.map((ws) => ({
+      text: ws.map((w) => w.word.trim()).join(' '),
+      start: srcToOut(ws[0].start),
+      end: srcToOut(ws[ws.length - 1].end),
+    })).filter((s2) => s2.text && s2.end > s2.start);
+  }
   function panelBroll() {
-    sbody.innerHTML = '<h3>🎞️ B-Roll (Pexels)</h3>' +
+    // === AI B-Roll (Gemini akun sendiri, ala Opus "Auto Generate AI B-Roll") ===
+    let aiRows = '';
+    captionSentences().forEach((s2, i) => {
+      aiRows += '<div class="itemrow"><span class="nm" title="' + s2.text.replace(/"/g, '&quot;') + '">' +
+        fmtT(s2.start) + ' · ' + s2.text.slice(0, 42) + (s2.text.length > 42 ? '…' : '') + '</span>' +
+        '<button data-aib="' + i + '" title="AI generate gambar utk caption ini">✨</button></div>';
+    });
+    sbody.innerHTML = '<h3>🎞️ B-Roll</h3>' +
+      '<h3 style="font-size:.82rem">✨ AI B-Roll (Gemini — generate gambar)</h3>' +
+      '<p class="note">Pilih caption → AI membuat GAMBAR sesuai isinya → otomatis tampil di timeline tepat pada rentang caption itu (±40 dtk per gambar). Cookie akun Gemini diatur admin di /mimin.</p>' +
+      '<div style="max-height:170px;overflow:auto;border:1px solid var(--border);border-radius:9px;padding:4px" id="aibList">' +
+      (aiRows || '<p class="note">Belum ada caption (transkrip kosong).</p>') + '</div>' +
+      '<div class="fgroup" style="margin-top:8px"><label>Prompt B-Roll manual (gambar bebas)</label>' +
+      '<textarea id="aibPrompt" rows="2" placeholder="mis: ilustrasi orang lari di pantai saat matahari terbit, sinematik" style="width:100%;background:var(--card);border:1px solid var(--border);color:var(--text);border-radius:9px;padding:8px 10px;font-size:.8rem;outline:none;font-family:inherit"></textarea></div>' +
+      '<button class="actionbtn" id="aibGen">✨ Generate & taruh di playhead (3 dtk)</button>' +
+      '<h3 style="margin-top:14px;font-size:.82rem">📚 Stock library (Pexels)</h3>' +
       '<button class="actionbtn" id="brKw">🧠 Saran kata kunci dari AI</button>' +
       '<div class="kwchips" id="brChips"></div>' +
       '<div class="fgroup"><input type="search" id="brQ" placeholder="Cari stock footage… (English)"></div>' +
       '<div class="tabs2"><button class="on" data-bt="videos">Video</button><button data-bt="photos">Foto</button></div>' +
       '<div class="mediagrid" id="brGrid"></div>' +
       '<h3 style="margin-top:14px;font-size:.82rem">Di timeline</h3><div id="brUsed"></div>';
+    // generate per caption
+    const sents = captionSentences();
+    sbody.querySelectorAll('[data-aib]').forEach((b) => b.addEventListener('click', async () => {
+      const s2 = sents[+b.dataset.aib];
+      if (!s2 || b.disabled) return;
+      b.disabled = true; b.textContent = '⏳';
+      try {
+        const d = await api('/clips/' + clipId + '/broll-image', {
+          method: 'POST', headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ text: s2.text }),
+        });
+        ES.broll = ES.broll || [];
+        ES.broll.push({ url: d.url, type: 'image', start: s2.start,
+                        end: Math.min(outDuration(), Math.max(s2.end, s2.start + 1.5)), ai: true });
+        commit(); renderTimeline(); renderUsed();
+        b.textContent = '✅';
+      } catch (e) { b.textContent = '❌'; b.title = e.message; alert('AI B-Roll gagal: ' + e.message); b.disabled = false; }
+    }));
+    // generate dari prompt manual di playhead
+    $('aibGen').addEventListener('click', async () => {
+      const p = $('aibPrompt').value.trim();
+      if (!p) { alert('Tulis prompt gambarnya dulu.'); return; }
+      $('aibGen').disabled = true; $('aibGen').textContent = '⏳ AI menggambar (±40 dtk)…';
+      try {
+        const d = await api('/clips/' + clipId + '/broll-image', {
+          method: 'POST', headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ prompt: p }),
+        });
+        const t0 = srcToOut(vid.currentTime);
+        ES.broll = ES.broll || [];
+        ES.broll.push({ url: d.url, type: 'image', start: t0, end: Math.min(outDuration(), t0 + 3), ai: true });
+        commit(); renderTimeline(); renderUsed();
+        $('aibGen').textContent = '✅ Terpasang — generate lagi?';
+      } catch (e) { $('aibGen').textContent = '❌ ' + e.message; }
+      $('aibGen').disabled = false;
+    });
     let btype = 'videos';
     sbody.querySelectorAll('[data-bt]').forEach((b) => b.addEventListener('click', () => {
       btype = b.dataset.bt;
@@ -1866,7 +1933,7 @@
       (ES.broll || []).forEach((b, i) => {
         const r = document.createElement('div');
         r.className = 'itemrow';
-        r.innerHTML = '<span class="nm">🎞 B-roll ' + (i + 1) + ' (' + fmtT(b.start) + '–' + fmtT(b.end) + ')</span><button>✕</button>';
+        r.innerHTML = '<span class="nm">' + (b.ai ? '✨ AI' : '🎞') + ' B-roll ' + (i + 1) + ' (' + fmtT(b.start) + '–' + fmtT(b.end) + ')</span><button>✕</button>';
         r.querySelector('button').addEventListener('click', () => { ES.broll.splice(i, 1); commit(); renderTimeline(); renderUsed(); });
         used.appendChild(r);
       });
