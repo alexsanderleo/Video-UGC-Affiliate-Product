@@ -36,6 +36,68 @@ def _servers_file() -> Path:
     return STORAGE_DIR / "gemini_servers.json"
 
 
+def _config_file() -> Path:
+    from core.clipstudio.paths import STORAGE_DIR
+    STORAGE_DIR.mkdir(parents=True, exist_ok=True)
+    return STORAGE_DIR / "gemini_config.json"
+
+
+DEFAULT_CONFIG = {"mode": "random", "interval_min": 10}
+# mode: "random" = acak + failover (bawaan)
+#       "rotate" = rotasi terjadwal — tiap `interval_min` menit ganti akun "piket"
+#                  (akun lain tetap jadi cadangan failover bila piket gagal)
+
+
+def load_config() -> dict:
+    p = _config_file()
+    cfg = dict(DEFAULT_CONFIG)
+    if p.exists():
+        try:
+            data = json.loads(p.read_text(encoding="utf-8"))
+            if isinstance(data, dict):
+                cfg.update(data)
+        except Exception:
+            pass
+    cfg["mode"] = cfg.get("mode") if cfg.get("mode") in ("random", "rotate") else "random"
+    try:
+        cfg["interval_min"] = max(1, min(1440, int(cfg.get("interval_min") or 10)))
+    except Exception:
+        cfg["interval_min"] = 10
+    return cfg
+
+
+def save_config(mode: str, interval_min: int) -> dict:
+    cfg = {
+        "mode": mode if mode in ("random", "rotate") else "random",
+        "interval_min": max(1, min(1440, int(interval_min or 10))),
+    }
+    p = _config_file()
+    tmp = p.with_suffix(p.suffix + ".tmp")
+    tmp.write_text(json.dumps(cfg, ensure_ascii=False, indent=2), encoding="utf-8")
+    tmp.replace(p)
+    return cfg
+
+
+def rotation_status() -> dict:
+    """Info utk panel admin: akun piket sekarang + sisa menit sebelum ganti."""
+    cfg = load_config()
+    try:
+        servers = [s for s in _read_raw() if s.get("enabled", True) and s.get("secure_1psid")]
+    except Exception:
+        servers = []
+    if cfg["mode"] != "rotate" or not servers:
+        return {"mode": cfg["mode"], "interval_min": cfg["interval_min"],
+                "active": None, "next_in_s": 0, "total": len(servers)}
+    window = cfg["interval_min"] * 60
+    slot = int(time.time() // window)
+    idx = slot % len(servers)
+    next_in = window - int(time.time() % window)
+    return {"mode": "rotate", "interval_min": cfg["interval_min"],
+            "active": servers[idx].get("name") or servers[idx].get("id"),
+            "active_id": servers[idx].get("id"),
+            "next_in_s": next_in, "total": len(servers)}
+
+
 class GenerateError(Exception):
     """Error generate yang pesannya aman ditampilkan ke pengguna."""
 
@@ -161,7 +223,17 @@ async def _generate(prompt: str) -> bytes:
     now = time.time()
     ready = [s for s in servers if _cooldown.get(s.get("id"), 0) <= now]
     pool = ready if ready else servers   # semua cooldown → tetap coba semua
-    random.shuffle(pool)                 # bagi beban + failover sederhana
+    cfg = load_config()
+    if cfg["mode"] == "rotate":
+        # rotasi terjadwal: tiap interval_min menit ganti akun "piket" (urut daftar);
+        # akun piket dicoba duluan, sisanya tetap cadangan failover berurutan
+        window = cfg["interval_min"] * 60
+        idx = (int(now // window)) % len(servers)
+        order = servers[idx:] + servers[:idx]
+        in_pool = {s.get("id") for s in pool}
+        pool = [s for s in order if s.get("id") in in_pool] or pool
+    else:
+        random.shuffle(pool)             # acak: bagi beban + failover sederhana
     last = None
     for sv in pool:
         sid = sv.get("id") or ""

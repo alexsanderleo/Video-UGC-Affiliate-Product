@@ -1508,8 +1508,10 @@ async def save_clipstudio_settings(
 
 def render_gemini_broll_fragment(msg: str = "", err: str = "") -> str:
     import html as _html
-    from core.clipstudio.imagegen import list_servers_masked
+    from core.clipstudio.imagegen import list_servers_masked, load_config, rotation_status
     servers = list_servers_masked()
+    cfg = load_config()
+    rot = rotation_status()
 
     inp_cls = ("bg-slate-950 border border-slate-800 rounded-lg px-3 py-2 text-sm "
                "text-slate-200 focus:border-indigo-500 focus:outline-none w-full")
@@ -1565,6 +1567,23 @@ def render_gemini_broll_fragment(msg: str = "", err: str = "") -> str:
         </div>
         <div class="space-y-2">{rows}</div>
 
+        <form hx-post="/api/v1/admin/gemini-broll/config" hx-target="#gemini-broll-section" hx-swap="outerHTML"
+            class="bg-slate-950/60 border border-slate-800 rounded-lg p-3 space-y-2">
+            <div class="text-xs font-bold text-slate-400 uppercase">🔄 Mode pemakaian akun</div>
+            <div class="grid grid-cols-1 md:grid-cols-3 gap-2 items-center">
+                <select name="mode" class="{inp_cls}">
+                    <option value="random"{' selected' if cfg['mode'] == 'random' else ''}>Acak + failover (bawaan)</option>
+                    <option value="rotate"{' selected' if cfg['mode'] == 'rotate' else ''}>Rotasi terjadwal (ganti akun tiap N menit)</option>
+                </select>
+                <div class="flex items-center gap-2">
+                    <input name="interval_min" type="number" min="1" max="1440" value="{cfg['interval_min']}"
+                        class="{inp_cls}" style="max-width:90px"> <span class="text-xs text-slate-400">menit / akun</span>
+                </div>
+                <button type="submit" class="bg-slate-800 hover:bg-slate-700 text-slate-200 text-xs font-bold px-4 py-2 rounded-lg">Simpan mode</button>
+            </div>
+            {f'<div class="text-[11px] text-emerald-400">🟢 Piket sekarang: <b>{_html.escape(str(rot["active"]))}</b> — ganti akun berikutnya dalam ±{rot["next_in_s"] // 60} mnt {rot["next_in_s"] % 60} dtk (rotasi {rot["total"]} akun aktif, urut daftar). Akun piket gagal → otomatis failover ke berikutnya.</div>' if rot.get("active") else '<div class="text-[11px] text-slate-500">Mode acak: tiap generate pilih akun acak yang tidak cooldown; gagal → coba akun lain. Cocok juga utk 15 akun.</div>'}
+        </form>
+
         <form hx-post="/api/v1/admin/gemini-broll/import" hx-target="#gemini-broll-section" hx-swap="outerHTML" class="space-y-2">
             <div class="text-xs font-bold text-slate-400 uppercase">📥 Import JSON (output cookies-grabber)</div>
             <textarea name="servers_json" rows="3" placeholder='[{{"id":"s1","secure_1psid":"g.a0...","secure_1psidts":"sidts-..."}}]'
@@ -1588,6 +1607,19 @@ def render_gemini_broll_fragment(msg: str = "", err: str = "") -> str:
 @router.get("/gemini-broll", response_class=HTMLResponse, summary="Gemini B-Roll cookies fragment")
 async def get_gemini_broll(admin: User = Depends(get_current_admin)):
     return HTMLResponse(render_gemini_broll_fragment())
+
+
+@router.post("/gemini-broll/config", response_class=HTMLResponse)
+async def gemini_broll_config(
+    mode: str = Form("random"),
+    interval_min: int = Form(10),
+    admin: User = Depends(get_current_admin),
+):
+    from core.clipstudio.imagegen import save_config
+    cfg = save_config(mode, interval_min)
+    label = ("rotasi terjadwal tiap " + str(cfg["interval_min"]) + " menit"
+             if cfg["mode"] == "rotate" else "acak + failover")
+    return HTMLResponse(render_gemini_broll_fragment(msg=f"Mode disimpan: {label}."))
 
 
 @router.post("/gemini-broll/import", response_class=HTMLResponse)

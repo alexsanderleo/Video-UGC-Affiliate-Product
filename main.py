@@ -127,10 +127,10 @@ async def serve_clipeditor():
 
 @app.get("/mimin", tags=["UI"], summary="Serve admin dashboard")
 async def serve_admin():
-    """Serve admin.html at /mimin url."""
+    """Serve admin.html at /mimin url (no-cache agar update panel langsung tampil)."""
     admin_path = os.path.join("static", "admin.html")
     if os.path.exists(admin_path):
-        return FileResponse(admin_path)
+        return FileResponse(admin_path, headers={"Cache-Control": "no-cache"})
     return HTMLResponse("<h3>Static folder admin.html not found.</h3>", status_code=404)
 
 
