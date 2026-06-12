@@ -104,6 +104,17 @@ Sebelumnya whisper lokal CPU: ±5-6 menit.
 - **Sumber import luas**: YouTube, Vimeo, Twitch, Facebook, Google Drive, TikTok,
   Instagram, X/Twitter, Loom, Rumble, dll (via yt-dlp).
 - **Bulk export**: render semua klip 1 klik dari halaman hasil.
+- **AI Hook / CTA** (panel 🪝, ala "AI hook" Opus): script ditulis manual ATAU AI
+  membuat 3 alternatif (gaya: serius/semangat/lucu/santai/misterius + kata kunci
+  opsional), lalu AI voice-over MEMBACAKAN script (semua engine TTS didukung) di
+  awal video (hook) atau akhir (CTA) + otomatis dipasang sebagai text overlay
+  ber-style; volume audio asli diturunkan (slider %) tepat selama hook bunyi —
+  preview & export sama persis (filter `volume=enable=between(t,..)`).
+- **Text overlay settings** (tombol 🎨 di menu Text, ala Opus): font (termasuk
+  font custom upload), warna, ukuran, dekorasi italic/underline, alignment
+  kiri/tengah/kanan, word's background color + radius + width %. Teks ber-style
+  dirender PNG LOKAL via canvas browser (tanpa API eksternal) supaya export
+  ffmpeg 100% identik dgn preview (drawtext tidak bisa bg rounded/wrap).
 
 ## Fitur editor ala CapCut (batch 3 — 100% BUATAN SENDIRI, NOL API eksternal)
 

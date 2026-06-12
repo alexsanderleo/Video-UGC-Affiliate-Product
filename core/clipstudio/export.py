@@ -347,6 +347,16 @@ def render_clip_export(project, clip, export, words: list, progress_cb=None) -> 
         input_idx += 1
 
     for txt in (es.get("texts") or []):
+        # teks ber-style (bg rounded/align/italic ala Opus) sudah dirender PNG oleh editor
+        rp = _resolve_local(txt.get("render_url"), work) if txt.get("render_url") else None
+        if rp:
+            inputs += ["-loop", "1", "-t", str(out_duration), "-i", str(rp)]
+            it = dict(txt)
+            it["w_pct"] = float(txt.get("width_pct") or 86)
+            ops.append({"op": "overlay", "in_idx": input_idx, "item": it,
+                        "kind": "textpng-image", "track": _track(txt, 2)})
+            input_idx += 1
+            continue
         ops.append({"op": "text", "item": txt, "track": _track(txt, 2)})
     ops.sort(key=lambda o: (o["track"], float(o["item"].get("start") or 0)))
 
@@ -503,6 +513,11 @@ def render_clip_export(project, clip, export, words: list, progress_cb=None) -> 
             # posisi (dengan offset slide bila ada)
             if kind.startswith("broll"):
                 xe, ye = "0", "0"
+            elif kind.startswith("textpng"):
+                # teks ber-style: tengah horizontal, y_pct = tepi ATAS (sama dgn preview)
+                ypct = float(item.get("y_pct") or 12) / 100
+                xe = f"{out_w // 2}-w/2"
+                ye = f"{int(out_h * ypct)}"
             else:
                 xpct = float(item.get("x_pct") or 50) / 100
                 ypct = float(item.get("y_pct") or 50) / 100
@@ -585,6 +600,17 @@ def render_clip_export(project, clip, export, words: list, progress_cb=None) -> 
     # AI speech enhancement: denoise + highpass + loudness normalize
     if es.get("audio_enhance"):
         voice_chain += ",highpass=f=70,afftdn=nf=-22,loudnorm=I=-16:TP=-1.5:LRA=11"
+    # Duck suara asli saat AI hook/voice-over tertentu bunyi (slider "volume audio asli" ala Opus)
+    for vo in (es.get("voiceovers") or []):
+        dv = vo.get("duck_original")
+        if dv is None:
+            continue
+        dv = max(0.0, min(1.5, float(dv)))
+        if dv >= 0.999:
+            continue
+        a = float(vo.get("start") or 0)
+        b = float(vo.get("end") or a + float(vo.get("duration") or 3))
+        voice_chain += f",volume=enable='between(t,{a:.3f},{b:.3f})':volume={dv:.2f}"
     fg.append(f"[acat]{voice_chain}[voice0]")
 
     # Mix voice-over & audio tambahan di atas suara asli (per item: volume + fade opsional)

@@ -459,6 +459,93 @@
     return '';
   }
 
+  // ---------------- TEXT OVERLAY ber-style ala Opus (bg rounded, align, italic) ----------------
+  // Preview = CSS live; untuk export, teks dirender PNG LOKAL via canvas (tanpa API eksternal)
+  // lalu diupload sbg media project — ffmpeg drawtext tidak bisa bg rounded/wrap/align.
+  function roundRectPath(c, x, y, w, h, r) {
+    r = Math.max(0, Math.min(r, h / 2, w / 2));
+    c.beginPath();
+    c.moveTo(x + r, y);
+    c.arcTo(x + w, y, x + w, y + h, r);
+    c.arcTo(x + w, y + h, x, y + h, r);
+    c.arcTo(x, y + h, x, y, r);
+    c.arcTo(x, y, x + w, y, r);
+    c.closePath();
+  }
+  function textFontCss(it, px) {
+    return (it.italic ? 'italic ' : '') + '800 ' + px + 'px ' + cssFont(it.font || 'Arial');
+  }
+  function needsPngRender(it) {
+    return !!(it.bg || it.italic || it.underline || (it.align && it.align !== 'center'));
+  }
+  async function renderTextPng(it) {
+    // basis 1080x1920 — identik dgn resolusi export
+    const W = 1080;
+    const boxW = Math.round(W * (it.width_pct || 86) / 100);
+    const fs = it.size || 56;
+    const padX = Math.round(fs * 0.45), padY = Math.round(fs * 0.22);
+    const cv = document.createElement('canvas');
+    let c = cv.getContext('2d');
+    c.font = textFontCss(it, fs);
+    const words = String(it.text || '').trim().split(/\s+/);
+    const lines = []; let cur = '';
+    for (const w of words) {
+      const t = cur ? cur + ' ' + w : w;
+      if (c.measureText(t).width > boxW - padX * 2 && cur) { lines.push(cur); cur = w; } else cur = t;
+    }
+    if (cur) lines.push(cur);
+    const lh = Math.round(fs * 1.3);
+    cv.width = boxW;
+    cv.height = lines.length * lh + padY * 2 + 8;
+    c = cv.getContext('2d');
+    c.font = textFontCss(it, fs);
+    c.textBaseline = 'middle';
+    const radius = it.bg_radius != null ? +it.bg_radius : 10;
+    lines.forEach((ln, i) => {
+      const tw = c.measureText(ln).width;
+      const x = it.align === 'left' ? padX : it.align === 'right' ? boxW - padX - tw : (boxW - tw) / 2;
+      const yC = padY + 4 + i * lh + lh / 2;
+      if (it.bg) {   // background rounded per BARIS (gaya "word's background" Opus)
+        c.fillStyle = it.bg;
+        roundRectPath(c, x - padX * 0.7, yC - lh / 2, tw + padX * 1.4, lh, radius);
+        c.fill();
+      } else {
+        c.shadowColor = 'rgba(0,0,0,.8)'; c.shadowBlur = 8; c.shadowOffsetY = 2;
+      }
+      c.fillStyle = it.color || '#fff';
+      c.fillText(ln, x, yC);
+      c.shadowColor = 'transparent'; c.shadowBlur = 0; c.shadowOffsetY = 0;
+      if (it.underline) {
+        c.strokeStyle = it.color || '#fff';
+        c.lineWidth = Math.max(2, fs / 14);
+        c.beginPath();
+        c.moveTo(x, yC + fs * 0.42);
+        c.lineTo(x + tw, yC + fs * 0.42);
+        c.stroke();
+      }
+    });
+    return new Promise((res) => cv.toBlob(res, 'image/png'));
+  }
+  const txtRenderTimers = new Map();
+  function scheduleTextRender(it) {
+    // regen PNG export (debounce per item) — preview tetap CSS live
+    if (!needsPngRender(it)) {
+      if (it.render_url) { delete it.render_url; markDirty(); }
+      return;
+    }
+    clearTimeout(txtRenderTimers.get(it));
+    txtRenderTimers.set(it, setTimeout(async () => {
+      try {
+        const blob = await renderTextPng(it);
+        const fd = new FormData();
+        fd.append('file', blob, '_txt_' + Date.now() + '.png');
+        const d = await api('/projects/' + project.id + '/media', { method: 'POST', body: fd });
+        it.render_url = d.url;
+        commit();
+      } catch (e) { console.warn('Render teks PNG gagal:', e); }
+    }, 700));
+  }
+
   // ---------------- overlay preview terpadu (z-order mengikuti track) ----------------
   function renderOverlays() {
     const t = srcToOut(vid.currentTime);
@@ -479,7 +566,8 @@
     const sig = JSON.stringify(vis.map((v) => {
       const it = v.it;
       return [v.kind, v.idx, it.url, it.x_pct, it.y_pct, it.w_pct, it.rot, it.mask,
-              it.border, it.border_color, it.text, it.size, it.color, it.font, trackOf(v.kind, it)];
+              it.border, it.border_color, it.text, it.size, it.color, it.font, trackOf(v.kind, it),
+              it.bg, it.bg_radius, it.align, it.italic, it.underline, it.width_pct];
     }));
     if (ml._sig !== sig) {
       ml._sig = sig;
@@ -501,9 +589,16 @@
             maskCss(it) + border + '"></' + tag + '>';
         } else if (v.kind === 'texts') {
           const size = (it.size || 56) * stageH / 1920;
-          mh += '<div' + dk + ' style="position:absolute;left:0;right:0;top:' + (it.y_pct || 12) + '%;text-align:center;z-index:' + z + ';' +
-            'font-family:' + cssFont(it.font || 'Arial') + ';font-weight:800;font-size:' + size + 'px;color:' + (it.color || '#fff') +
-            ';text-shadow:0 2px 6px rgba(0,0,0,.8);pointer-events:none">' + String(it.text || '').replace(/</g, '&lt;') + '</div>';
+          const wp = it.width_pct || 86;
+          const align = it.align || 'center';
+          const rad = (it.bg_radius != null ? +it.bg_radius : 10) * stageH / 1920;
+          const deco = (it.underline ? 'text-decoration:underline;' : '') + (it.italic ? 'font-style:italic;' : '');
+          const bg = it.bg
+            ? 'background:' + it.bg + ';border-radius:' + rad.toFixed(1) + 'px;padding:.1em .35em;box-decoration-break:clone;-webkit-box-decoration-break:clone;'
+            : 'text-shadow:0 2px 6px rgba(0,0,0,.8);';
+          mh += '<div' + dk + ' style="position:absolute;left:' + (50 - wp / 2) + '%;width:' + wp + '%;top:' + (it.y_pct || 12) + '%;text-align:' + align + ';z-index:' + z + ';line-height:1.42;pointer-events:none">' +
+            '<span style="font-family:' + cssFont(it.font || 'Arial') + ';font-weight:800;font-size:' + size + 'px;color:' + (it.color || '#fff') + ';' + deco + bg + '">' +
+            String(it.text || '').replace(/</g, '&lt;') + '</span></div>';
         }
         // efek tidak digambar sebagai DOM (filter video di atas)
       });
@@ -1598,7 +1693,8 @@
     });
     api('/projects/' + project.id + '/media').then((d) => {
       const grid = $('mediaGrid'); grid.innerHTML = '';
-      const items = d.media.filter((m) => tab === 'all' || m.type === tab);
+      const items = d.media.filter((m) => (tab === 'all' || m.type === tab) &&
+        (m.name || '').indexOf('_txt_') === -1);   // sembunyikan PNG render text overlay internal
       if (!items.length) { grid.innerHTML = '<p class="note">Belum ada media.</p>'; }
       items.forEach((m) => {
         const div = document.createElement('div');
@@ -1669,7 +1765,7 @@
       '<div class="fgroup"><label>Intro</label><select id="brandIntro"><option value="">— tidak ada —</option></select></div>' +
       '<div class="fgroup"><label>Outro</label><select id="brandOutro"><option value="">— tidak ada —</option></select></div>';
     api('/projects/' + project.id + '/media').then((d) => {
-      const opts = (d.media || []).filter((m) => m.type !== 'audio')
+      const opts = (d.media || []).filter((m) => m.type !== 'audio' && (m.name || '').indexOf('_txt_') === -1)
         .map((m) => '<option value="' + m.url + '">' + m.name + '</option>').join('');
       $('brandIntro').innerHTML = '<option value="">— tidak ada —</option>' + opts;
       $('brandOutro').innerHTML = '<option value="">— tidak ada —</option>' + opts;
@@ -1794,10 +1890,59 @@
   }
 
   // --- Text (dengan animasi masuk/keluar/loop — buatan sendiri) ---
+  // Panel "Text overlay settings" ala Opus: font, dekorasi, alignment, bg color, radius, width
+  function openTextSettings(it, back) {
+    const fonts = ['Arial', 'Impact', 'Georgia', 'Verdana', 'Tahoma', 'Trebuchet MS', 'Courier New', 'Times New Roman']
+      .concat((window.__fonts || []).filter((f) => ['Arial', 'Impact'].indexOf(f) === -1));
+    const fontOpts = fonts.map((f) => '<option' + ((it.font || 'Arial') === f ? ' selected' : '') + '>' + f + '</option>').join('');
+    const alignBtn = (a, icon) => '<button data-al="' + a + '" class="' + ((it.align || 'center') === a ? 'on' : '') + '" style="flex:1">' + icon + '</button>';
+    sbody.innerHTML = '<h3>🎨 Text overlay settings</h3>' +
+      '<div class="fgroup"><label>Input</label><textarea id="tsText" rows="2" style="width:100%;background:var(--card);border:1px solid var(--border);color:var(--text);border-radius:9px;padding:8px 10px;font-size:.85rem;outline:none;font-family:inherit">' + String(it.text || '').replace(/</g, '&lt;') + '</textarea></div>' +
+      '<div class="fgroup"><label>Font</label><select id="tsFont">' + fontOpts + '</select></div>' +
+      '<div class="fgroup colorrow"><span>Warna <input type="color" id="tsColor" value="' + (it.color || '#FFFFFF') + '"></span>' +
+      '<span style="flex:1">Ukuran <input type="number" id="tsSize" value="' + (it.size || 56) + '" min="20" max="140" style="width:64px"> px</span></div>' +
+      '<div class="fgroup"><label>Decoration</label><div class="tabs2" style="margin-bottom:0">' +
+      '<button id="tsItalic" class="' + (it.italic ? 'on' : '') + '" style="font-style:italic">I</button>' +
+      '<button id="tsUnder" class="' + (it.underline ? 'on' : '') + '" style="text-decoration:underline">U</button></div></div>' +
+      '<div class="fgroup"><label>Text alignment</label><div class="tabs2" style="margin-bottom:0">' +
+      alignBtn('left', '⬅') + alignBtn('center', '⬌') + alignBtn('right', '➡') + '</div></div>' +
+      '<div class="fgroup colorrow"><span><input type="checkbox" id="tsBgOn" ' + (it.bg ? 'checked' : '') + ' style="width:auto;margin-right:4px">Word’s background</span>' +
+      '<input type="color" id="tsBg" value="' + (it.bg || '#FFFFFF') + '"></div>' +
+      '<div class="fgroup colorrow"><span style="flex:1">Radius <input type="number" id="tsRad" value="' + (it.bg_radius != null ? it.bg_radius : 10) + '" min="0" max="60" style="width:60px"> px</span>' +
+      '<span style="flex:1">Width <input type="number" id="tsWidth" value="' + (it.width_pct || 86) + '" min="20" max="100" style="width:60px"> %</span></div>' +
+      '<div class="fgroup"><label>Posisi vertikal % (0 atas)</label><input type="range" id="tsY" min="2" max="90" value="' + (it.y_pct || 12) + '"></div>' +
+      '<button class="actionbtn primary" id="tsDone">✓ Selesai</button>';
+    const apply = () => {
+      it.text = $('tsText').value;
+      it.font = $('tsFont').value;
+      it.color = $('tsColor').value;
+      it.size = +$('tsSize').value || 56;
+      it.bg = $('tsBgOn').checked ? $('tsBg').value : null;
+      it.bg_radius = +$('tsRad').value || 0;
+      it.width_pct = clamp(+$('tsWidth').value || 86, 20, 100);
+      it.y_pct = +$('tsY').value;
+      $('mediaLayer')._sig = '';            // paksa preview rebuild
+      markDirty(); renderTimeline(); scheduleTextRender(it);
+    };
+    ['tsText', 'tsFont', 'tsColor', 'tsSize', 'tsBgOn', 'tsBg', 'tsRad', 'tsWidth', 'tsY'].forEach((id) => {
+      $(id).addEventListener('input', apply);
+      $(id).addEventListener('change', apply);
+    });
+    $('tsItalic').addEventListener('click', () => { it.italic = !it.italic; $('tsItalic').classList.toggle('on', it.italic); apply(); });
+    $('tsUnder').addEventListener('click', () => { it.underline = !it.underline; $('tsUnder').classList.toggle('on', it.underline); apply(); });
+    sbody.querySelectorAll('[data-al]').forEach((b) => b.addEventListener('click', () => {
+      it.align = b.dataset.al;
+      sbody.querySelectorAll('[data-al]').forEach((b2) => b2.classList.toggle('on', b2.dataset.al === it.align));
+      apply();
+    }));
+    $('tsDone').addEventListener('click', () => { commit(); back(); });
+  }
+
   function panelText() {
     let list = '';
     (ES.texts || []).forEach((x, i) => {
       list += '<div class="itemrow"><span class="nm">🔤 ' + (x.text || '') + '</span>' +
+        '<button data-style="' + i + '" title="Style (font, bg, alignment)">🎨</button>' +
         '<button data-edit="' + i + '" title="Animasi">✏️</button><button data-i="' + i + '">✕</button></div>';
     });
     const selOpts = (opts) => opts.map((o) => '<option value="' + o[0] + '">' + o[1] + '</option>').join('');
@@ -1825,6 +1970,9 @@
       });
       commit(); renderTimeline(); panelText();
     });
+    sbody.querySelectorAll('[data-style]').forEach((b) => b.addEventListener('click', () => {
+      openTextSettings(ES.texts[+b.dataset.style], panelText);
+    }));
     sbody.querySelectorAll('[data-edit]').forEach((b) => b.addEventListener('click', () => {
       openItemEditor(ES.texts[+b.dataset.edit], panelText);
     }));
@@ -1908,31 +2056,96 @@
     }
   }
 
-  // --- AI hook ---
+  // --- AI hook / CTA ala Opus: script (manual/AI) -> TTS baca script + text overlay + duck audio asli ---
+  function fillVoiceSelect(sel) {
+    api('/voices').then((d) => {
+      if (d.groups) {
+        sel.innerHTML = d.groups.map((g) =>
+          '<optgroup label="' + g.label + '">' +
+          g.voices.map((v) => '<option value="' + v.id + '">' + v.name + '</option>').join('') +
+          '</optgroup>').join('');
+      } else {
+        sel.innerHTML = d.voices.map((v) => '<option value="' + v.id + '">' + v.name + '</option>').join('');
+      }
+    }).catch(() => { sel.innerHTML = '<option value="edge:id-ID-ArdiNeural">Ardi (Pria, Indonesia)</option>'; });
+  }
   function panelHook() {
+    let list = '';
+    (ES.voiceovers || []).forEach((v, i) => {
+      if (!v.is_hook) return;
+      list += '<div class="itemrow"><span class="nm">🪝 ' + (v.text || 'hook') + ' @ ' + fmtT(v.start || 0) + '</span>' +
+        '<button data-hd="' + i + '" title="Hapus (beserta text overlay-nya)">✕</button></div>';
+    });
     sbody.innerHTML = '<h3>🪝 AI Hook</h3>' +
-      '<p class="note" style="margin-bottom:10px">AI membuat 3 alternatif kalimat hook — pasang sebagai text overlay di 3 detik pertama.</p>' +
-      '<button class="actionbtn primary" id="hookGen">🧠 Buatkan hook</button><div id="hookList"></div>';
-    $('hookGen').addEventListener('click', async () => {
-      $('hookGen').textContent = '⏳ AI menulis hook...';
+      '<p class="note" style="margin-bottom:10px">Persis fitur AI hook Opus: tulis script (atau AI yang menulis) → AI voice-over MEMBACAKAN script di awal/akhir video + tampil sebagai text overlay, volume audio asli otomatis diturunkan selama hook.</p>' +
+      '<div class="fgroup"><label>Script</label><textarea id="hkText" rows="3" placeholder="Type your script here… (kosongkan lalu klik AI buatkan)" style="width:100%;background:var(--card);border:1px solid var(--border);color:var(--text);border-radius:9px;padding:8px 10px;font-size:.85rem;outline:none;font-family:inherit"></textarea></div>' +
+      '<div class="fgroup" style="display:grid;grid-template-columns:1fr 1fr;gap:6px">' +
+      '<span><label>Gaya script</label><select id="hkStyle"><option value="serius">Serius</option><option value="semangat">Semangat</option><option value="lucu">Lucu</option><option value="santai">Santai</option><option value="misterius">Misterius</option></select></span>' +
+      '<span><label>Posisi</label><select id="hkPos"><option value="hook">Awal video (hook)</option><option value="cta">Akhir video (CTA)</option></select></span></div>' +
+      '<div class="fgroup"><label>Kata kunci utk AI (opsional)</label><input type="text" id="hkKw" placeholder="mis: diskon 50%, motivasi pagi"></div>' +
+      '<button class="actionbtn" id="hkGen">🧠 AI buatkan 3 alternatif script</button><div id="hkAlt"></div>' +
+      '<div class="fgroup"><label>Speaker voice</label><select id="hkVoice"><option value="">memuat…</option></select></div>' +
+      '<div class="fgroup"><label>Volume audio asli saat hook: <span id="hkDuckVal">20%</span></label>' +
+      '<input type="range" id="hkDuck" min="0" max="100" value="20"></div>' +
+      '<div class="fgroup"><label><input type="checkbox" id="hkShowText" checked style="width:auto;margin-right:6px">Tampilkan sebagai text overlay (bisa diedit di menu Text 🎨)</label></div>' +
+      '<button class="actionbtn primary" id="hkMake">🪝 Generate AI hook</button>' + list;
+    fillVoiceSelect($('hkVoice'));
+    $('hkDuck').addEventListener('input', () => { $('hkDuckVal').textContent = $('hkDuck').value + '%'; });
+    $('hkGen').addEventListener('click', async () => {
+      $('hkGen').textContent = '⏳ AI menulis script...';
       try {
-        const d = await api('/clips/' + clipId + '/ai', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ action: 'hooks' }) });
-        const box = $('hookList'); box.innerHTML = '';
+        const d = await api('/clips/' + clipId + '/ai', {
+          method: 'POST', headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ action: 'hooks', style: $('hkStyle').value, position: $('hkPos').value, keywords: $('hkKw').value.trim() }),
+        });
+        const box = $('hkAlt'); box.innerHTML = '';
         d.hooks.forEach((h) => {
           const b = document.createElement('button');
           b.className = 'actionbtn';
           b.textContent = '“' + h + '”';
-          b.addEventListener('click', () => {
-            ES.texts = ES.texts || [];
-            ES.texts.push({ text: h, start: 0, end: 3, color: '#FFE600', size: 64, y_pct: 10, font: 'Arial' });
-            commit(); renderTimeline();
-            b.textContent = '✅ Terpasang 0–3 detik';
-          });
+          b.addEventListener('click', () => { $('hkText').value = h; });
           box.appendChild(b);
         });
-        $('hookGen').textContent = '🧠 Buatkan hook';
-      } catch (e) { $('hookGen').textContent = '❌ ' + e.message; }
+        $('hkGen').textContent = '🧠 AI buatkan 3 alternatif script';
+      } catch (e) { $('hkGen').textContent = '❌ ' + e.message; }
     });
+    $('hkMake').addEventListener('click', async () => {
+      const script = $('hkText').value.trim();
+      if (!script) { alert('Tulis script dulu, atau klik "AI buatkan 3 alternatif" lalu pilih salah satu.'); return; }
+      $('hkMake').textContent = '⏳ membuat suara AI...';
+      try {
+        const d = await generateVO(script, $('hkVoice').value);
+        const dur = d.duration || 3;
+        const pos = $('hkPos').value;
+        const start = pos === 'cta' ? Math.max(0, outDuration() - dur - 0.2) : 0;
+        const end = Math.min(outDuration(), start + dur);
+        const hookId = 'hk' + Date.now();
+        ES.voiceovers = ES.voiceovers || [];
+        ES.voiceovers.push({
+          url: d.url, start, end, duration: d.duration, volume: 1.0, text: script,
+          voice: d.voice, is_hook: true, hook_id: hookId,
+          duck_original: +$('hkDuck').value / 100,
+        });
+        if ($('hkShowText').checked) {
+          ES.texts = ES.texts || [];
+          const t = {
+            text: script, start, end: Math.min(outDuration(), end + 0.3),
+            color: '#111111', size: 48, y_pct: 12, font: 'Arial', track: 2,
+            align: 'center', bg: '#FFFFFF', bg_radius: 10, width_pct: 75,
+            anim_in: 'fade', anim_out: 'fade', hook_id: hookId,
+          };
+          ES.texts.push(t);
+          scheduleTextRender(t);
+        }
+        voSyncReset(); commit(); renderTimeline(); panelHook();
+      } catch (e) { alert(e.message); panelHook(); }
+    });
+    sbody.querySelectorAll('[data-hd]').forEach((b) => b.addEventListener('click', () => {
+      const v = ES.voiceovers[+b.dataset.hd];
+      if (v && v.hook_id) ES.texts = (ES.texts || []).filter((t) => t.hook_id !== v.hook_id);
+      ES.voiceovers.splice(+b.dataset.hd, 1);
+      voSyncReset(); commit(); renderTimeline(); panelHook();
+    }));
   }
 
   // --- AI Voice-over + Dubbing ---
@@ -2044,10 +2257,12 @@
   function voSync() {
     if (!voAudios.length) return;
     const t = srcToOut(vid.currentTime);
+    let duck = 1;   // duck suara asli saat AI hook bunyi (sama dgn export)
     voAudios.forEach(({ v, el, isMusic }) => {
       const start = v.start || 0;
       const end = (v.end != null) ? v.end : (start + (v.duration || 3));
       const within = playing && t >= start && t < (isMusic ? Math.min(end, outDuration()) : end);
+      if (within && !isMusic && v.duck_original != null) duck = Math.min(duck, +v.duck_original);
       if (within) {
         const vol = Math.min(1, v.volume != null ? v.volume : (isMusic ? 0.25 : 1));
         if (el.paused) {
@@ -2064,6 +2279,8 @@
         }
       } else if (!el.paused) el.pause();
     });
+    const wantV = clamp((ES.volume != null ? ES.volume : 1) * duck, 0, 1);
+    if (Math.abs(vid.volume - wantV) > 0.02) vid.volume = wantV;
   }
 
   // --- Post sosial (Customize Your Post ala Opus) ---

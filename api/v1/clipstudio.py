@@ -507,17 +507,40 @@ async def clip_ai_tools(
     action = payload.get("action")
 
     if action == "hooks":
+        # AI hook/CTA ala Opus: gaya bicara + posisi (awal/akhir) + kata kunci opsional
+        style = (payload.get("style") or "serius").strip().lower()
+        position = (payload.get("position") or "hook").strip().lower()   # hook | cta
+        keywords = (payload.get("keywords") or "").strip()[:200]
+        style_map = {
+            "serius": "serius dan berwibawa",
+            "semangat": "penuh semangat dan energik",
+            "lucu": "lucu dan menghibur",
+            "santai": "santai seperti ngobrol dengan teman",
+            "misterius": "misterius yang bikin penasaran",
+        }
+        tone = style_map.get(style, style_map["serius"])
+        if position == "cta":
+            task = (f"Buat 3 alternatif kalimat CTA PENUTUP video (max 12 kata). "
+                    f"WAJIB berupa kalimat AJAKAN BERTINDAK kepada penonton — diawali kata kerja seperti "
+                    f"'Follow', 'Komen', 'Share', 'Like', 'Simpan' — dikaitkan dgn isi video. "
+                    f"Contoh bentuk: 'Follow untuk tips seperti ini tiap hari!'")
+        else:
+            task = (f"Buat 3 alternatif kalimat HOOK pembuka yang sangat menarik (max 12 kata) "
+                    f"untuk diucapkan AI voice-over + text overlay di detik-detik pertama.")
+        extra = f"\nWajib menyinggung topik/kata kunci ini: {keywords}" if keywords else ""
         raw = llm_complete(
             "Kamu copywriter video viral. Jawab HANYA JSON murni.",
             f"Transkrip klip ({lang_label}): \"{text}\"\n\n"
-            f"Buat 3 alternatif kalimat HOOK pembuka yang sangat menarik (max 9 kata) "
-            f"untuk text overlay 3 detik pertama. Output: [\"hook1\", \"hook2\", \"hook3\"]",
+            f"{task}\nGaya bahasa: {tone}.{extra}\n"
+            f"Tulis dalam {lang_label}, tanpa emoji. Output: [\"kalimat1\", \"kalimat2\", \"kalimat3\"]",
             max_tokens=400,
         )
         hooks = extract_json(raw) or []
         if not isinstance(hooks, list) or not hooks:
-            hooks = ["Tonton sampai habis!", "Kamu wajib tahu ini", "Jangan skip bagian ini"]
-        return {"hooks": [str(h)[:120] for h in hooks[:3]]}
+            hooks = (["Follow untuk tips berikutnya!", "Komen pendapatmu di bawah!", "Share ke temanmu sekarang!"]
+                     if position == "cta" else
+                     ["Tonton sampai habis!", "Kamu wajib tahu ini", "Jangan skip bagian ini"])
+        return {"hooks": [str(h)[:160] for h in hooks[:3]]}
 
     if action == "emoji":
         numbered = " ".join(f"[{i}]{w['word'].strip()}" for i, w in indexed)
