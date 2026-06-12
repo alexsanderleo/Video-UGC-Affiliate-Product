@@ -988,7 +988,8 @@
     });
     if (ES.music) {
       const isSel = selItem && selItem.kind === 'music';
-      drawBlock(LANE.audio, { start: 0, end: outDur }, '#0EA5E9', '🎵 ' + (ES.music.name || 'musik'), isSel);
+      drawBlock(LANE.audio, { start: ES.music.start || 0, end: (ES.music.end != null ? ES.music.end : outDur) },
+        '#0EA5E9', '🎵 ' + (ES.music.name || 'musik'), isSel);
     }
 
     // trim handles ujung klip (di waktu output: 0 dan outDur)
@@ -1077,7 +1078,16 @@
           return { type: 'block', key, idx: i, item: it, edge, audioLane: true };
         }
       }
-      if (ES.music && tOut >= 0 && tOut <= outDur) return { type: 'music' };
+      if (ES.music) {
+        // blok musik: bisa digeser & di-resize seperti blok lain
+        if (ES.music.start == null) ES.music.start = 0;
+        if (ES.music.end == null) ES.music.end = outDur;
+        const x1 = X(ES.music.start), x2 = X(ES.music.end);
+        if (x >= x1 - EDGE_PX && x <= x2 + EDGE_PX) {
+          const edge = (Math.abs(x - x1) <= EDGE_PX) ? 'L' : (Math.abs(x - x2) <= EDGE_PX) ? 'R' : 'mid';
+          return { type: 'block', key: 'music', idx: 0, item: ES.music, edge, audioLane: true };
+        }
+      }
     }
     // 6) lane video tengah = pilih segmen
     if (y >= LANE.video[0] && y <= LANE.wave[0] + LANE.wave[1]) return { type: 'video' };
@@ -1199,7 +1209,7 @@
         renderTranscript();
       }
       if (tlDrag.type === 'trimL' || tlDrag.type === 'trimR') renderTranscript();
-      if (tlDrag.type === 'block' && (tlDrag.key === 'voiceovers' || tlDrag.key === 'audios')) voSyncReset();
+      if (tlDrag.type === 'block' && ['voiceovers', 'audios', 'music'].indexOf(tlDrag.key) !== -1) voSyncReset();
       commit(); updateTotals();
     }
     tlDrag = null;
@@ -1230,6 +1240,7 @@
     if (!selItem) return false;
     if (selItem.kind === 'music') {
       ES.music = null;
+      voSyncReset();
     } else if (selItem.kind === 'cap') {
       // hapus caption page = hapus kata-kata page itu (video ikut terpotong)
       const page = getPages()[selItem.idx];
@@ -1838,7 +1849,7 @@
         '<input type="range" id="mVol" min="0" max="100" value="' + Math.round((ES.music.volume || 0.25) * 100) + '"></div>' +
         '<div class="fgroup"><label><input type="checkbox" id="mDuck" ' + (ES.music.duck !== false ? 'checked' : '') + ' style="width:auto;margin-right:6px">Auto-duck saat ada suara bicara</label>' +
         '<label><input type="checkbox" id="mFade" ' + (ES.music.fade !== false ? 'checked' : '') + ' style="width:auto;margin-right:6px">Fade in/out</label></div>' : '') +
-      '<p class="note">Musik & ducking diterapkan saat Export (preview belum memutar musik).</p>';
+      '<p class="note">🎧 Musik langsung bunyi di preview & jadi blok biru di lane audio timeline — geser/resize bebas. Auto-duck (musik mengecil saat ada suara bicara) diterapkan presisi saat Export.</p>';
     $('aVol').addEventListener('input', () => {
       ES.volume = +$('aVol').value / 100;
       $('aVolVal').textContent = $('aVol').value + '%';
@@ -1879,14 +1890,16 @@
         });
         add.addEventListener('click', () => {
           if (au) au.pause();
-          ES.music = { path: tr.url, volume: 0.25, duck: true, fade: true, name: tr.name };
-          commit(); panelAudio();
+          ES.music = { path: tr.url, volume: 0.25, duck: true, fade: true, name: tr.name,
+                       start: 0, end: outDuration() };
+          voSyncReset();
+          commit(); renderTimeline(); panelAudio();
         });
         box.appendChild(r);
       });
       if (!d.tracks.length) box.innerHTML = '<p class="note">Library kosong.</p>';
     });
-    if ($('musDel')) $('musDel').addEventListener('click', () => { ES.music = null; commit(); panelAudio(); });
+    if ($('musDel')) $('musDel').addEventListener('click', () => { ES.music = null; voSyncReset(); commit(); renderTimeline(); panelAudio(); });
     if ($('mVol')) {
       $('mVol').addEventListener('input', () => { ES.music.volume = +$('mVol').value / 100; $('mVolVal').textContent = $('mVol').value + '%'; markDirty(); });
       $('mVol').addEventListener('pointerup', commit);
@@ -2007,23 +2020,40 @@
     }));
   }
 
-  // preview playback voice-over + audio tambahan (sinkron dgn waktu output)
+  // preview playback voice-over + audio tambahan + MUSIK (sinkron dgn waktu output)
   let voAudios = [];
   function voSyncReset() {
     voAudios.forEach((a) => { try { a.el.pause(); } catch (e) {} });
-    voAudios = [...(ES.voiceovers || []), ...(ES.audios || [])].map((v) => ({ v, el: new Audio(v.url) }));
+    const items = [...(ES.voiceovers || []), ...(ES.audios || [])].map((v) => ({ v, el: new Audio(v.url) }));
+    if (ES.music && (ES.music.path || ES.music.url)) {
+      const mEl = new Audio(ES.music.path || ES.music.url);
+      mEl.loop = true;   // musik diulang dalam jendela bloknya (sama dgn export)
+      items.push({ v: ES.music, el: mEl, isMusic: true });
+    }
+    voAudios = items;
     voAudios.forEach((a) => { a.el.preload = 'auto'; });
   }
   function voSync() {
     if (!voAudios.length) return;
     const t = srcToOut(vid.currentTime);
-    voAudios.forEach(({ v, el }) => {
-      const dur = v.duration || ((v.end || 0) - (v.start || 0)) || 3;
-      const within = playing && t >= (v.start || 0) && t < (v.start || 0) + dur;
+    voAudios.forEach(({ v, el, isMusic }) => {
+      const start = v.start || 0;
+      const end = (v.end != null) ? v.end : (start + (v.duration || 3));
+      const within = playing && t >= start && t < (isMusic ? Math.min(end, outDuration()) : end);
       if (within) {
-        const want = t - (v.start || 0);
-        if (el.paused) { el.currentTime = want; el.volume = Math.min(1, v.volume || 1); el.play().catch(() => {}); }
-        else if (Math.abs(el.currentTime - want) > 0.35) el.currentTime = want;
+        const vol = Math.min(1, v.volume != null ? v.volume : (isMusic ? 0.25 : 1));
+        if (el.paused) {
+          const want = t - start;
+          el.currentTime = (isMusic && el.duration) ? (want % el.duration) : want;
+          el.volume = vol;
+          el.play().catch(() => {});
+        } else {
+          if (Math.abs(el.volume - vol) > 0.02) el.volume = vol;
+          if (!isMusic) {
+            const want = t - start;
+            if (Math.abs(el.currentTime - want) > 0.35) el.currentTime = want;
+          }
+        }
       } else if (!el.paused) el.pause();
     });
   }

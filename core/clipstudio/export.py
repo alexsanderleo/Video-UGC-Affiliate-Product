@@ -610,12 +610,20 @@ def render_clip_export(project, clip, export, words: list, progress_cb=None) -> 
         fg.append("[voice0]anull[voice]")
 
     if music_idx is not None:
+        # blok musik di timeline: hormati start/end (geser & resize dari editor)
         mvol = float(music.get("volume", 0.25))
+        mstart = max(0.0, float(music.get("start") or 0))
+        mend = float(music.get("end") or out_duration)
+        mend = min(max(mend, mstart + 0.3), out_duration)
+        mdur = mend - mstart
         mfade = ""
         if music.get("fade", True):
-            mfade = (f",afade=t=in:st=0:d=1.2"
-                     f",afade=t=out:st={max(0, out_duration - 1.5):.2f}:d=1.5")
-        fg.append(f"[{music_idx}:a]volume={mvol:.2f},atrim=0:{out_duration:.3f}{mfade}[mus]")
+            fin = min(1.2, mdur / 3)
+            fout = min(1.5, mdur / 3)
+            mfade = (f",afade=t=in:st=0:d={fin:.2f}"
+                     f",afade=t=out:st={max(0, mdur - fout):.2f}:d={fout:.2f}")
+        fg.append(f"[{music_idx}:a]volume={mvol:.2f},atrim=0:{mdur:.3f}{mfade},"
+                  f"adelay={int(mstart * 1000)}:all=1,apad,atrim=0:{out_duration:.3f}[mus]")
         if music.get("duck", True):
             fg.append("[voice]asplit=2[vc1][vc2]")
             fg.append("[mus][vc2]sidechaincompress=threshold=0.04:ratio=10:attack=30:release=400[musd]")
