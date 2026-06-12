@@ -316,11 +316,24 @@ def render_clip_export(project, clip, export, words: list, progress_cb=None) -> 
             ass_file.write_text(ass_text, encoding="utf-8")
 
     # --- inputs ---
+    # Item visual digabung & diurutkan mengikuti TRACK timeline (CapCut):
+    # track kecil = layer bawah. Default: broll=0, media/stiker=1, teks/efek=2.
     inputs = ["-i", str(source)]
     input_idx = 1
-    overlay_specs = []   # (input_index, item, kind)
+    ops = []   # campuran: {"op":"overlay", in_idx, item, kind, track} / {"op":"text", item, track}
 
-    for item in (es.get("broll") or []):
+    def _track(item, default):
+        try:
+            return int(item.get("track", default))
+        except (TypeError, ValueError):
+            return default
+
+    visual = ([("broll", it, _track(it, 0)) for it in (es.get("broll") or [])] +
+              [("media", it, _track(it, 1)) for it in (es.get("overlays") or [])
+               if (it.get("type") or "") != "audio"])
+    visual.sort(key=lambda v: (v[2], float(v[1].get("start") or 0)))
+
+    for group, item, track in visual:
         p = _resolve_local(item.get("url") or item.get("path"), work)
         if not p:
             continue
@@ -329,22 +342,13 @@ def render_clip_export(project, clip, export, words: list, progress_cb=None) -> 
             inputs += ["-loop", "1", "-t", str(out_duration), "-i", str(p)]
         else:
             inputs += ["-stream_loop", "0", "-i", str(p)]
-        overlay_specs.append((input_idx, item, "broll-" + kind))
+        ops.append({"op": "overlay", "in_idx": input_idx, "item": item,
+                    "kind": f"{group}-{kind}", "track": track})
         input_idx += 1
 
-    for item in (es.get("overlays") or []):
-        p = _resolve_local(item.get("url") or item.get("path"), work)
-        if not p:
-            continue
-        kind = item.get("type") or ("video" if p.suffix.lower() in (".mp4", ".webm", ".mov") else "image")
-        if kind == "audio":
-            continue  # audio overlay ditangani di mixing
-        if kind == "image":
-            inputs += ["-loop", "1", "-t", str(out_duration), "-i", str(p)]
-        else:
-            inputs += ["-i", str(p)]
-        overlay_specs.append((input_idx, item, "media-" + kind))
-        input_idx += 1
+    for txt in (es.get("texts") or []):
+        ops.append({"op": "text", "item": txt, "track": _track(txt, 2)})
+    ops.sort(key=lambda o: (o["track"], float(o["item"].get("start") or 0)))
 
     music = es.get("music") or {}
     music_path = _resolve_local(music.get("url") or music.get("path"), work) if music else None
@@ -417,45 +421,76 @@ def render_clip_export(project, clip, export, words: list, progress_cb=None) -> 
 
     cur = "vbase"
     n_ov = 0
-    for in_idx, item, kind in overlay_specs:
+
+    # --- Efek (CapCut-style) — diterapkan ke video dasar SEBELUM overlay ---
+    eff_filters = []
+    shake_windows = []
+    for fx in (es.get("effects") or []):
+        t0 = float(fx.get("start") or 0)
+        t1 = float(fx.get("end") or t0 + 3)
+        en = f":enable='between(t,{t0:.3f},{t1:.3f})'"
+        ft = (fx.get("type") or "").lower()
+        if ft == "bw":
+            eff_filters.append(f"hue=s=0{en}")
+        elif ft == "vintage":
+            eff_filters.append(f"eq=saturation=0.6:contrast=1.08:brightness=0.02{en}")
+        elif ft == "blur":
+            eff_filters.append(f"gblur=sigma=10{en}")
+        elif ft == "glow":
+            eff_filters.append(f"eq=brightness=0.12:saturation=1.35{en}")
+        elif ft == "grain":
+            eff_filters.append(f"noise=alls=12:allf=t+u{en}")
+        elif ft == "invert":
+            eff_filters.append(f"negate{en}")
+        elif ft == "shake":
+            shake_windows.append((t0, t1))
+    if shake_windows:
+        wins = "+".join(f"between(t\\,{a:.3f}\\,{b:.3f})" for a, b in shake_windows)
+        eff_filters.append(
+            f"crop=iw-16:ih-16:x='8+if({wins}\\,sin(t*53)*7\\,0)':y='8+if({wins}\\,cos(t*47)*7\\,0)',"
+            f"scale={out_w}:{out_h}"
+        )
+    if eff_filters:
+        fg.append(f"[{cur}]" + ",".join(eff_filters) + "[vfx]")
+        cur = "vfx"
+
+    # --- Overlay & teks, urut TRACK (layer bawah dulu) ---
+    for op in ops:
+        item = op["item"]
         ts = float(item.get("start") or 0)
         te = float(item.get("end") or min(out_duration, ts + 3))
         n_ov += 1
         lbl = f"ov{n_ov}"
-        if kind.startswith("broll"):
-            # B-roll = overlay penuh menutup video
-            fg.append(f"[{in_idx}:v]scale={out_w}:{out_h}:force_original_aspect_ratio=increase,"
-                      f"crop={out_w}:{out_h},setpts=PTS-STARTPTS+{ts:.3f}/TB[b{n_ov}]")
-            fg.append(f"[{cur}][b{n_ov}]overlay=0:0:enable='between(t,{ts:.3f},{te:.3f})'[{lbl}]")
-        else:
-            wpct = float(item.get("w_pct") or 40) / 100
-            xpct = float(item.get("x_pct") or 50) / 100
-            ypct = float(item.get("y_pct") or 50) / 100
-            ow = int(out_w * wpct)
-            fg.append(f"[{in_idx}:v]scale={ow}:-2,setpts=PTS-STARTPTS+{ts:.3f}/TB[m{n_ov}]")
-            fg.append(f"[{cur}][m{n_ov}]overlay=x={int(out_w * xpct)}-w/2:y={int(out_h * ypct)}-h/2"
-                      f":enable='between(t,{ts:.3f},{te:.3f})'[{lbl}]")
-        cur = lbl
-
-    # (5.5) Text statis / AI hook overlay
-    for txt in (es.get("texts") or []):
-        content = _esc_drawtext(str(txt.get("text") or "")[:200])
-        if not content:
-            continue
-        ts = float(txt.get("start") or 0)
-        te = float(txt.get("end") or min(out_duration, ts + 3))
-        size = int(txt.get("size") or 56) * out_h // 1920
-        color = (txt.get("color") or "#FFFFFF").replace("#", "0x")
-        ypct = float(txt.get("y_pct") or 12) / 100
-        fontfile = settings.BASE_DIR / "static" / "fonts" / "arialbd.ttf"
-        n_ov += 1
-        lbl = f"ov{n_ov}"
-        fg.append(
-            f"[{cur}]drawtext=fontfile='{_esc_fpath(fontfile)}':text='{content}'"
-            f":fontsize={size}:fontcolor={color}:borderw=3:bordercolor=black"
-            f":x=(w-text_w)/2:y={int(out_h * ypct)}"
-            f":enable='between(t,{ts:.3f},{te:.3f})'[{lbl}]"
-        )
+        if op["op"] == "overlay":
+            in_idx, kind = op["in_idx"], op["kind"]
+            if kind.startswith("broll"):
+                # B-roll = overlay penuh menutup video
+                fg.append(f"[{in_idx}:v]scale={out_w}:{out_h}:force_original_aspect_ratio=increase,"
+                          f"crop={out_w}:{out_h},setpts=PTS-STARTPTS+{ts:.3f}/TB[b{n_ov}]")
+                fg.append(f"[{cur}][b{n_ov}]overlay=0:0:enable='between(t,{ts:.3f},{te:.3f})'[{lbl}]")
+            else:
+                wpct = float(item.get("w_pct") or 40) / 100
+                xpct = float(item.get("x_pct") or 50) / 100
+                ypct = float(item.get("y_pct") or 50) / 100
+                ow = int(out_w * wpct)
+                fg.append(f"[{in_idx}:v]scale={ow}:-2,setpts=PTS-STARTPTS+{ts:.3f}/TB[m{n_ov}]")
+                fg.append(f"[{cur}][m{n_ov}]overlay=x={int(out_w * xpct)}-w/2:y={int(out_h * ypct)}-h/2"
+                          f":enable='between(t,{ts:.3f},{te:.3f})'[{lbl}]")
+        else:  # text
+            content = _esc_drawtext(str(item.get("text") or "")[:200])
+            if not content:
+                n_ov -= 1
+                continue
+            size = int(item.get("size") or 56) * out_h // 1920
+            color = (item.get("color") or "#FFFFFF").replace("#", "0x")
+            ypct = float(item.get("y_pct") or 12) / 100
+            fontfile = settings.BASE_DIR / "static" / "fonts" / "arialbd.ttf"
+            fg.append(
+                f"[{cur}]drawtext=fontfile='{_esc_fpath(fontfile)}':text='{content}'"
+                f":fontsize={size}:fontcolor={color}:borderw=3:bordercolor=black"
+                f":x=(w-text_w)/2:y={int(out_h * ypct)}"
+                f":enable='between(t,{ts:.3f},{te:.3f})'[{lbl}]"
+            )
         cur = lbl
 
     # (d) burn caption (fontsdir = static/fonts + font custom user)

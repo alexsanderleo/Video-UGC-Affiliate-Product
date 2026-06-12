@@ -245,28 +245,32 @@
   }
   function applyCropTransform() {
     const t = vid.currentTime;
+    const [shx, shy] = effectShakeOffset(srcToOut(t));   // efek shake
     if (layout === 'fit') {
       // video utuh + blur background
       vid.style.width = '100%'; vid.style.height = '100%';
       vid.style.left = '0'; vid.style.top = '0'; vid.style.objectFit = 'contain';
-      vid.style.position = 'absolute'; vid.style.transform = '';
+      vid.style.position = 'absolute';
+      vid.style.transform = (shx || shy) ? `translate(${shx}px,${shy}px)` : '';
       return;
     }
     if (layout === 'split') {
       const vh = stageH * 0.55;
       vid.style.objectFit = 'cover';
       vid.style.width = stageW + 'px'; vid.style.height = vh + 'px';
-      vid.style.left = '0'; vid.style.top = '0'; vid.style.transform = '';
+      vid.style.left = '0'; vid.style.top = '0';
+      vid.style.transform = (shx || shy) ? `translate(${shx}px,${shy}px)` : '';
       return;
     }
     vid.style.objectFit = '';
+    vid.style.transform = '';
     const [cx, cy] = interpCenter(t);
     const [x, y, w, h] = cropWindow(cx, cy);
     const scale = stageW / w;
     vid.style.width = (project.width * scale) + 'px';
     vid.style.height = 'auto';
-    vid.style.left = (-x * scale) + 'px';
-    vid.style.top = (-y * scale) + 'px';
+    vid.style.left = (-x * scale + shx) + 'px';
+    vid.style.top = (-y * scale + shy) + 'px';
   }
 
   // Interaksi stage: KLIK (tanpa geser) = play/pause; GESER = pindah crop manual.
@@ -400,42 +404,67 @@
     capOv.innerHTML = html;
   }
 
-  // ---------------- text & media overlay preview ----------------
+  // ---------------- EFEK (CapCut-style) ----------------
+  // Preview pakai CSS filter/transform; export pakai filter ffmpeg yang setara.
+  const EFFECTS = [
+    { type: 'bw', name: 'Hitam Putih', css: 'grayscale(1)' },
+    { type: 'vintage', name: 'Vintage', css: 'sepia(.5) contrast(1.08) brightness(1.02)' },
+    { type: 'blur', name: 'Blur', css: 'blur(7px)' },
+    { type: 'glow', name: 'Glow Terang', css: 'brightness(1.18) saturate(1.35)' },
+    { type: 'grain', name: 'Film Grain', css: 'contrast(1.07) brightness(.98)' },
+    { type: 'shake', name: 'Goyang (Shake)', css: '' },
+    { type: 'invert', name: 'Negatif', css: 'invert(1)' },
+  ];
+  function activeEffects(tOut) {
+    return (ES.effects || []).filter((fx) => tOut >= (fx.start || 0) && tOut <= (fx.end || 3));
+  }
+  function effectShakeOffset(tOut) {
+    const on = activeEffects(tOut).some((fx) => fx.type === 'shake');
+    if (!on) return [0, 0];
+    const amp = stageW * 0.012;
+    return [Math.sin(tOut * 53) * amp, Math.cos(tOut * 47) * amp];
+  }
+
+  // ---------------- overlay preview terpadu (z-order mengikuti track) ----------------
   function renderOverlays() {
     const t = srcToOut(vid.currentTime);
-    // teks
-    const tl = $('textLayer');
-    let h = '';
-    (ES.texts || []).forEach((x) => {
-      if (t >= (x.start || 0) && t <= (x.end || 3)) {
-        const size = (x.size || 56) * stageH / 1920;
-        h += '<div style="position:absolute;left:0;right:0;top:' + (x.y_pct || 12) + '%;text-align:center;' +
-          'font-family:' + cssFont(x.font || 'Arial') + ';font-weight:800;font-size:' + size + 'px;color:' + (x.color || '#fff') +
-          ';text-shadow:0 2px 6px rgba(0,0,0,.8)">' + String(x.text || '').replace(/</g, '&lt;') + '</div>';
-      }
-    });
-    if (tl._last !== h) { tl.innerHTML = h; tl._last = h; }
-    // media & broll (overlay media bisa di-DRAG pindah posisi & scroll utk resize)
+
+    // efek -> filter di elemen video
+    const fxCss = activeEffects(t).map((fx) => {
+      const def = EFFECTS.find((d) => d.type === fx.type);
+      return def ? def.css : '';
+    }).filter(Boolean).join(' ');
+    if (vid._fx !== fxCss) { vid.style.filter = fxCss; bgVid.style.filter = fxCss + ' blur(22px) brightness(.55)'; vid._fx = fxCss; }
+
     const ml = $('mediaLayer');
     if (ovDrag) return;   // jangan rebuild DOM saat user sedang menggeser overlay
     let mh = '';
-    (ES.broll || []).forEach((b) => {
-      if (t >= (b.start || 0) && t <= (b.end || 3)) {
-        const tag = b.type === 'video' ? 'video' : 'img';
-        mh += '<' + tag + ' src="' + (b.url || '') + '" ' + (tag === 'video' ? 'muted autoplay loop playsinline' : '') +
-          ' style="position:absolute;inset:0;width:100%;height:100%;object-fit:cover"></' + tag + '>';
+    // render urut track (rendah dulu) -> z-index naik mengikuti track
+    const items = visualItems().slice().sort((a2, b2) => trackOf(a2.kind, a2.it) - trackOf(b2.kind, b2.it));
+    items.forEach((v) => {
+      const it = v.it;
+      if (t < (it.start || 0) || t > (it.end || 3)) return;
+      const z = 4 + trackOf(v.kind, it);
+      if (v.kind === 'broll') {
+        const tag = it.type === 'video' ? 'video' : 'img';
+        mh += '<' + tag + ' src="' + (it.url || '') + '" ' + (tag === 'video' ? 'muted autoplay loop playsinline' : '') +
+          ' style="position:absolute;inset:0;width:100%;height:100%;object-fit:cover;z-index:' + z + '"></' + tag + '>';
+      } else if (v.kind === 'overlays') {
+        const tag = it.type === 'video' ? 'video' : 'img';
+        mh += '<' + tag + ' data-oi="' + v.idx + '" src="' + (it.url || '') + '" ' + (tag === 'video' ? 'muted autoplay loop playsinline' : '') +
+          ' style="position:absolute;left:' + (it.x_pct || 50) + '%;top:' + (it.y_pct || 50) + '%;width:' + (it.w_pct || 40) +
+          '%;transform:translate(-50%,-50%);border-radius:6px;pointer-events:auto;cursor:move;touch-action:none;z-index:' + z + '"></' + tag + '>';
+      } else if (v.kind === 'texts') {
+        const size = (it.size || 56) * stageH / 1920;
+        mh += '<div style="position:absolute;left:0;right:0;top:' + (it.y_pct || 12) + '%;text-align:center;z-index:' + z + ';' +
+          'font-family:' + cssFont(it.font || 'Arial') + ';font-weight:800;font-size:' + size + 'px;color:' + (it.color || '#fff') +
+          ';text-shadow:0 2px 6px rgba(0,0,0,.8);pointer-events:none">' + String(it.text || '').replace(/</g, '&lt;') + '</div>';
       }
-    });
-    (ES.overlays || []).forEach((o, oi) => {
-      if (o.type === 'audio') return;
-      if (t >= (o.start || 0) && t <= (o.end || 3)) {
-        const tag = o.type === 'video' ? 'video' : 'img';
-        const w = (o.w_pct || 40);
-        mh += '<' + tag + ' data-oi="' + oi + '" src="' + (o.url || '') + '" ' + (tag === 'video' ? 'muted autoplay loop playsinline' : '') +
-          ' style="position:absolute;left:' + (o.x_pct || 50) + '%;top:' + (o.y_pct || 50) + '%;width:' + w + '%;transform:translate(-50%,-50%);border-radius:6px;pointer-events:auto;cursor:move;touch-action:none"></' + tag + '>';
-      }
+      // efek tidak digambar sebagai DOM (filter video di atas)
     });
     if (ml._last !== mh) { ml.innerHTML = mh; ml._last = mh; }
+    const tl2 = $('textLayer');
+    if (tl2 && tl2.innerHTML) tl2.innerHTML = '';   // teks kini ikut layer terpadu
   }
 
   // drag overlay media di preview (pindah posisi) + scroll mouse utk resize
@@ -734,140 +763,172 @@
     if (extendMode) alert('Mode Extend: klik kata REDUP di luar batas klip untuk memperluas awal/akhir klip. Klik tombol lagi untuk selesai.');
   });
 
-  // ---------------- timeline (CapCut-style: 2 lapis canvas, blok selectable) ----------------
-  const LANE = { ruler: [0, 18], sprite: [20, 46], wave: [68, 34], cap: [106, 18], media: [126, 18], text: [146, 18] };
+  // ================= TIMELINE ala CAPCUT =================
+  // Sumbu X = WAKTU OUTPUT (potongan cut benar-benar hilang, segmen menyambung).
+  // Track: 3 baris overlay (atas = layer teratas) -> video utama -> waveform ->
+  // caption -> audio (voice-over & musik). Blok bisa digeser horizontal & VERTIKAL
+  // (pindah track), tepi blok utk resize, tepi segmen video utk trim cut.
+  const LANE = {
+    ruler: [0, 16],
+    ov: [[18, 16], [36, 16], [54, 16]],   // baris 0 (paling atas) = track 2
+    video: [72, 46],
+    wave: [120, 22],
+    cap: [144, 16],
+    audio: [162, 16],
+  };
+  const TL_H = 182;
   const tlStatic = document.createElement('canvas');   // lapisan konten (tanpa playhead)
-  let selItem = null;       // {kind:'cut'|'broll'|'overlays'|'voiceovers'|'texts'|'cap', idx}
+  let selItem = null;       // {kind:'broll'|'overlays'|'texts'|'effects'|'voiceovers'|'cap'|'music', idx}
   let capRects = [];        // rect blok caption utk hit-test
 
-  const X = (t) => (t - cs()) * pxPerSec + 8;
-  const o2s = (t) => { // waktu output -> sumber (utk menggambar blok)
+  const X = (tOut) => tOut * pxPerSec + 8;
+  const o2s = (t) => { // waktu output -> sumber
     const segs = keptSegments();
     let acc = 0;
     for (const [a, b] of segs) { const d = b - a; if (t <= acc + d) return a + (t - acc); acc += d; }
     return segs.length ? segs[segs.length - 1][1] : cs();
   };
+  const trackOf = (kind, item) =>
+    (item.track != null) ? item.track : (kind === 'texts' || kind === 'effects' ? 2 : kind === 'broll' ? 0 : 1);
+  const ovLaneForTrack = (tr) => LANE.ov[2 - clamp(tr, 0, 2)];
+  const trackForY = (y) => {
+    for (let r = 0; r < 3; r++) {
+      if (y >= LANE.ov[r][0] - 2 && y <= LANE.ov[r][0] + LANE.ov[r][1] + 2) return 2 - r;
+    }
+    return null;
+  };
+  function visualItems() { // semua blok visual (utk render & hit-test), urut track
+    const out = [];
+    (ES.broll || []).forEach((it, idx) => out.push({ kind: 'broll', idx, it, color: '#F59E0B', label: '🎞B' + (idx + 1) }));
+    (ES.overlays || []).forEach((it, idx) => { if (it.type !== 'audio') out.push({ kind: 'overlays', idx, it, color: '#06B6D4', label: (it.sticker ? '😀' : '🖼') + 'M' + (idx + 1) }); });
+    (ES.texts || []).forEach((it, idx) => out.push({ kind: 'texts', idx, it, color: '#EC4899', label: '🔤' + (it.text || '').slice(0, 10) }));
+    (ES.effects || []).forEach((it, idx) => out.push({ kind: 'effects', idx, it, color: '#A78BFA', label: '🎇' + (it.name || it.type) }));
+    return out;
+  }
 
   function renderTimeline() {
     invalidatePages();
-    const dur = ce() - cs();
-    tlW = Math.max($('tlScroll').clientWidth, Math.ceil(dur * pxPerSec) + 40);
+    const outDur = outDuration();
+    tlW = Math.max($('tlScroll').clientWidth, Math.ceil(outDur * pxPerSec) + 40);
     tlStatic.width = tlW * devicePixelRatio;
-    tlStatic.height = 170 * devicePixelRatio;
+    tlStatic.height = TL_H * devicePixelRatio;
     tlCanvas.width = tlW * devicePixelRatio;
-    tlCanvas.height = 170 * devicePixelRatio;
+    tlCanvas.height = TL_H * devicePixelRatio;
     tlCanvas.style.width = tlW + 'px';
-    tlCanvas.style.height = '170px';
+    tlCanvas.style.height = TL_H + 'px';
     const c = tlStatic.getContext('2d');
     c.setTransform(devicePixelRatio, 0, 0, devicePixelRatio, 0, 0);
-    c.clearRect(0, 0, tlW, 170);
+    c.clearRect(0, 0, tlW, TL_H);
 
-    // ruler
-    c.fillStyle = '#9A9AAB'; c.font = '9px Inter'; c.strokeStyle = '#2A2A36';
+    // latar baris track (ala CapCut)
+    LANE.ov.forEach((l) => { c.fillStyle = 'rgba(255,255,255,.025)'; c.fillRect(8, l[0], tlW - 16, l[1]); });
+    c.fillStyle = 'rgba(255,255,255,.03)';
+    c.fillRect(8, LANE.audio[0], tlW - 16, LANE.audio[1]);
+
+    // ruler (waktu OUTPUT)
+    c.fillStyle = '#9A9AAB'; c.font = '9px Inter'; c.strokeStyle = '#22222C';
     const step = pxPerSec >= 120 ? 1 : pxPerSec >= 50 ? 5 : 10;
-    for (let s = 0; s <= dur + step; s += step) {
-      const x = X(cs() + s);
-      c.fillText(fmtT(s).slice(0, 5), x + 2, 12);
-      c.beginPath(); c.moveTo(x, 14); c.lineTo(x, 170); c.stroke();
+    for (let s = 0; s <= outDur + step; s += step) {
+      const x = X(s);
+      c.fillText(fmtT(s).slice(0, 5), x + 2, 11);
+      c.beginPath(); c.moveTo(x, 13); c.lineTo(x, TL_H); c.stroke();
     }
 
-    // sprite strip
-    if (spriteImg && clip.sprite_meta && clip.sprite_meta.cols) {
-      const m = clip.sprite_meta;
-      for (let k = 0; k < m.count; k++) {
-        const tSec = clip.start + k * m.interval; // sprite dibuat dari rentang asli klip
-        if (tSec < cs() - m.interval || tSec > ce()) continue;
-        const sx = (k % m.cols) * m.tile_w, sy = Math.floor(k / m.cols) * m.tile_h;
-        c.drawImage(spriteImg, sx, sy, m.tile_w, m.tile_h,
-          X(tSec), LANE.sprite[0], m.interval * pxPerSec + 0.5, LANE.sprite[1]);
+    // VIDEO utama: segmen menyambung (cut benar-benar hilang dari timeline)
+    const segs = keptSegments();
+    const m = (clip.sprite_meta && clip.sprite_meta.cols) ? clip.sprite_meta : null;
+    let acc = 0;
+    segs.forEach((seg, si) => {
+      const segOutX = X(acc);
+      const segW = (seg[1] - seg[0]) * pxPerSec;
+      c.fillStyle = '#101016';
+      c.fillRect(segOutX, LANE.video[0], segW, LANE.video[1]);
+      if (m && spriteImg) {
+        const k0 = Math.max(0, Math.floor((seg[0] - clip.start) / m.interval));
+        for (let k = k0; k < m.count; k++) {
+          const tileSrc = clip.start + k * m.interval;
+          if (tileSrc >= seg[1]) break;
+          if (tileSrc + m.interval <= seg[0]) continue;
+          const sx = (k % m.cols) * m.tile_w, sy = Math.floor(k / m.cols) * m.tile_h;
+          const dx = segOutX + Math.max(0, (tileSrc - seg[0])) * pxPerSec;
+          const dw = Math.min(m.interval, seg[1] - Math.max(tileSrc, seg[0])) * pxPerSec;
+          c.drawImage(spriteImg, sx, sy, m.tile_w, m.tile_h, dx, LANE.video[0], dw + 0.5, LANE.video[1]);
+        }
       }
-    } else {
-      c.fillStyle = '#17171F';
-      c.fillRect(8, LANE.sprite[0], tlW - 16, LANE.sprite[1]);
-    }
+      // bingkai segmen + garis sambungan (titik split/cut)
+      const isSel = selSegment && Math.abs(selSegment[0] - seg[0]) < 0.01 && Math.abs(selSegment[1] - seg[1]) < 0.01;
+      c.strokeStyle = isSel ? '#06B6D4' : '#2A2A36';
+      c.lineWidth = isSel ? 2.5 : 1;
+      c.strokeRect(segOutX, LANE.video[0], segW, LANE.video[1]);
+      c.lineWidth = 1;
+      if (si > 0) { // penanda sambungan cut
+        c.fillStyle = '#F43F5E';
+        c.fillRect(segOutX - 1.5, LANE.video[0] - 2, 3, LANE.video[1] + 4);
+      }
+      acc += seg[1] - seg[0];
+    });
 
-    // waveform
+    // waveform (mengikuti waktu output)
     c.fillStyle = 'rgba(6,182,212,.75)';
     if (wavePeaks) {
       const mid = LANE.wave[0] + LANE.wave[1] / 2;
-      for (let x = 8; x < tlW - 8; x += 2) {
-        const t = cs() + (x - 8) / pxPerSec;
-        if (t > ce()) break;
-        const p = wavePeaks[Math.floor(t * 50)] || 0; // peaks per 20ms
+      for (let x = 8; x < Math.min(tlW - 8, X(outDur)); x += 2) {
+        const src = o2s((x - 8) / pxPerSec);
+        const p = wavePeaks[Math.floor(src * 50)] || 0; // peaks per 20ms
         const h = Math.max(1, p * LANE.wave[1]);
         c.fillRect(x, mid - h / 2, 1.4, h);
       }
     }
 
-    // caption pages (blok per grup — bisa diklik utk pilih & dblklik utk edit)
+    // caption pages (klik = pilih, dblklik = edit)
     capRects = [];
     getPages().forEach((p, pi) => {
-      const x = X(p[0].start), w = Math.max(4, (p[p.length - 1].end - p[0].start) * pxPerSec);
+      const x0 = srcToOut(p[0].start), x1 = srcToOut(p[p.length - 1].end);
+      const x = X(x0), w = Math.max(4, (x1 - x0) * pxPerSec);
       const isSel = selItem && selItem.kind === 'cap' && selItem.idx === pi;
       c.fillStyle = isSel ? 'rgba(139,92,246,.95)' : 'rgba(139,92,246,.5)';
-      c.fillRect(x, LANE.cap[0] + 3, w - 1, LANE.cap[1] - 6);
-      if (isSel) { c.strokeStyle = '#fff'; c.strokeRect(x, LANE.cap[0] + 3, w - 1, LANE.cap[1] - 6); }
+      c.fillRect(x, LANE.cap[0] + 2, w - 1, LANE.cap[1] - 4);
+      if (isSel) { c.strokeStyle = '#fff'; c.strokeRect(x, LANE.cap[0] + 2, w - 1, LANE.cap[1] - 4); }
       capRects.push({ x, w, pi });
     });
 
-    // blok media/broll/voiceover/text
-    const drawBlock = (item, lane, color, label, kind, idx) => {
+    // blok overlay di 3 track (geser vertikal = pindah track/layer)
+    const drawBlock = (lane, item, color, label, isSel) => {
       const s = item.start || 0, e = item.end || (s + 3);
-      const x = X(o2s(s)), w = Math.max(8, (e - s) * pxPerSec);
-      const isSel = selItem && selItem.kind === kind && selItem.idx === idx;
-      c.fillStyle = color + (isSel ? 'CC' : '66');
+      const x = X(s), w = Math.max(8, (e - s) * pxPerSec);
+      c.fillStyle = color + (isSel ? 'CC' : '70');
       c.strokeStyle = isSel ? '#FFFFFF' : color;
       c.lineWidth = isSel ? 2 : 1;
-      c.fillRect(x, lane[0] + 2, w, lane[1] - 4);
-      c.strokeRect(x, lane[0] + 2, w, lane[1] - 4);
-      if (isSel) { // handle tepi utk resize
+      c.fillRect(x, lane[0] + 1, w, lane[1] - 2);
+      c.strokeRect(x, lane[0] + 1, w, lane[1] - 2);
+      if (isSel) {
         c.fillStyle = '#fff';
-        c.fillRect(x - 2, lane[0] + 1, 4, lane[1] - 2);
-        c.fillRect(x + w - 2, lane[0] + 1, 4, lane[1] - 2);
+        c.fillRect(x - 2, lane[0], 4, lane[1]);
+        c.fillRect(x + w - 2, lane[0], 4, lane[1]);
       }
       c.lineWidth = 1;
       c.fillStyle = '#fff'; c.font = '9px Inter';
-      c.fillText(label, x + 4, lane[0] + 13);
+      c.fillText(label, x + 4, lane[0] + 12);
     };
-    (ES.broll || []).forEach((b, i) => drawBlock(b, LANE.media, '#F59E0B', '🎞B' + (i + 1), 'broll', i));
-    (ES.overlays || []).forEach((o, i) => { if (o.type !== 'audio') drawBlock(o, LANE.media, '#06B6D4', '🖼M' + (i + 1), 'overlays', i); });
-    (ES.voiceovers || []).forEach((v, i) => drawBlock(v, LANE.media, '#22C55E', '🎙VO' + (i + 1), 'voiceovers', i));
-    (ES.texts || []).forEach((t2, i) => drawBlock(t2, LANE.text, '#EC4899', '🔤' + (t2.text || '').slice(0, 12), 'texts', i));
-
-    // cut ranges: diarsir gelap + garis split merah + bisa dipilih/digeser tepinya
-    (ES.cut_ranges || []).forEach((cut, ci) => {
-      const a = Math.max(cs(), cut[0]), b = Math.min(ce(), cut[1]);
-      if (b <= a) return;
-      const x = X(a), w = Math.max(2, (b - a) * pxPerSec);
-      const isSel = selItem && selItem.kind === 'cut' && selItem.idx === ci;
-      const yTop = LANE.sprite[0], yBot = LANE.wave[0] + LANE.wave[1];
-      c.fillStyle = isSel ? 'rgba(244,63,94,.35)' : 'rgba(0,0,0,.72)';
-      c.fillRect(x, yTop, w, yBot - yTop);
-      c.strokeStyle = '#F43F5E';
-      c.lineWidth = isSel ? 2.5 : 1.2;
-      c.strokeRect(x, yTop, w, yBot - yTop);
-      if (isSel) { // handle tepi
-        c.fillStyle = '#F43F5E';
-        c.fillRect(x - 3, yTop, 6, yBot - yTop);
-        c.fillRect(x + w - 3, yTop, 6, yBot - yTop);
-      }
-      c.lineWidth = 1;
-      // ikon gunting di tengah cut tipis (hasil split)
-      if (b - a < 0.5) { c.font = '11px Inter'; c.fillStyle = '#F43F5E'; c.fillText('✂', x - 4, yTop - 3); }
+    visualItems().forEach((v) => {
+      const isSel = selItem && selItem.kind === v.kind && selItem.idx === v.idx;
+      drawBlock(ovLaneForTrack(trackOf(v.kind, v.it)), v.it, v.color, v.label, isSel);
     });
 
-    // segmen terpilih
-    if (selSegment) {
-      const x = X(selSegment[0]), w = (selSegment[1] - selSegment[0]) * pxPerSec;
-      c.strokeStyle = '#06B6D4'; c.lineWidth = 2;
-      c.strokeRect(x, LANE.sprite[0] - 1, w, LANE.wave[0] + LANE.wave[1] - LANE.sprite[0] + 2);
-      c.lineWidth = 1;
+    // lane AUDIO: voice-over + musik
+    (ES.voiceovers || []).forEach((v, i) => {
+      const isSel = selItem && selItem.kind === 'voiceovers' && selItem.idx === i;
+      drawBlock(LANE.audio, v, '#22C55E', '🎙' + ((v.text || 'VO').slice(0, 14)), isSel);
+    });
+    if (ES.music) {
+      const isSel = selItem && selItem.kind === 'music';
+      drawBlock(LANE.audio, { start: 0, end: outDur }, '#0EA5E9', '🎵 ' + (ES.music.name || 'musik'), isSel);
     }
 
-    // trim handles ujung klip
+    // trim handles ujung klip (di waktu output: 0 dan outDur)
     c.fillStyle = '#8B5CF6';
-    c.fillRect(X(cs()) - 5, LANE.sprite[0], 5, 82);
-    c.fillRect(X(ce()), LANE.sprite[0], 5, 82);
+    c.fillRect(X(0) - 5, LANE.video[0], 5, LANE.video[1]);
+    c.fillRect(X(outDur), LANE.video[0], 5, LANE.video[1]);
 
     compositeTimeline(true);
     updateTotals();
@@ -875,7 +936,7 @@
 
   let phX = -1;
   function compositeTimeline(force) {
-    const x = (vid.currentTime - cs()) * pxPerSec + 8;
+    const x = X(srcToOut(vid.currentTime));
     if (!force && Math.abs(x - phX) < 0.4) return;
     phX = x;
     tctx.setTransform(1, 0, 0, 1, 0, 0);
@@ -883,7 +944,7 @@
     tctx.drawImage(tlStatic, 0, 0);
     tctx.setTransform(devicePixelRatio, 0, 0, devicePixelRatio, 0, 0);
     tctx.strokeStyle = '#fff'; tctx.lineWidth = 1.6;
-    tctx.beginPath(); tctx.moveTo(x, 0); tctx.lineTo(x, 170); tctx.stroke();
+    tctx.beginPath(); tctx.moveTo(x, 0); tctx.lineTo(x, TL_H); tctx.stroke();
     tctx.fillStyle = '#fff';
     tctx.beginPath(); tctx.moveTo(x - 5, 0); tctx.lineTo(x + 5, 0); tctx.lineTo(x, 8); tctx.fill();
     tctx.lineWidth = 1;
@@ -892,55 +953,75 @@
 
   function updateTotals() { $('tTot').textContent = fmtT(outDuration()); }
 
-  // ---- interaksi timeline: seleksi, drag blok/cut/trim, seek ----
+  // ---- interaksi timeline: seleksi, drag blok (H+V), trim segmen, seek ----
   let tlDrag = null;
   const EDGE_PX = 7;
 
-  function hitTest(x, y, t) {
+  function segBoundaries() {
+    // [{outX, segIdxLeft, segIdxRight}] posisi sambungan antar segmen (waktu output)
+    const segs = keptSegments();
+    const out = [];
+    let acc = 0;
+    for (let i = 0; i < segs.length; i++) {
+      if (i > 0) out.push({ tOut: acc, left: i - 1, right: i });
+      acc += segs[i][1] - segs[i][0];
+    }
+    return out;
+  }
+
+  function hitTest(x, y) {
+    const outDur = outDuration();
+    const tOut = (x - 8) / pxPerSec;
     // 1) trim handle ujung klip
-    if (Math.abs(x - X(cs())) < EDGE_PX + 2 && y > LANE.sprite[0] && y < 150) return { type: 'trimL' };
-    if (Math.abs(x - X(ce())) < EDGE_PX + 2 && y > LANE.sprite[0] && y < 150) return { type: 'trimR' };
-    // 2) blok caption
+    if (Math.abs(x - X(0)) < EDGE_PX + 2 && y >= LANE.video[0] && y <= LANE.video[0] + LANE.video[1]) return { type: 'trimL' };
+    if (Math.abs(x - X(outDur)) < EDGE_PX + 2 && y >= LANE.video[0] && y <= LANE.video[0] + LANE.video[1]) return { type: 'trimR' };
+    // 2) tepi sambungan segmen (trim cut ala CapCut) di lane video
+    if (y >= LANE.video[0] && y <= LANE.video[0] + LANE.video[1]) {
+      for (const b of segBoundaries()) {
+        if (Math.abs(x - X(b.tOut)) <= EDGE_PX) return { type: 'segedge', boundary: b };
+      }
+    }
+    // 3) blok caption
     if (y >= LANE.cap[0] && y <= LANE.cap[0] + LANE.cap[1]) {
       const r = capRects.find((r2) => x >= r2.x - 2 && x <= r2.x + r2.w + 2);
       if (r) return { type: 'cap', idx: r.pi };
     }
-    // 3) blok media / text / voiceover (cek tepi utk resize)
-    const lists = [
-      { arr: ES.broll || [], lane: LANE.media, key: 'broll' },
-      { arr: (ES.overlays || []).filter((o) => o.type !== 'audio'), lane: LANE.media, key: 'overlays' },
-      { arr: ES.voiceovers || [], lane: LANE.media, key: 'voiceovers' },
-      { arr: ES.texts || [], lane: LANE.text, key: 'texts' },
-    ];
-    for (const L of lists) {
-      if (y < L.lane[0] || y > L.lane[0] + L.lane[1]) continue;
-      for (let i = L.arr.length - 1; i >= 0; i--) {
-        const it = L.arr[i];
-        const s = it.start || 0, e = it.end || s + 3;
-        const x1 = X(o2s(s)), x2 = x1 + Math.max(8, (e - s) * pxPerSec);
+    // 4) blok overlay (3 track) — cek dari track teratas
+    const tr = trackForY(y);
+    if (tr != null) {
+      const items = visualItems().filter((v) => trackOf(v.kind, v.it) === tr);
+      for (let k = items.length - 1; k >= 0; k--) {
+        const v = items[k];
+        const s = v.it.start || 0, e = v.it.end || s + 3;
+        const x1 = X(s), x2 = x1 + Math.max(8, (e - s) * pxPerSec);
         if (x < x1 - EDGE_PX || x > x2 + EDGE_PX) continue;
         const edge = (Math.abs(x - x1) <= EDGE_PX) ? 'L' : (Math.abs(x - x2) <= EDGE_PX) ? 'R' : 'mid';
-        return { type: 'block', key: L.key, idx: i, item: it, edge };
+        return { type: 'block', key: v.kind, idx: v.idx, item: v.it, edge };
       }
     }
-    // 4) cut range (area sprite/wave): tepi = resize, tengah = pilih
-    if (y >= LANE.sprite[0] && y <= LANE.wave[0] + LANE.wave[1]) {
-      const cuts = ES.cut_ranges || [];
-      for (let ci = cuts.length - 1; ci >= 0; ci--) {
-        const x1 = X(cuts[ci][0]), x2 = X(cuts[ci][1]);
-        if (Math.abs(x - x1) <= EDGE_PX) return { type: 'cut', idx: ci, edge: 'L' };
-        if (Math.abs(x - x2) <= EDGE_PX) return { type: 'cut', idx: ci, edge: 'R' };
-        if (x > x1 && x < x2) return { type: 'cut', idx: ci, edge: 'mid' };
+    // 5) lane audio: voice-over / musik
+    if (y >= LANE.audio[0] && y <= LANE.audio[0] + LANE.audio[1]) {
+      const arr = ES.voiceovers || [];
+      for (let i = arr.length - 1; i >= 0; i--) {
+        const it = arr[i];
+        const s = it.start || 0, e = it.end || s + 3;
+        const x1 = X(s), x2 = x1 + Math.max(8, (e - s) * pxPerSec);
+        if (x < x1 - EDGE_PX || x > x2 + EDGE_PX) continue;
+        const edge = (Math.abs(x - x1) <= EDGE_PX) ? 'L' : (Math.abs(x - x2) <= EDGE_PX) ? 'R' : 'mid';
+        return { type: 'block', key: 'voiceovers', idx: i, item: it, edge, audioLane: true };
       }
+      if (ES.music && tOut >= 0 && tOut <= outDur) return { type: 'music' };
     }
+    // 6) lane video tengah = pilih segmen
+    if (y >= LANE.video[0] && y <= LANE.wave[0] + LANE.wave[1]) return { type: 'video' };
     return { type: 'seek' };
   }
 
   tlCanvas.addEventListener('pointerdown', (e) => {
     const rect = tlCanvas.getBoundingClientRect();
     const x = e.clientX - rect.left, y = e.clientY - rect.top;
-    const t = cs() + (x - 8) / pxPerSec;
-    const hit = hitTest(x, y, t);
+    const tOut = clamp((x - 8) / pxPerSec, 0, outDuration());
+    const hit = hitTest(x, y);
 
     if (hit.type === 'cap') {
       selItem = { kind: 'cap', idx: hit.idx };
@@ -951,23 +1032,34 @@
     } else if (hit.type === 'block') {
       selItem = { kind: hit.key, idx: hit.idx };
       selSegment = null;
-      tlDrag = { type: 'block', item: hit.item, edge: hit.edge,
-                 grabOff: srcToOut(clamp(t, cs(), ce())) - (hit.item.start || 0) };
+      tlDrag = { type: 'block', key: hit.key, item: hit.item, edge: hit.edge,
+                 audioLane: !!hit.audioLane, grabOff: tOut - (hit.item.start || 0) };
       renderTimeline();
-    } else if (hit.type === 'cut') {
-      selItem = { kind: 'cut', idx: hit.idx };
+    } else if (hit.type === 'music') {
+      selItem = { kind: 'music', idx: 0 };
       selSegment = null;
-      if (hit.edge !== 'mid') tlDrag = { type: 'cut', idx: hit.idx, edge: hit.edge };
       renderTimeline();
+    } else if (hit.type === 'segedge') {
+      // siapkan drag tepi sambungan: satukan cut yang menyusun boundary ini
+      const segs = keptSegments();
+      const a = segs[hit.boundary.left][1], b = segs[hit.boundary.right][0];
+      ES.cut_ranges = (ES.cut_ranges || []).filter((cu) => cu[1] <= a + 0.001 || cu[0] >= b - 0.001);
+      const merged = [a, b];
+      ES.cut_ranges.push(merged);
+      let leftOut = 0;
+      for (const [s0, s1] of segs) { if (s1 <= a + 0.001) leftOut += s1 - s0; else break; }
+      tlDrag = { type: 'segedge', cut: merged, orig: [a, b], leftOut };
+      selItem = null; selSegment = null;
     } else if (hit.type === 'trimL' || hit.type === 'trimR') {
       tlDrag = { type: hit.type };
     } else {
       selItem = null;
       tlDrag = { type: 'seek' };
-      if (y >= LANE.sprite[0] && y <= LANE.wave[0] + LANE.wave[1]) {
-        selSegment = keptSegments().find((s) => t >= s[0] && t <= s[1]) || null;
-      }
-      seek(t);
+      if (hit.type === 'video') {
+        const src = o2s(tOut);
+        selSegment = keptSegments().find((s) => src >= s[0] && src <= s[1]) || null;
+      } else selSegment = null;
+      seek(o2s(tOut));
       renderTimeline();
     }
     tlCanvas.setPointerCapture(e.pointerId);
@@ -977,43 +1069,56 @@
     const rect = tlCanvas.getBoundingClientRect();
     const x = e.clientX - rect.left, y = e.clientY - rect.top;
     if (!tlDrag) {
-      // ubah kursor sesuai posisi (tepi blok/cut = resize)
-      const hit = hitTest(x, y, cs() + (x - 8) / pxPerSec);
+      const hit = hitTest(x, y);
       tlCanvas.style.cursor =
-        (hit.type === 'trimL' || hit.type === 'trimR') ? 'ew-resize' :
-        (hit.type === 'cut' && hit.edge !== 'mid') ? 'ew-resize' :
+        (hit.type === 'trimL' || hit.type === 'trimR' || hit.type === 'segedge') ? 'ew-resize' :
         (hit.type === 'block' && hit.edge !== 'mid') ? 'ew-resize' :
-        (hit.type === 'block' || hit.type === 'cut' || hit.type === 'cap') ? 'grab' : 'crosshair';
+        (hit.type === 'block' || hit.type === 'cap' || hit.type === 'music') ? 'grab' :
+        (hit.type === 'video') ? 'pointer' : 'crosshair';
       return;
     }
-    const t = clamp(cs() + (x - 8) / pxPerSec, 0, project.duration);
-    if (tlDrag.type === 'seek') { seek(t); compositeTimeline(true); }
+    const tOut = clamp((x - 8) / pxPerSec, 0, outDuration());
+    if (tlDrag.type === 'seek') { seek(o2s(tOut)); compositeTimeline(true); }
     else if (tlDrag.type === 'trimL') {
+      const src = clamp(o2s(tOut), 0, ce() - 1);
       ES.extend = ES.extend || {};
-      ES.extend.start = clamp(t, 0, ce() - 1);
+      ES.extend.start = Math.round(src * 100) / 100;
       renderTimeline(); renderTranscript();
     } else if (tlDrag.type === 'trimR') {
+      // tarik ujung kanan: pakai posisi mouse relatif thd ujung
+      const delta = ((x - 8) / pxPerSec) - outDuration();
       ES.extend = ES.extend || {};
-      ES.extend.end = clamp(t, cs() + 1, project.duration);
+      ES.extend.end = clamp(Math.round((ce() + delta) * 100) / 100, cs() + 1, project.duration);
       renderTimeline(); renderTranscript();
-    } else if (tlDrag.type === 'cut') {
-      // geser tepi cut (hasil split bisa diatur bebas seperti CapCut)
-      const cut = ES.cut_ranges[tlDrag.idx];
-      if (cut) {
-        if (tlDrag.edge === 'L') cut[0] = clamp(Math.round(t * 100) / 100, cs(), cut[1] - 0.02);
-        else cut[1] = clamp(Math.round(t * 100) / 100, cut[0] + 0.02, ce());
-        invalidatePages();
-        renderTimeline();
+    } else if (tlDrag.type === 'segedge') {
+      // geser sambungan = atur lebar cut bebas (trim ala CapCut).
+      // delta dihitung dari posisi awal drag: kiri = makin memotong segmen kiri,
+      // kanan = makin memotong segmen kanan.
+      const cut = tlDrag.cut;
+      const rawX = (x - 8) / pxPerSec;          // out-time mouse TANPA clamp
+      const delta = rawX - tlDrag.leftOut;
+      if (delta < 0) {
+        cut[0] = clamp(Math.round((tlDrag.orig[0] + delta) * 100) / 100, cs(), tlDrag.orig[1] - 0.02);
+        cut[1] = tlDrag.orig[1];
+      } else {
+        cut[0] = tlDrag.orig[0];
+        cut[1] = clamp(Math.round((tlDrag.orig[1] + delta) * 100) / 100, tlDrag.orig[0] + 0.02, ce());
       }
+      invalidatePages();
+      renderTimeline();
     } else if (tlDrag.type === 'block') {
-      const to = srcToOut(clamp(t, cs(), ce()));
       const it = tlDrag.item;
       const dur = (it.end || (it.start || 0) + 3) - (it.start || 0);
-      if (tlDrag.edge === 'L') it.start = clamp(to, 0, (it.end || 3) - 0.2);
-      else if (tlDrag.edge === 'R') it.end = clamp(to, (it.start || 0) + 0.2, outDuration());
+      if (tlDrag.edge === 'L') it.start = clamp(tOut, 0, (it.end || 3) - 0.2);
+      else if (tlDrag.edge === 'R') it.end = clamp(tOut, (it.start || 0) + 0.2, outDuration());
       else {
-        it.start = clamp(to - tlDrag.grabOff, 0, Math.max(0, outDuration() - dur));
+        it.start = clamp(tOut - tlDrag.grabOff, 0, Math.max(0, outDuration() - dur));
         it.end = it.start + dur;
+        // drag VERTIKAL: pindah track/layer (khusus blok visual, bukan audio)
+        if (!tlDrag.audioLane) {
+          const tr = trackForY(y);
+          if (tr != null && tr !== trackOf(tlDrag.key, it)) it.track = tr;
+        }
       }
       renderTimeline();
     }
@@ -1021,7 +1126,13 @@
 
   tlCanvas.addEventListener('pointerup', () => {
     if (tlDrag && tlDrag.type !== 'seek') {
-      if (tlDrag.type === 'cut' || tlDrag.type === 'trimL' || tlDrag.type === 'trimR') renderTranscript();
+      if (tlDrag.type === 'segedge') {
+        // bersihkan cut yang menyusut jadi nol
+        ES.cut_ranges = (ES.cut_ranges || []).filter((cu) => cu[1] - cu[0] > 0.03);
+        renderTranscript();
+      }
+      if (tlDrag.type === 'trimL' || tlDrag.type === 'trimR') renderTranscript();
+      if (tlDrag.type === 'block' && tlDrag.key === 'voiceovers') voSyncReset();
       commit(); updateTotals();
     }
     tlDrag = null;
@@ -1031,7 +1142,7 @@
   tlCanvas.addEventListener('dblclick', (e) => {
     const rect = tlCanvas.getBoundingClientRect();
     const x = e.clientX - rect.left, y = e.clientY - rect.top;
-    const hit = hitTest(x, y, cs() + (x - 8) / pxPerSec);
+    const hit = hitTest(x, y);
     if (hit.type === 'cap') openCaptionEditor(hit.idx);
     else if (hit.type === 'block' && hit.key === 'texts') {
       const t2 = ES.texts[hit.idx];
@@ -1040,22 +1151,18 @@
     }
   });
 
-  // hapus item terpilih (blok / cut / caption page) — dipakai tombol & tombol Del
+  // hapus item terpilih (blok / segmen / caption page) — dipakai tombol & tombol Del
   function deleteSelectedItem() {
+    if (!selItem && selSegment) {
+      // segmen video terpilih: Del = potong segmen itu (cut beneran hilang ala CapCut)
+      addCut(selSegment[0], selSegment[1]);
+      selSegment = null;
+      commit(); renderTranscript(); renderTimeline(); updateTotals();
+      return true;
+    }
     if (!selItem) return false;
-    if (selItem.kind === 'cut') {
-      // hapus cut = kembalikan potongan; bila cut milik kata yang dihapus, pulihkan katanya
-      const cut = ES.cut_ranges[selItem.idx];
-      if (cut) {
-        const wcm = ES.word_cut_map || {};
-        for (const k of Object.keys(wcm)) {
-          if (Math.abs(wcm[k][0] - cut[0]) < 0.005 && Math.abs(wcm[k][1] - cut[1]) < 0.005) {
-            ES.deleted_words = (ES.deleted_words || []).filter((i) => i !== +k);
-            delete wcm[k];
-          }
-        }
-        ES.cut_ranges.splice(selItem.idx, 1);
-      }
+    if (selItem.kind === 'music') {
+      ES.music = null;
     } else if (selItem.kind === 'cap') {
       // hapus caption page = hapus kata-kata page itu (video ikut terpotong)
       const page = getPages()[selItem.idx];
@@ -1170,6 +1277,69 @@
     if (m === 'voiceover') return panelVoiceover();
     if (m === 'post') return panelPost();
     if (m === 'thumb') return panelThumb();
+    if (m === 'fx') return panelEffects();
+    if (m === 'sticker') return panelSticker();
+  }
+
+  // --- Efek (CapCut-style) ---
+  function panelEffects() {
+    let used = '';
+    (ES.effects || []).forEach((fx, i) => {
+      used += '<div class="itemrow"><span class="nm">🎇 ' + (fx.name || fx.type) + ' (' + fmtT(fx.start) + '–' + fmtT(fx.end) + ')</span><button data-fxd="' + i + '">✕</button></div>';
+    });
+    sbody.innerHTML = '<h3>🎇 Efek</h3>' +
+      '<p class="note" style="margin-bottom:10px">Klik efek = pasang 3 detik di playhead (track atas). Atur durasi/posisi dengan drag blok di timeline — bisa juga dipindah track.</p>' +
+      '<div class="tplgrid">' + EFFECTS.map((d) =>
+        '<div class="tplcard" data-fx="' + d.type + '"><div class="demo" style="filter:' + (d.css || 'none') + '">🎬</div>' + d.name + '</div>'
+      ).join('') + '</div>' +
+      (used ? '<h3 style="font-size:.82rem;margin-top:14px">Terpasang</h3>' + used : '');
+    sbody.querySelectorAll('[data-fx]').forEach((b) => b.addEventListener('click', () => {
+      const def = EFFECTS.find((d) => d.type === b.dataset.fx);
+      const t0 = srcToOut(vid.currentTime);
+      ES.effects = ES.effects || [];
+      ES.effects.push({ type: def.type, name: def.name, start: t0, end: Math.min(outDuration(), t0 + 3), track: 2 });
+      commit(); renderTimeline(); panelEffects();
+    }));
+    sbody.querySelectorAll('[data-fxd]').forEach((b) => b.addEventListener('click', () => {
+      ES.effects.splice(+b.dataset.fxd, 1);
+      commit(); renderTimeline(); panelEffects();
+    }));
+  }
+
+  // --- Stiker (emoji -> PNG transparan, jadi overlay gambar biasa) ---
+  const STICKER_EMOJIS = ['🔥', '😂', '😱', '❤️', '💯', '👍', '👏', '🎉', '✨', '⭐', '💰', '🤑', '😍', '🥶', '💀', '🤯', '😎', '🙏', '👀', '⚡', '🚀', '🏆', '🎯', '💡', '❗', '❓', '✅', '❌', '➡️', '⬇️', '🤣', '😭', '🫵', '💪', '🧠', '🗣️'];
+  function panelSticker() {
+    sbody.innerHTML = '<h3>😀 Stiker</h3>' +
+      '<p class="note" style="margin-bottom:8px">Klik stiker = pasang 3 detik di playhead. Geser & resize langsung di preview, pindah track di timeline.</p>' +
+      '<div style="display:grid;grid-template-columns:repeat(6,1fr);gap:6px">' +
+      STICKER_EMOJIS.map((em) => '<button data-em="' + em + '" style="background:var(--card);border:1px solid var(--border);border-radius:9px;font-size:1.35rem;padding:6px;cursor:pointer">' + em + '</button>').join('') +
+      '</div>' +
+      '<div class="fgroup" style="margin-top:12px"><label>Atau ketik emoji/teks stiker sendiri</label>' +
+      '<div style="display:flex;gap:6px"><input type="text" id="stCustom" maxlength="6" placeholder="🤡" style="flex:1;background:var(--card);border:1px solid var(--border);color:var(--text);border-radius:9px;padding:8px;font-size:1.1rem;outline:none">' +
+      '<button class="iconbtn" id="stAdd">＋</button></div></div>' +
+      '<p class="note">Stiker dirender jadi gambar PNG transparan — tampil identik di export. (Integrasi pencarian stiker CapCut/Giphy: TODO, butuh API key.)</p>';
+    const addSticker = async (em) => {
+      if (!em) return;
+      // render emoji -> PNG transparan via canvas
+      const cv = document.createElement('canvas');
+      cv.width = cv.height = 256;
+      const ctx = cv.getContext('2d');
+      ctx.font = '200px "Segoe UI Emoji", "Apple Color Emoji", sans-serif';
+      ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
+      ctx.fillText(em, 128, 140);
+      const blob = await new Promise((res) => cv.toBlob(res, 'image/png'));
+      const fd = new FormData();
+      fd.append('file', new File([blob], 'sticker_' + Date.now() + '.png', { type: 'image/png' }));
+      try {
+        const d = await api('/projects/' + project.id + '/media', { method: 'POST', body: fd });
+        const t0 = srcToOut(vid.currentTime);
+        ES.overlays = ES.overlays || [];
+        ES.overlays.push({ url: d.url, type: 'image', sticker: true, start: t0, end: Math.min(outDuration(), t0 + 3), x_pct: 75, y_pct: 25, w_pct: 22, track: 2 });
+        commit(); renderTimeline();
+      } catch (e) { alert(e.message); }
+    };
+    sbody.querySelectorAll('[data-em]').forEach((b) => b.addEventListener('click', () => addSticker(b.dataset.em)));
+    $('stAdd').addEventListener('click', () => addSticker($('stCustom').value.trim()));
   }
 
   // --- AI enhance ---
