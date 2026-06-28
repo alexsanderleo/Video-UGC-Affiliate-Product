@@ -279,69 +279,90 @@ def clean_script_for_tts(text: str) -> str:
     text = text.strip()
     return text
 
+def _compress_for_ai(video_path: str, duration_seconds: int):
+    """Kompres video ke 360p / <=60 dtk bila > 14 MB (batas payload base64 aman).
+    Return (source_path, compressed_path_atau_None)."""
+    try:
+        file_size = Path(video_path).stat().st_size
+    except Exception:
+        return video_path, None
+    MAX_RAW_SIZE = 14 * 1024 * 1024
+    if file_size <= MAX_RAW_SIZE:
+        return video_path, None
+    compressed_path = str(Path(video_path).parent / f"_ai_temp_{Path(video_path).stem}.mp4")
+    try:
+        compress_cmd = [
+            FFMPEG_PATH, '-y', '-i', video_path,
+            '-vf', 'scale=-2:360', '-c:v', 'libx264', '-preset', 'ultrafast',
+            '-crf', '35', '-an', '-t', str(min(duration_seconds, 60)), compressed_path
+        ]
+        result = subprocess.run(compress_cmd, capture_output=True, text=True, timeout=60)
+        if result.returncode == 0 and Path(compressed_path).exists():
+            return compressed_path, compressed_path
+    except Exception as e:
+        print(f"[Step A] Compression error: {e}")
+    return video_path, None
+
+
 def step_a_video_understanding(video_path: str, duration_seconds: int = 30) -> str:
-    """Analisis video -> script. Provider/model dipilih dinamis dari panel admin
-    (tabel ai_providers); fallback ke Qwen .env bila belum dikonfigurasi."""
+    """Analisis video -> naskah ([JUDUL]/[HASHTAG]/[NARASI]).
+
+    PRIMER  : Gemini via Gateway Flow (flowapi.agomart.com) — GRATIS & 'menonton' video.
+    FALLBACK: Qwen VL Plus (DashScope / provider di panel admin) bila Gemini mati/dimatikan.
+    Atur lewat .env USE_GEMINI_VIDEO (default True).
+    """
+    from core.config import get_settings
+    settings = get_settings()
+    prompt = build_qwen_prompt(duration_seconds)
+    source_path, compressed_path = _compress_for_ai(video_path, duration_seconds)
+
+    def _cleanup():
+        if compressed_path and Path(compressed_path).exists():
+            try:
+                Path(compressed_path).unlink()
+            except Exception:
+                pass
+
+    # --- PRIMER: Gemini via Gateway Flow ---
+    if getattr(settings, "USE_GEMINI_VIDEO", True):
+        try:
+            from core import gateway_client as gw
+            if gw.API_KEY:
+                print("[Step A] Provider: Gemini (gateway flowapi.agomart.com)")
+                text = gw.understand_video(source_path, prompt, timeout=240)
+                if text and str(text).strip():
+                    _cleanup()
+                    return text
+                print("[Step A] Gemini balas kosong -> fallback Qwen")
+            else:
+                print("[Step A] GATEWAY_FLOW_KEY kosong -> pakai Qwen")
+        except Exception as e:
+            print(f"[Step A] Gemini gateway gagal: {e} -> fallback Qwen")
+
+    # --- FALLBACK: Qwen VL Plus (DashScope, OpenAI-compatible) ---
     from core.ai_provider import get_active_ai_config
     cfg = get_active_ai_config()
-
     if cfg["adapter"] != "openai_video":
-        # Adapter lain (openai_frames untuk Gemini/Groq, gemini_native) belum diimplementasi.
+        _cleanup()
         raise NotImplementedError(
             f"Adapter AI '{cfg['adapter']}' (provider '{cfg['label']}') belum didukung. "
-            "Saat ini hanya 'openai_video' (Qwen)."
+            "Saat ini hanya 'openai_video' (Qwen) + Gemini gateway."
         )
-
     if not cfg["api_key"] or cfg["api_key"] == 'your_api_key_here':
+        _cleanup()
         raise ValueError(
             f"API key untuk provider AI '{cfg['label']}' kosong/invalid. "
             "Atur di panel admin (AI Model) atau DASHSCOPE_API_KEY di .env."
         )
 
     print(f"[Step A] Provider aktif: {cfg['label']} (model={cfg['model']})")
-    client = OpenAI(
-        api_key=cfg["api_key"],
-        base_url=cfg["base_url"],
-    )
+    client = OpenAI(api_key=cfg["api_key"], base_url=cfg["base_url"])
 
-    video_path_obj = Path(video_path)
-    file_size = video_path_obj.stat().st_size
-    MAX_RAW_SIZE = 14 * 1024 * 1024  # 14 MB safe limit for 20MB Base64 API limit
-    
-    source_path = video_path
-    compressed_path = None
-    
-    if file_size > MAX_RAW_SIZE:
-        compressed_path = str(Path(video_path).parent / f"_ai_temp_{Path(video_path).stem}.mp4")
-        try:
-            compress_cmd = [
-                FFMPEG_PATH, '-y',
-                '-i', video_path,
-                '-vf', 'scale=-2:360',
-                '-c:v', 'libx264',
-                '-preset', 'ultrafast',
-                '-crf', '35',
-                '-an',
-                '-t', str(min(duration_seconds, 60)),
-                compressed_path
-            ]
-            result = subprocess.run(compress_cmd, capture_output=True, text=True, timeout=60)
-            if result.returncode == 0 and Path(compressed_path).exists():
-                source_path = compressed_path
-        except Exception as e:
-            print(f"[Step A] Compression error: {e}")
-    
     with open(source_path, 'rb') as f:
         video_bytes = f.read()
-    
     video_b64 = base64.b64encode(video_bytes).decode('utf-8')
     video_data_url = f"data:video/mp4;base64,{video_b64}"
-    
-    if compressed_path and Path(compressed_path).exists():
-        try:
-            Path(compressed_path).unlink()
-        except Exception:
-            pass
+    _cleanup()
 
     response = client.chat.completions.create(
         model=cfg["model"],
@@ -349,21 +370,14 @@ def step_a_video_understanding(video_path: str, duration_seconds: int = 30) -> s
             {
                 "role": "user",
                 "content": [
-                    {
-                        "type": "video_url",
-                        "video_url": {"url": video_data_url}
-                    },
-                    {
-                        "type": "text",
-                        "text": build_qwen_prompt(duration_seconds)
-                    }
-                ]
+                    {"type": "video_url", "video_url": {"url": video_data_url}},
+                    {"type": "text", "text": prompt},
+                ],
             }
         ],
         max_tokens=1024,
-        timeout=120.0
+        timeout=120.0,
     )
-
     return response.choices[0].message.content
 
 async def step_b_tts(

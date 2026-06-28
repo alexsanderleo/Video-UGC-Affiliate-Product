@@ -69,6 +69,9 @@ class Settings(BaseSettings):
     GATEWAY_FLOW_URL: str = "https://flowapi.agomart.com"
     GATEWAY_FLOW_KEY: str = ""                         # X-API-Key (isi di .env)
     GATEWAY_FLOW_DOMAIN: str = "revideo.agomart.com"   # utk kuota & log per-domain
+    # step_a (analisis video -> naskah): True = Gemini gateway (gratis, lihat video) primer,
+    # Qwen DashScope sbg fallback; False = langsung Qwen.
+    USE_GEMINI_VIDEO: bool = True
 
     model_config = {
         "env_file": ".env",

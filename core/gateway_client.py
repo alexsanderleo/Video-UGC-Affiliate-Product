@@ -19,6 +19,7 @@ Kontrak lengkap: docs/INTEGRASI-DOMAIN-LUAR.md (repo agomart-gemini-gateway).
 from __future__ import annotations
 
 import base64
+import mimetypes
 import time
 from pathlib import Path
 from typing import Callable, Optional, Union
@@ -79,15 +80,46 @@ def available(kind: str, timeout: float = 10) -> bool:
 # --------------------------------------------------------------------------- #
 # TEKS — Gemini (SINKRON, tanpa poll)                                           #
 # --------------------------------------------------------------------------- #
+def _encode_files(files: Optional[list]) -> Optional[list]:
+    """files = list path/str | (bytes, mime, name) | dict -> [{mime,data,name}].
+
+    'data' = base64 TANPA prefix. Dipakai utk kirim video/gambar ke Gemini
+    (mis. video understanding lewat /v1/gemini/text).
+    """
+    if not files:
+        return None
+    out = []
+    for item in files:
+        if isinstance(item, dict):
+            out.append(item)
+            continue
+        if isinstance(item, (str, Path)):
+            p = Path(item)
+            mime = mimetypes.guess_type(str(p))[0] or "application/octet-stream"
+            data = base64.b64encode(p.read_bytes()).decode()
+            name = p.name
+        elif isinstance(item, tuple):
+            raw, mime, name = (list(item) + ["file"])[:3]
+            data = base64.b64encode(raw).decode()
+        else:
+            continue
+        out.append({"mime": mime, "data": data, "name": name})
+    return out or None
+
+
 def gemini_text(
     prompt: str,
     system: str = "",
     json_mode: bool = False,
     new_chat: bool = True,
     timeout: int = 120,
+    files: Optional[list] = None,
 ) -> Union[str, dict]:
     """
-    Generate teks via Gemini app (langsung balas, ~5-40 dtk).
+    Generate teks via Gemini app (langsung balas, ~5-40 dtk; lebih lama bila ada video).
+
+    files: opsional, list path/(bytes,mime,name)/dict untuk lampiran (video/gambar)
+           -> Gemini 'menonton' file lalu menjawab (mis. video understanding).
 
     Return:
       - dict  -> bila json_mode=True dan JSON valid (field 'parsed').
@@ -102,7 +134,10 @@ def gemini_text(
         "new_chat": new_chat,
         "timeout": timeout,
     }
-    with _client(timeout + 30) as c:
+    enc = _encode_files(files)
+    if enc:
+        body["files"] = enc
+    with _client(timeout + 40) as c:
         r = c.post(f"{BASE_URL}/v1/gemini/text", headers=_headers(), json=body)
         if r.status_code != 200:
             raise GatewayError(f"gemini/text HTTP {r.status_code}: {r.text[:200]}")
@@ -110,6 +145,23 @@ def gemini_text(
     if json_mode and d.get("parsed") is not None:
         return d["parsed"]
     return d.get("text", "")
+
+
+def understand_video(
+    video_path: Union[str, Path],
+    prompt: str,
+    system: str = "",
+    json_mode: bool = False,
+    timeout: int = 220,
+) -> Union[str, dict]:
+    """
+    Kirim VIDEO + prompt ke Gemini -> teks (video understanding).
+    Pengganti gratis untuk Qwen VL di step_a. Return str (atau dict bila json_mode).
+    """
+    return gemini_text(
+        prompt, system=system, json_mode=json_mode,
+        new_chat=True, timeout=timeout, files=[video_path],
+    )
 
 
 # --------------------------------------------------------------------------- #
