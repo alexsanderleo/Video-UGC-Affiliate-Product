@@ -63,6 +63,13 @@ class Settings(BaseSettings):
     ANTHROPIC_MODEL: str = "claude-sonnet-4-6"
     PEXELS_API_KEY: str = ""                          # B-roll stock footage (gratis)
 
+    # --- Gateway Generator "Flow" (Gemini teks / Nano Banana gambar / Veo video) ---
+    # API gratis buatan sendiri (flowapi.agomart.com). Panggil dari backend saja.
+    # Helper: core/gateway_client.py
+    GATEWAY_FLOW_URL: str = "https://flowapi.agomart.com"
+    GATEWAY_FLOW_KEY: str = ""                         # X-API-Key (isi di .env)
+    GATEWAY_FLOW_DOMAIN: str = "revideo.agomart.com"   # utk kuota & log per-domain
+
     model_config = {
         "env_file": ".env",
         "env_file_encoding": "utf-8",
