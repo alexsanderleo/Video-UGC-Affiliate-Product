@@ -34,6 +34,10 @@ BASE_URL = (getattr(_s, "GATEWAY_FLOW_URL", "") or "https://flowapi.agomart.com"
 API_KEY = getattr(_s, "GATEWAY_FLOW_KEY", "") or ""
 DOMAIN = getattr(_s, "GATEWAY_FLOW_DOMAIN", "") or "revideo.agomart.com"
 
+# Batas total lampiran (files) per request — gateway balas 413 bila lewat (docs §4c).
+# Video panjang teruji 38,9 MB / 13 menit OK dgn timeout 300 (maksimum gateway).
+MAX_ATTACH_MB = 200
+
 ImageInput = Union[str, Path, "tuple[bytes, str]"]
 
 
@@ -152,12 +156,24 @@ def understand_video(
     prompt: str,
     system: str = "",
     json_mode: bool = False,
-    timeout: int = 220,
+    timeout: Optional[int] = None,
 ) -> Union[str, dict]:
     """
-    Kirim VIDEO + prompt ke Gemini -> teks (video understanding).
-    Pengganti gratis untuk Qwen VL di step_a. Return str (atau dict bila json_mode).
+    Kirim VIDEO + prompt ke Gemini -> teks (video understanding). Pengganti gratis Qwen VL.
+
+    - Mendukung video PENUH sampai ~200 MB (durasi panjang OK; 13 menit teruji) — Gemini
+      menonton seluruh video, tidak perlu dipotong.
+    - timeout None -> otomatis: video kecil (<=20MB) 150 dtk, besar 300 dtk (maks gateway).
+    Return str (atau dict bila json_mode). Raise GatewayError bila > MAX_ATTACH_MB.
     """
+    p = Path(video_path)
+    size_mb = (p.stat().st_size / (1024 * 1024)) if p.exists() else 0.0
+    if size_mb > MAX_ATTACH_MB:
+        raise GatewayError(
+            f"Video {size_mb:.0f} MB melebihi batas lampiran {MAX_ATTACH_MB} MB — kompres dulu."
+        )
+    if timeout is None:
+        timeout = 300 if size_mb > 20 else 150
     return gemini_text(
         prompt, system=system, json_mode=json_mode,
         new_chat=True, timeout=timeout, files=[video_path],

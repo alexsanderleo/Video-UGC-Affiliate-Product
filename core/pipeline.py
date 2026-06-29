@@ -304,34 +304,59 @@ def _compress_for_ai(video_path: str, duration_seconds: int):
     return video_path, None
 
 
+def _prep_video_for_gemini(video_path: str, duration_seconds: int):
+    """Untuk Gemini: kirim video PENUH (durasi penuh, ~200MB OK). Kompres HANYA bila
+    > 180 MB (jaga di bawah batas 200MB gateway), TETAP durasi penuh (tanpa -t).
+    Return (path, tmp_atau_None)."""
+    try:
+        size_mb = Path(video_path).stat().st_size / (1024 * 1024)
+    except Exception:
+        return video_path, None
+    if size_mb <= 180:
+        return video_path, None  # kirim apa adanya -> Gemini lihat SELURUH video
+    out = str(Path(video_path).parent / f"_gem_{Path(video_path).stem}.mp4")
+    try:
+        cmd = [
+            FFMPEG_PATH, '-y', '-i', video_path, '-vf', 'scale=-2:720',
+            '-c:v', 'libx264', '-preset', 'veryfast', '-crf', '30',
+            '-c:a', 'aac', '-b:a', '96k', out,
+        ]
+        r = subprocess.run(cmd, capture_output=True, text=True, timeout=900)
+        if r.returncode == 0 and Path(out).exists() and Path(out).stat().st_size < 195 * 1024 * 1024:
+            return out, out
+    except Exception as e:
+        print(f"[Step A] Gemini compress error: {e}")
+    return video_path, None
+
+
 def step_a_video_understanding(video_path: str, duration_seconds: int = 30) -> str:
     """Analisis video -> naskah ([JUDUL]/[HASHTAG]/[NARASI]).
 
-    PRIMER  : Gemini via Gateway Flow (flowapi.agomart.com) — GRATIS & 'menonton' video.
-    FALLBACK: Qwen VL Plus (DashScope / provider di panel admin) bila Gemini mati/dimatikan.
-    Atur lewat .env USE_GEMINI_VIDEO (default True).
+    PRIMER  : Gemini via Gateway Flow — GRATIS, 'menonton' video PENUH (sampai ~200MB / belasan menit).
+    FALLBACK: Qwen VL Plus (DashScope) — video dikompres 360p / <=60 dtk (batas API Qwen).
+    Toggle lewat .env USE_GEMINI_VIDEO (default True).
     """
     from core.config import get_settings
     settings = get_settings()
     prompt = build_qwen_prompt(duration_seconds)
-    source_path, compressed_path = _compress_for_ai(video_path, duration_seconds)
 
-    def _cleanup():
-        if compressed_path and Path(compressed_path).exists():
-            try:
-                Path(compressed_path).unlink()
-            except Exception:
-                pass
-
-    # --- PRIMER: Gemini via Gateway Flow ---
+    # --- PRIMER: Gemini via Gateway Flow (video PENUH) ---
     if getattr(settings, "USE_GEMINI_VIDEO", True):
         try:
             from core import gateway_client as gw
             if gw.API_KEY:
-                print("[Step A] Provider: Gemini (gateway flowapi.agomart.com)")
-                text = gw.understand_video(source_path, prompt, timeout=240)
+                gpath, gtmp = _prep_video_for_gemini(video_path, duration_seconds)
+                tmo = 300 if duration_seconds > 90 else 180   # docs §4c: panjang->300 (maks)
+                print(f"[Step A] Provider: Gemini (gateway flowapi.agomart.com), timeout={tmo}s")
+                try:
+                    text = gw.understand_video(gpath, prompt, timeout=tmo)
+                finally:
+                    if gtmp and Path(gtmp).exists():
+                        try:
+                            Path(gtmp).unlink()
+                        except Exception:
+                            pass
                 if text and str(text).strip():
-                    _cleanup()
                     return text
                 print("[Step A] Gemini balas kosong -> fallback Qwen")
             else:
@@ -343,13 +368,11 @@ def step_a_video_understanding(video_path: str, duration_seconds: int = 30) -> s
     from core.ai_provider import get_active_ai_config
     cfg = get_active_ai_config()
     if cfg["adapter"] != "openai_video":
-        _cleanup()
         raise NotImplementedError(
             f"Adapter AI '{cfg['adapter']}' (provider '{cfg['label']}') belum didukung. "
             "Saat ini hanya 'openai_video' (Qwen) + Gemini gateway."
         )
     if not cfg["api_key"] or cfg["api_key"] == 'your_api_key_here':
-        _cleanup()
         raise ValueError(
             f"API key untuk provider AI '{cfg['label']}' kosong/invalid. "
             "Atur di panel admin (AI Model) atau DASHSCOPE_API_KEY di .env."
@@ -358,11 +381,16 @@ def step_a_video_understanding(video_path: str, duration_seconds: int = 30) -> s
     print(f"[Step A] Provider aktif: {cfg['label']} (model={cfg['model']})")
     client = OpenAI(api_key=cfg["api_key"], base_url=cfg["base_url"])
 
+    source_path, compressed_path = _compress_for_ai(video_path, duration_seconds)
     with open(source_path, 'rb') as f:
         video_bytes = f.read()
     video_b64 = base64.b64encode(video_bytes).decode('utf-8')
     video_data_url = f"data:video/mp4;base64,{video_b64}"
-    _cleanup()
+    if compressed_path and Path(compressed_path).exists():
+        try:
+            Path(compressed_path).unlink()
+        except Exception:
+            pass
 
     response = client.chat.completions.create(
         model=cfg["model"],
